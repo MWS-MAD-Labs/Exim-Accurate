@@ -113,7 +113,7 @@ function addDays(date: Date, days: number) {
 }
 
 export default function PeminjamanKioskPage() {
-    const { language } = useLanguage();
+    const { language, t } = useLanguage();
     const params = useParams();
     const router = useRouter();
     const credentialId = params.credentialId as string;
@@ -618,6 +618,7 @@ export default function PeminjamanKioskPage() {
                 <ActionIcon
                     variant="subtle"
                     size="lg"
+                    aria-label={t?.common?.back || (language === "id" ? "Kembali" : "Back")}
                     onClick={() => {
                         if (currentStep === "identify") {
                             router.push("/kiosk");
@@ -1107,6 +1108,7 @@ export default function PeminjamanKioskPage() {
                                                                 <ActionIcon
                                                                     size="sm"
                                                                     variant="subtle"
+                                                                    aria-label={language === "id" ? "Kurangi jumlah" : "Decrease quantity"}
                                                                     onClick={() =>
                                                                         setCart((prev) =>
                                                                             prev
@@ -1131,6 +1133,7 @@ export default function PeminjamanKioskPage() {
                                                                 <ActionIcon
                                                                     size="sm"
                                                                     variant="subtle"
+                                                                    aria-label={language === "id" ? "Tambah jumlah" : "Increase quantity"}
                                                                     onClick={() =>
                                                                         setCart((prev) =>
                                                                             prev.map((i) =>
@@ -1151,6 +1154,7 @@ export default function PeminjamanKioskPage() {
                                                                     size="sm"
                                                                     variant="subtle"
                                                                     color="red"
+                                                                    aria-label={t?.common?.delete || (language === "id" ? "Hapus" : "Delete")}
                                                                     onClick={() =>
                                                                         setCart((prev) =>
                                                                             prev.filter(
