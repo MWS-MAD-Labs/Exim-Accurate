@@ -113,11 +113,10 @@ function addDays(date: Date, days: number) {
 }
 
 export default function PeminjamanKioskPage() {
-    const { language } = useLanguage();
+    const { t, language } = useLanguage();
     const params = useParams();
     const router = useRouter();
     const credentialId = params.credentialId as string;
-
     // State
     const [currentStep, setCurrentStep] = useState<Step>("identify");
     const [useScanner, setUseScanner] = useState(true);
@@ -635,6 +634,7 @@ export default function PeminjamanKioskPage() {
                         }
                     }}
                     style={{ color: "rgba(255,255,255,0.7)" }}
+                    aria-label={t.common.back}
                 >
                     <IconArrowLeft size={20} />
                 </ActionIcon>
@@ -1122,6 +1122,7 @@ export default function PeminjamanKioskPage() {
                                                                         )
                                                                     }
                                                                     style={{ color: "rgba(255,255,255,0.6)" }}
+                                                                    aria-label={t.common.decreaseQuantity}
                                                                 >
                                                                     <IconMinus size={14} />
                                                                 </ActionIcon>
@@ -1144,6 +1145,7 @@ export default function PeminjamanKioskPage() {
                                                                         )
                                                                     }
                                                                     style={{ color: "rgba(255,255,255,0.6)" }}
+                                                                    aria-label={t.common.increaseQuantity}
                                                                 >
                                                                     <IconPlus size={14} />
                                                                 </ActionIcon>
@@ -1158,6 +1160,7 @@ export default function PeminjamanKioskPage() {
                                                                             )
                                                                         )
                                                                     }
+                                                                    aria-label={t.common.delete}
                                                                 >
                                                                     <IconTrash size={14} />
                                                                 </ActionIcon>

@@ -539,6 +539,7 @@ export default function KioskCheckoutPage() {
             variant="subtle"
             color="gray"
             onClick={handleCancel}
+            aria-label={t.common.home}
             style={{
               background: "rgba(12, 18, 32, 0.85)",
               border: "1px solid var(--kiosk-stroke)",
@@ -938,6 +939,7 @@ export default function KioskCheckoutPage() {
                                 variant="subtle"
                                 color="gray"
                                 onClick={() => updateQuantity(idx, -1)}
+                                aria-label={t.common.decreaseQuantity}
                                 style={{
                                   background: "rgba(12, 18, 32, 0.85)",
                                   border: "1px solid var(--kiosk-stroke)",
@@ -972,6 +974,7 @@ export default function KioskCheckoutPage() {
                                 variant="subtle"
                                 color="gray"
                                 onClick={() => updateQuantity(idx, 1)}
+                                aria-label={t.common.increaseQuantity}
                                 style={{
                                   background: "rgba(12, 18, 32, 0.85)",
                                   border: "1px solid var(--kiosk-stroke)",
@@ -983,6 +986,7 @@ export default function KioskCheckoutPage() {
                                 color="red"
                                 variant="subtle"
                                 onClick={() => removeFromCart(idx)}
+                                aria-label={t.common.delete}
                                 style={{
                                   background: "rgba(239, 68, 68, 0.1)",
                                   border: "1px solid rgba(239, 68, 68, 0.3)",
