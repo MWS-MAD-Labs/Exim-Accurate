@@ -122,6 +122,9 @@ export const id = {
     selectDatabase: "Pilih Database",
     selectDatabaseSubtitle: "Pilih database Accurate untuk memulai sesi kiosk",
     noDatabases: "Tidak ada database ditemukan",
+    decreaseQuantity: "Kurangi kuantitas",
+    increaseQuantity: "Tambah kuantitas",
+    removeFromCart: "Hapus dari keranjang",
   },
   dashboard: {
     welcome: "Selamat datang kembali 👋",
