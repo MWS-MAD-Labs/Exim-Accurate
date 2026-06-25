@@ -12,6 +12,7 @@ import {
   LoadingOverlay,
   Tooltip,
 } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { useState, useEffect, useRef } from "react";
 import { IconTrash, IconCheck, IconKey } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -87,11 +88,7 @@ export default function CredentialsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(t.dashboard.credentials.disconnectConfirm)) {
-      return;
-    }
-
+  const performDelete = async (id: string) => {
     setLoadingDeleteId(id);
     try {
       const response = await fetch(`/api/credentials?id=${id}`, {
@@ -116,6 +113,20 @@ export default function CredentialsPage() {
     } finally {
       setLoadingDeleteId(null);
     }
+  };
+
+  const handleDelete = (id: string) => {
+    modals.openConfirmModal({
+      title: t.common.delete,
+      children: (
+        <Text size="sm">
+          {t.dashboard.credentials.disconnectConfirm}
+        </Text>
+      ),
+      labels: { confirm: t.common.delete, cancel: t.common.cancel },
+      confirmProps: { color: 'red' },
+      onConfirm: () => performDelete(id),
+    });
   };
 
   return (
