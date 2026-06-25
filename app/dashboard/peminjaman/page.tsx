@@ -27,6 +27,7 @@ import {
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
+import { modals } from "@mantine/modals";
 import {
     IconClipboardList,
     IconPackage,
@@ -152,6 +153,7 @@ export default function PeminjamanDashboardPage() {
     const [newItemStock, setNewItemStock] = useState<number>(1);
     const [lookingUp, setLookingUp] = useState(false);
     const [addingItem, setAddingItem] = useState(false);
+    const [deletingItemIds, setDeletingItemIds] = useState<string[]>([]);
 
     // Sessions tab
     const [sessions, setSessions] = useState<BorrowingSession[]>([]);
@@ -405,7 +407,8 @@ export default function PeminjamanDashboardPage() {
     };
 
     // Delete borrowable item
-    const handleDeleteItem = async (id: string) => {
+    const performDeleteItem = async (id: string) => {
+        setDeletingItemIds((prev) => [...prev, id]);
         try {
             const res = await fetch(`/api/peminjaman/items?id=${id}`, {
                 method: "DELETE",
@@ -423,7 +426,28 @@ export default function PeminjamanDashboardPage() {
                 message: language === "id" ? "Gagal menghapus" : "Failed to delete",
                 color: "red",
             });
+        } finally {
+            setDeletingItemIds((prev) => prev.filter((itemId) => itemId !== id));
         }
+    };
+
+    const handleDeleteItem = (id: string, itemName: string) => {
+        modals.openConfirmModal({
+            title: language === "id" ? "Hapus Barang" : "Delete Item",
+            children: (
+                <Text size="sm">
+                    {language === "id"
+                        ? `Yakin ingin menghapus ${itemName}? Barang ini akan dihapus jika tidak ada peminjaman aktif.`
+                        : `Are you sure you want to delete ${itemName}? This item will be deleted if there are no active loans.`}
+                </Text>
+            ),
+            labels: {
+                confirm: language === "id" ? "Hapus" : "Delete",
+                cancel: language === "id" ? "Batal" : "Cancel",
+            },
+            confirmProps: { color: "red" },
+            onConfirm: () => performDeleteItem(id),
+        });
     };
 
     const getStatusColor = (status: string) => {
@@ -794,8 +818,9 @@ export default function PeminjamanDashboardPage() {
                                                                 <ActionIcon
                                                                     color="red"
                                                                     variant="subtle"
+                                                                    loading={deletingItemIds.includes(item.id)}
                                                                     onClick={() =>
-                                                                        handleDeleteItem(item.id)
+                                                                        handleDeleteItem(item.id, item.itemName)
                                                                     }
                                                                 >
                                                                     <IconTrash size={16} />
