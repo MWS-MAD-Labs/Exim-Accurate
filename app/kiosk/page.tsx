@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Stack,
@@ -46,6 +46,8 @@ export default function KioskHomePage() {
   const [selectedCredential, setSelectedCredential] =
     useState<Credential | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const firstStationCardRef = useRef<HTMLDivElement>(null);
+  const firstModeCardRef = useRef<HTMLDivElement>(null);
 
   // Fullscreen toggle
   const toggleFullscreen = () => {
@@ -80,6 +82,85 @@ export default function KioskHomePage() {
   useEffect(() => {
     fetchCredentials();
   }, [fetchCredentials]);
+
+  useEffect(() => {
+    if (loading || credentials.length === 0) return;
+
+    const timer = window.setTimeout(() => {
+      if (selectedCredential) {
+        firstModeCardRef.current?.focus();
+      } else {
+        firstStationCardRef.current?.focus();
+      }
+    }, 100);
+
+    return () => window.clearTimeout(timer);
+  }, [credentials.length, loading, selectedCredential]);
+
+  useEffect(() => {
+    if (loading || credentials.length === 0) return;
+
+    const isFormControl = (element: Element | null) =>
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLTextAreaElement ||
+      element instanceof HTMLSelectElement;
+
+    const handleKeyboardShortcuts = (event: KeyboardEvent) => {
+      if (
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        isFormControl(document.activeElement)
+      ) {
+        return;
+      }
+
+      if (selectedCredential) {
+        if (event.key === "Enter" && document.activeElement === document.body) {
+          event.preventDefault();
+          router.push(`/kiosk/${selectedCredential.id}`);
+          return;
+        }
+
+        if (event.key === "1") {
+          event.preventDefault();
+          router.push(`/kiosk/${selectedCredential.id}`);
+          return;
+        }
+
+        if (event.key === "2") {
+          event.preventDefault();
+          router.push(`/kiosk/${selectedCredential.id}/peminjaman`);
+          return;
+        }
+
+        if (event.key === "Escape" && credentials.length > 1) {
+          event.preventDefault();
+          setSelectedCredential(null);
+        }
+        return;
+      }
+
+      if (event.key === "Enter" && document.activeElement === document.body) {
+        event.preventDefault();
+        setSelectedCredential(credentials[0]);
+        return;
+      }
+
+      const numericChoice = Number(event.key);
+      if (
+        Number.isInteger(numericChoice) &&
+        numericChoice >= 1 &&
+        numericChoice <= credentials.length
+      ) {
+        event.preventDefault();
+        setSelectedCredential(credentials[numericChoice - 1]);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyboardShortcuts);
+    return () => window.removeEventListener("keydown", handleKeyboardShortcuts);
+  }, [credentials, loading, router, selectedCredential]);
 
   if (loading) {
     return (
@@ -268,6 +349,11 @@ export default function KioskHomePage() {
                 {selectedCredential.appKey}
                 {selectedCredential.host ? ` • ${selectedCredential.host}` : ""}
               </Text>
+              <Text c="rgba(255,255,255,0.48)" size="sm">
+                {language === "id"
+                  ? "Gunakan Tab lalu Enter, atau tekan 1 untuk Pengambilan dan 2 untuk Peminjaman."
+                  : "Use Tab then Enter, or press 1 for Pickup and 2 for Borrowing."}
+              </Text>
             </Stack>
 
             {/* Mode Cards */}
@@ -275,6 +361,7 @@ export default function KioskHomePage() {
               {modes.map((mode) => (
                 <Card
                   key={mode.id}
+                  ref={mode.id === "checkout" ? firstModeCardRef : undefined}
                   shadow="xl"
                   padding="xl"
                   radius="xl"
@@ -289,7 +376,7 @@ export default function KioskHomePage() {
                   }}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${language === "id" ? "Pilih mode" : "Select mode"}: ${mode.title}`}
+                  aria-label={`${language === "id" ? "Pilih mode" : "Select mode"}: ${mode.id === "checkout" ? "1" : "2"}. ${mode.title}`}
                   onClick={mode.onClick}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -325,6 +412,7 @@ export default function KioskHomePage() {
                       </ThemeIcon>
                       <Stack gap="xs">
                         <Text c="white" fw={700} size="xl">
+                          {mode.id === "checkout" ? "1. " : "2. "}
                           {mode.title}
                         </Text>
                         <Text c="rgba(255,255,255,0.55)" size="sm" lh={1.5}>
@@ -462,6 +550,11 @@ export default function KioskHomePage() {
               ? "Pilih profil stasiun untuk memulai."
               : "Select a station profile to get started."}
           </Text>
+          <Text c="rgba(255,255,255,0.48)" size="sm">
+            {language === "id"
+              ? "Gunakan Tab lalu Enter, atau tekan nomor stasiun."
+              : "Use Tab then Enter, or press a station number."}
+          </Text>
         </Stack>
 
         {/* Features */}
@@ -503,6 +596,7 @@ export default function KioskHomePage() {
           {credentials.map((cred, index) => (
             <Card
               key={cred.id}
+              ref={index === 0 ? firstStationCardRef : undefined}
               shadow="xl"
               padding="xl"
               radius="xl"
@@ -517,7 +611,7 @@ export default function KioskHomePage() {
               }}
               role="button"
               tabIndex={0}
-              aria-label={`${language === "id" ? "Pilih stasiun" : "Select station"}: ${cred.appKey}`}
+              aria-label={`${language === "id" ? "Pilih stasiun" : "Select station"}: ${index + 1}. ${cred.appKey}`}
               onClick={() => setSelectedCredential(cred)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -568,7 +662,7 @@ export default function KioskHomePage() {
 
                 <Stack gap="xs">
                   <Text c="white" fw={700} size="lg">
-                    {cred.appKey}
+                    {index + 1}. {cred.appKey}
                   </Text>
                   <Text c="rgba(255,255,255,0.55)" size="sm">
                     {cred.host ||
