@@ -172,8 +172,7 @@ export default function KioskHomePage() {
           language === "id"
             ? "Scan barang untuk pengambilan inventaris. Barang akan dikurangi dari stok Accurate."
             : "Scan items for pickup. Items will be deducted from Accurate stock.",
-        onClick: () =>
-          router.push(`/kiosk/${selectedCredential.id}`),
+        onClick: () => router.push(`/kiosk/${selectedCredential.id}`),
       },
       {
         id: "peminjaman",
@@ -200,9 +199,13 @@ export default function KioskHomePage() {
             <ActionIcon
               variant="subtle"
               size="lg"
+              aria-label={
+                language === "id"
+                  ? "Kembali ke pilih stasiun"
+                  : "Back to station selection"
+              }
               onClick={() => setSelectedCredential(null)}
               style={{ color: "rgba(255,255,255,0.7)" }}
-              aria-label={t.common.back}
             >
               <IconArrowLeft size={20} />
             </ActionIcon>
@@ -213,12 +216,14 @@ export default function KioskHomePage() {
               variant="subtle"
               color="gray"
               size="lg"
+              aria-label={
+                isFullscreen ? t.kiosk.exitFullscreen : t.kiosk.fullscreen
+              }
               onClick={toggleFullscreen}
               style={{
                 background: "rgba(12, 18, 32, 0.85)",
                 border: "1px solid rgba(148, 163, 184, 0.15)",
               }}
-              aria-label={isFullscreen ? t.kiosk.exitFullscreen : t.kiosk.fullscreen}
             >
               {isFullscreen ? (
                 <IconMinimize size={18} />
@@ -261,9 +266,7 @@ export default function KioskHomePage() {
               </Title>
               <Text c="rgba(255,255,255,0.6)" size="lg">
                 {selectedCredential.appKey}
-                {selectedCredential.host
-                  ? ` • ${selectedCredential.host}`
-                  : ""}
+                {selectedCredential.host ? ` • ${selectedCredential.host}` : ""}
               </Text>
             </Stack>
 
@@ -284,13 +287,24 @@ export default function KioskHomePage() {
                     boxShadow: "0 20px 40px rgba(4, 8, 16, 0.45)",
                     minHeight: 220,
                   }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${language === "id" ? "Pilih mode" : "Select mode"}: ${mode.title}`}
                   onClick={mode.onClick}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      mode.onClick();
+                    }
+                  }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform =
                       "translateY(-8px) scale(1.02)";
                     e.currentTarget.style.boxShadow = `0 30px 70px rgba(2, 8, 20, 0.75), 0 0 40px ${mode.glowColor}`;
-                    e.currentTarget.style.borderColor =
-                      mode.glowColor.replace("0.45", "0.6");
+                    e.currentTarget.style.borderColor = mode.glowColor.replace(
+                      "0.45",
+                      "0.6",
+                    );
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = "translateY(0) scale(1)";
@@ -440,9 +454,7 @@ export default function KioskHomePage() {
                 WebkitTextFillColor: "transparent",
               }}
             >
-              {language === "id"
-                ? "Pengalaman Kiosk"
-                : "Kiosk Experience"}
+              {language === "id" ? "Pengalaman Kiosk" : "Kiosk Experience"}
             </span>
           </Title>
           <Text c="rgba(255,255,255,0.6)" size="lg">
@@ -503,7 +515,16 @@ export default function KioskHomePage() {
                 animationDelay: `${index * 100}ms`,
                 boxShadow: "0 20px 40px rgba(4, 8, 16, 0.45)",
               }}
+              role="button"
+              tabIndex={0}
+              aria-label={`${language === "id" ? "Pilih stasiun" : "Select station"}: ${cred.appKey}`}
               onClick={() => setSelectedCredential(cred)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedCredential(cred);
+                }
+              }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform =
                   "translateY(-8px) scale(1.02)";

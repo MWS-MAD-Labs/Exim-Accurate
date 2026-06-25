@@ -82,6 +82,9 @@ export default function KioskCheckoutPage() {
   // Refs for auto-focus
   const badgeInputRef = useRef<HTMLInputElement>(null);
   const itemInputRef = useRef<HTMLInputElement>(null);
+  const reviewButtonRef = useRef<HTMLButtonElement>(null);
+  const completeButtonRef = useRef<HTMLButtonElement>(null);
+  const newSessionButtonRef = useRef<HTMLButtonElement>(null);
   const focusItemInput = useCallback(() => {
     if (useScanner && currentStep === "scan" && itemInputRef.current) {
       itemInputRef.current.focus();
@@ -137,6 +140,19 @@ export default function KioskCheckoutPage() {
       setTimeout(focusItemInput, 50);
     }
   }, [lookingUp, focusItemInput]);
+
+  // Move focus to the primary keyboard action when entering non-scanning states.
+  useEffect(() => {
+    if (currentStep === "confirm") {
+      setTimeout(() => completeButtonRef.current?.focus(), 100);
+    }
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (checkoutComplete) {
+      setTimeout(() => newSessionButtonRef.current?.focus(), 100);
+    }
+  }, [checkoutComplete]);
 
   // Track fullscreen changes
   useEffect(() => {
@@ -468,6 +484,7 @@ export default function KioskCheckoutPage() {
 
               <Stack gap="sm" w="100%">
                 <Button
+                  ref={newSessionButtonRef}
                   size="xl"
                   fullWidth
                   variant="gradient"
@@ -538,6 +555,7 @@ export default function KioskCheckoutPage() {
             size="xl"
             variant="subtle"
             color="gray"
+            aria-label={t.kiosk.backToHome}
             onClick={handleCancel}
             style={{
               background: "rgba(12, 18, 32, 0.85)",
@@ -824,10 +842,27 @@ export default function KioskCheckoutPage() {
                     value={scanInput}
                     onChange={(e) => setScanInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && scanInput.trim()) {
+                      if (e.key !== "Enter") return;
+
+                      if (scanInput.trim()) {
                         handleItemScan(scanInput.trim());
+                        return;
+                      }
+
+                      if (cart.length > 0) {
+                        e.preventDefault();
+                        setCurrentStep("confirm");
                       }
                     }}
+                    aria-label={
+                      useScanner
+                        ? language === "id"
+                          ? "Input barcode barang. Tekan Enter setelah scan, atau Enter tanpa teks untuk tinjau checkout."
+                          : "Item barcode input. Press Enter after scanning, or Enter with no text to review checkout."
+                        : language === "id"
+                          ? "Input kode barang manual"
+                          : "Manual item code input"
+                    }
                     size="lg"
                     leftSection={<IconBarcode size={20} />}
                     disabled={lookingUp}
@@ -937,6 +972,7 @@ export default function KioskCheckoutPage() {
                               <ActionIcon
                                 variant="subtle"
                                 color="gray"
+                                aria-label={`${language === "id" ? "Kurangi jumlah" : "Decrease quantity"}: ${item.itemName}`}
                                 onClick={() => updateQuantity(idx, -1)}
                                 style={{
                                   background: "rgba(12, 18, 32, 0.85)",
@@ -971,6 +1007,7 @@ export default function KioskCheckoutPage() {
                               <ActionIcon
                                 variant="subtle"
                                 color="gray"
+                                aria-label={`${language === "id" ? "Tambah jumlah" : "Increase quantity"}: ${item.itemName}`}
                                 onClick={() => updateQuantity(idx, 1)}
                                 style={{
                                   background: "rgba(12, 18, 32, 0.85)",
@@ -982,6 +1019,7 @@ export default function KioskCheckoutPage() {
                               <ActionIcon
                                 color="red"
                                 variant="subtle"
+                                aria-label={`${language === "id" ? "Hapus" : "Remove"}: ${item.itemName}`}
                                 onClick={() => removeFromCart(idx)}
                                 style={{
                                   background: "rgba(239, 68, 68, 0.1)",
@@ -1107,6 +1145,7 @@ export default function KioskCheckoutPage() {
                   <Divider color="rgba(255,255,255,0.1)" />
 
                   <Button
+                    ref={completeButtonRef}
                     size="xl"
                     fullWidth
                     variant="gradient"
@@ -1165,6 +1204,7 @@ export default function KioskCheckoutPage() {
           )}
           {currentStep === "scan" && cart.length > 0 && (
             <Button
+              ref={reviewButtonRef}
               size="lg"
               variant="gradient"
               gradient={{ from: "cyan.5", to: "indigo.6", deg: 135 }}
