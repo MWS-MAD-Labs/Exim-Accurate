@@ -15,9 +15,11 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { IconTrash, IconCheck, IconKey } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
+import { modals } from "@mantine/modals";
 import { useSearchParams } from "next/navigation";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useLanguage } from "@/lib/language";
+import { Suspense } from "react";
 
 interface Credential {
   id: string;
@@ -26,7 +28,7 @@ interface Credential {
   createdAt: string;
 }
 
-export default function CredentialsPage() {
+function CredentialsPageContent() {
   const { t } = useLanguage();
   const notificationsText = t.dashboard.credentials.notifications;
   const [credentials, setCredentials] = useState<Credential[]>([]);
@@ -88,34 +90,38 @@ export default function CredentialsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t.dashboard.credentials.disconnectConfirm)) {
-      return;
-    }
+    modals.openConfirmModal({
+      title: t.dashboard.credentials.disconnectTooltip,
+      children: <Text size="sm">{t.dashboard.credentials.disconnectConfirm}</Text>,
+      confirmProps: { color: "red" },
+      labels: { confirm: t.common.delete, cancel: t.common.cancel },
+      onConfirm: async () => {
+        setLoadingDeleteId(id);
+        try {
+          const response = await fetch(`/api/credentials?id=${id}`, {
+            method: "DELETE",
+          });
 
-    setLoadingDeleteId(id);
-    try {
-      const response = await fetch(`/api/credentials?id=${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        notifications.show({
-          title: t.dashboard.credentials.notifications.deleteSuccessTitle,
-          message: t.dashboard.credentials.notifications.deleteSuccessMessage,
-          color: "green",
-          icon: <IconCheck size={16} />,
-        });
-        fetchCredentials();
-      }
-    } catch (err) {
-      notifications.show({
-        title: t.dashboard.credentials.notifications.deleteErrorTitle,
-        message: t.dashboard.credentials.notifications.deleteErrorMessage,
-        color: "red",
-      });
-    } finally {
-      setLoadingDeleteId(null);
-    }
+          if (response.ok) {
+            notifications.show({
+              title: t.dashboard.credentials.notifications.deleteSuccessTitle,
+              message: t.dashboard.credentials.notifications.deleteSuccessMessage,
+              color: "green",
+              icon: <IconCheck size={16} />,
+            });
+            fetchCredentials();
+          }
+        } catch (err) {
+          notifications.show({
+            title: t.dashboard.credentials.notifications.deleteErrorTitle,
+            message: t.dashboard.credentials.notifications.deleteErrorMessage,
+            color: "red",
+          });
+        } finally {
+          setLoadingDeleteId(null);
+        }
+      },
+    });
   };
 
   return (
@@ -199,5 +205,13 @@ export default function CredentialsPage() {
         )}
       </Paper>
     </Stack>
+  );
+}
+
+export default function CredentialsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CredentialsPageContent />
+    </Suspense>
   );
 }
