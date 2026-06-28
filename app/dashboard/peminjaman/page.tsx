@@ -27,6 +27,7 @@ import {
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
+import { modals } from "@mantine/modals";
 import {
     IconClipboardList,
     IconPackage,
@@ -148,6 +149,7 @@ export default function PeminjamanDashboardPage() {
     // Items tab
     const [items, setItems] = useState<BorrowableItem[]>([]);
     const [itemsLoading, setItemsLoading] = useState(false);
+    const [deletingItemIds, setDeletingItemIds] = useState<string[]>([]);
     const [newItemCode, setNewItemCode] = useState("");
     const [newItemStock, setNewItemStock] = useState<number>(1);
     const [lookingUp, setLookingUp] = useState(false);
@@ -405,25 +407,45 @@ export default function PeminjamanDashboardPage() {
     };
 
     // Delete borrowable item
-    const handleDeleteItem = async (id: string) => {
-        try {
-            const res = await fetch(`/api/peminjaman/items?id=${id}`, {
-                method: "DELETE",
-            });
-            if (!res.ok) throw new Error("Failed to delete");
-            notifications.show({
-                title: language === "id" ? "Berhasil" : "Success",
-                message: language === "id" ? "Barang dihapus" : "Item deleted",
-                color: "green",
-            });
-            fetchItems();
-        } catch {
-            notifications.show({
-                title: language === "id" ? "Gagal" : "Failed",
-                message: language === "id" ? "Gagal menghapus" : "Failed to delete",
-                color: "red",
-            });
-        }
+    const handleDeleteItem = (id: string) => {
+        modals.openConfirmModal({
+            title: language === "id" ? "Konfirmasi Hapus" : "Confirm Deletion",
+            children: (
+                <Text size="sm">
+                    {language === "id"
+                        ? "Apakah Anda yakin ingin menghapus barang ini?"
+                        : "Are you sure you want to delete this item?"}
+                </Text>
+            ),
+            labels: {
+                confirm: language === "id" ? "Hapus" : "Delete",
+                cancel: language === "id" ? "Batal" : "Cancel",
+            },
+            confirmProps: { color: "red" },
+            onConfirm: async () => {
+                setDeletingItemIds((prev) => [...prev, id]);
+                try {
+                    const res = await fetch(`/api/peminjaman/items?id=${id}`, {
+                        method: "DELETE",
+                    });
+                    if (!res.ok) throw new Error("Failed to delete");
+                    notifications.show({
+                        title: language === "id" ? "Berhasil" : "Success",
+                        message: language === "id" ? "Barang dihapus" : "Item deleted",
+                        color: "green",
+                    });
+                    fetchItems();
+                } catch {
+                    notifications.show({
+                        title: language === "id" ? "Gagal" : "Failed",
+                        message: language === "id" ? "Gagal menghapus" : "Failed to delete",
+                        color: "red",
+                    });
+                } finally {
+                    setDeletingItemIds((prev) => prev.filter((itemId) => itemId !== id));
+                }
+            },
+        });
     };
 
     const getStatusColor = (status: string) => {
@@ -794,6 +816,10 @@ export default function PeminjamanDashboardPage() {
                                                                 <ActionIcon
                                                                     color="red"
                                                                     variant="subtle"
+                                                                    loading={deletingItemIds.includes(item.id)}
+                                                                    aria-label={
+                                                                        language === "id" ? "Hapus" : "Delete"
+                                                                    }
                                                                     onClick={() =>
                                                                         handleDeleteItem(item.id)
                                                                     }
