@@ -15,6 +15,7 @@ import {
 import { useState, useEffect, useRef } from "react";
 import { IconTrash, IconCheck, IconKey } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
+import { modals } from "@mantine/modals";
 import { useSearchParams } from "next/navigation";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useLanguage } from "@/lib/language";
@@ -87,11 +88,22 @@ export default function CredentialsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(t.dashboard.credentials.disconnectConfirm)) {
-      return;
-    }
+  const handleDelete = (id: string) => {
+    modals.openConfirmModal({
+      title: t.dashboard.credentials.disconnectTooltip,
+      centered: true,
+      children: (
+        <Text size="sm">
+          {t.dashboard.credentials.disconnectConfirm}
+        </Text>
+      ),
+      labels: { confirm: t.common.delete, cancel: t.common.cancel },
+      confirmProps: { color: 'red' },
+      onConfirm: () => executeDelete(id),
+    });
+  };
 
+  const executeDelete = async (id: string) => {
     setLoadingDeleteId(id);
     try {
       const response = await fetch(`/api/credentials?id=${id}`, {
