@@ -161,6 +161,7 @@ export default function PeminjamanDashboardPage() {
     const [totalSessions, setTotalSessions] = useState(0);
     const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [activitiesLoading, setActivitiesLoading] = useState(false);
+    const [deletingItemIds, setDeletingItemIds] = useState<string[]>([]);
     const [selectedItem, setSelectedItem] = useState<BorrowableItem | null>(null);
     const [itemDetailOpen, setItemDetailOpen] = useState(false);
     const [itemActivities, setItemActivities] = useState<ActivityItem[]>([]);
@@ -407,6 +408,7 @@ export default function PeminjamanDashboardPage() {
     // Delete borrowable item
     const handleDeleteItem = async (id: string) => {
         try {
+            setDeletingItemIds((prev) => [...prev, id]);
             const res = await fetch(`/api/peminjaman/items?id=${id}`, {
                 method: "DELETE",
             });
@@ -423,6 +425,8 @@ export default function PeminjamanDashboardPage() {
                 message: language === "id" ? "Gagal menghapus" : "Failed to delete",
                 color: "red",
             });
+        } finally {
+            setDeletingItemIds((prev) => prev.filter((itemId) => itemId !== id));
         }
     };
 
@@ -797,6 +801,8 @@ export default function PeminjamanDashboardPage() {
                                                                     onClick={() =>
                                                                         handleDeleteItem(item.id)
                                                                     }
+                                                                    loading={deletingItemIds.includes(item.id)}
+                                                                    aria-label={language === "id" ? "Hapus" : "Delete"}
                                                                 >
                                                                     <IconTrash size={16} />
                                                                 </ActionIcon>
