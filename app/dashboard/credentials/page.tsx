@@ -12,6 +12,7 @@ import {
   LoadingOverlay,
   Tooltip,
 } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { useState, useEffect, useRef } from "react";
 import { IconTrash, IconCheck, IconKey } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -31,7 +32,7 @@ export default function CredentialsPage() {
   const notificationsText = t.dashboard.credentials.notifications;
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);
+  const [deletingIds, setDeletingIds] = useState<string[]>([]);
   const searchParams = useSearchParams();
   const handledStatus = useRef<string | null>(null);
 
@@ -88,34 +89,43 @@ export default function CredentialsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t.dashboard.credentials.disconnectConfirm)) {
-      return;
-    }
+    modals.openConfirmModal({
+      title: t.dashboard.credentials.disconnectTooltip,
+      centered: true,
+      children: (
+        <Text size="sm">
+          {t.dashboard.credentials.disconnectConfirm}
+        </Text>
+      ),
+      labels: { confirm: t.common.delete, cancel: t.common.cancel },
+      confirmProps: { color: "red" },
+      onConfirm: async () => {
+        setDeletingIds((prev) => [...prev, id]);
+        try {
+          const response = await fetch(`/api/credentials?id=${id}`, {
+            method: "DELETE",
+          });
 
-    setLoadingDeleteId(id);
-    try {
-      const response = await fetch(`/api/credentials?id=${id}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        notifications.show({
-          title: t.dashboard.credentials.notifications.deleteSuccessTitle,
-          message: t.dashboard.credentials.notifications.deleteSuccessMessage,
-          color: "green",
-          icon: <IconCheck size={16} />,
-        });
-        fetchCredentials();
-      }
-    } catch (err) {
-      notifications.show({
-        title: t.dashboard.credentials.notifications.deleteErrorTitle,
-        message: t.dashboard.credentials.notifications.deleteErrorMessage,
-        color: "red",
-      });
-    } finally {
-      setLoadingDeleteId(null);
-    }
+          if (response.ok) {
+            notifications.show({
+              title: t.dashboard.credentials.notifications.deleteSuccessTitle,
+              message: t.dashboard.credentials.notifications.deleteSuccessMessage,
+              color: "green",
+              icon: <IconCheck size={16} />,
+            });
+            fetchCredentials();
+          }
+        } catch (err) {
+          notifications.show({
+            title: t.dashboard.credentials.notifications.deleteErrorTitle,
+            message: t.dashboard.credentials.notifications.deleteErrorMessage,
+            color: "red",
+          });
+        } finally {
+          setDeletingIds((prev) => prev.filter((deletingId) => deletingId !== id));
+        }
+      },
+    });
   };
 
   return (
@@ -184,7 +194,7 @@ export default function CredentialsPage() {
                         <ActionIcon
                           color="red"
                           onClick={() => handleDelete(cred.id)}
-                          loading={loadingDeleteId === cred.id}
+                          loading={deletingIds.includes(cred.id)}
                           aria-label={t.dashboard.credentials.disconnectTooltip}
                         >
                           <IconTrash size={16} />
