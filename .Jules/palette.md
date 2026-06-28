@@ -9,3 +9,7 @@
 ## 2024-05-25 - [ActionIcon Accessibility in Tooltips]
 **Learning:** Even when `ActionIcon` buttons are near a tooltip or self-evident in context (like a kiosk), they often lack raw `aria-label`s, which is a major barrier for screen-reader users accessing interactive elements. Relying solely on icons or visually implied contexts is insufficient.
 **Action:** Always explicitly verify that icon-only buttons (like Mantine `ActionIcon`) include an `aria-label` utilizing localized strings (`t.common...`), especially in high-visibility contexts like kiosk interfaces.
+
+## 2024-05-27 - [Destructive Action Confirmation]
+**Learning:** Destructive actions without a confirmation modal can lead to accidental data loss. Using `@mantine/modals` with `openConfirmModal` is a standard way to prevent this and provides a safety net for users.
+**Action:** Always wrap destructive actions (like delete) with a confirmation modal, and ensure it has clear language and a red confirm button.

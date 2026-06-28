@@ -42,6 +42,7 @@ import {
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ActivityTimeline, ActivityItem } from "@/components/ui/ActivityTimeline";
 import { useLanguage } from "@/lib/language";
+import { modals } from "@mantine/modals";
 
 interface Credential {
     id: string;
@@ -138,7 +139,8 @@ function formatHumanDateRange(
 }
 
 export default function PeminjamanDashboardPage() {
-    const { language } = useLanguage();
+    const { language, t } = useLanguage();
+    const [deletingItemIds, setDeletingItemIds] = useState<string[]>([]);
     const [credentials, setCredentials] = useState<Credential[]>([]);
     const [selectedCredentialId, setSelectedCredentialId] = useState<
         string | null
@@ -406,24 +408,41 @@ export default function PeminjamanDashboardPage() {
 
     // Delete borrowable item
     const handleDeleteItem = async (id: string) => {
-        try {
-            const res = await fetch(`/api/peminjaman/items?id=${id}`, {
-                method: "DELETE",
-            });
-            if (!res.ok) throw new Error("Failed to delete");
-            notifications.show({
-                title: language === "id" ? "Berhasil" : "Success",
-                message: language === "id" ? "Barang dihapus" : "Item deleted",
-                color: "green",
-            });
-            fetchItems();
-        } catch {
-            notifications.show({
-                title: language === "id" ? "Gagal" : "Failed",
-                message: language === "id" ? "Gagal menghapus" : "Failed to delete",
-                color: "red",
-            });
-        }
+        modals.openConfirmModal({
+            title: language === "id" ? "Hapus Barang" : "Delete Item",
+            children: (
+                <Text size="sm">
+                    {language === "id"
+                        ? "Apakah Anda yakin ingin menghapus barang ini? Tindakan ini tidak dapat dibatalkan."
+                        : "Are you sure you want to delete this item? This action cannot be undone."}
+                </Text>
+            ),
+            labels: { confirm: t.common.delete, cancel: t.common.cancel },
+            confirmProps: { color: "red" },
+            onConfirm: async () => {
+                setDeletingItemIds((prev) => [...prev, id]);
+                try {
+                    const res = await fetch(`/api/peminjaman/items?id=${id}`, {
+                        method: "DELETE",
+                    });
+                    if (!res.ok) throw new Error("Failed to delete");
+                    notifications.show({
+                        title: language === "id" ? "Berhasil" : "Success",
+                        message: language === "id" ? "Barang dihapus" : "Item deleted",
+                        color: "green",
+                    });
+                    fetchItems();
+                } catch {
+                    notifications.show({
+                        title: language === "id" ? "Gagal" : "Failed",
+                        message: language === "id" ? "Gagal menghapus" : "Failed to delete",
+                        color: "red",
+                    });
+                } finally {
+                    setDeletingItemIds((prev) => prev.filter((item) => item !== id));
+                }
+            },
+        });
     };
 
     const getStatusColor = (status: string) => {
@@ -797,6 +816,8 @@ export default function PeminjamanDashboardPage() {
                                                                     onClick={() =>
                                                                         handleDeleteItem(item.id)
                                                                     }
+                                                                    loading={deletingItemIds.includes(item.id)}
+                                                                    aria-label={language === "id" ? "Hapus" : "Delete"}
                                                                 >
                                                                     <IconTrash size={16} />
                                                                 </ActionIcon>
