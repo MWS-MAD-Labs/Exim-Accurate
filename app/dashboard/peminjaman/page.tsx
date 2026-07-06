@@ -138,7 +138,7 @@ function formatHumanDateRange(
 }
 
 export default function PeminjamanDashboardPage() {
-    const { language } = useLanguage();
+    const { t, language } = useLanguage();
     const [credentials, setCredentials] = useState<Credential[]>([]);
     const [selectedCredentialId, setSelectedCredentialId] = useState<
         string | null
@@ -793,6 +793,7 @@ export default function PeminjamanDashboardPage() {
                                                             >
                                                                 <ActionIcon
                                                                     color="red"
+                                                                    aria-label={t.common.delete}
                                                                     variant="subtle"
                                                                     onClick={() =>
                                                                         handleDeleteItem(item.id)
