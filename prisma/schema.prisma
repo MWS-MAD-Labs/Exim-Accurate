@@ -52,6 +52,7 @@ model AccurateCredentials {
   posSales            PosSale[]
   posReservations     PosReservation[]
   posAllocations      PosStockAllocation[]
+  posProducts         PosProduct[]
 }
 
 // Self Checkout feature - tracks staff checkout sessions
@@ -229,10 +230,40 @@ model PosSettings {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // Staff allowance: monthly total = allowancePerWorkingDay * count of workingDays in the current month
+  allowancePerWorkingDay Decimal @default(0) @db.Decimal(14, 2)
+  workingDays            Int[]   @default([1, 2, 3, 4, 5]) // 0=Sunday .. 6=Saturday
+
   user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// Local POS product catalog: buy/sell price is set here (not written back to Accurate),
+// so POS analytics (margin) do not depend on Accurate's own item pricing.
+model PosProduct {
+  id           String    @id @default(uuid())
+  credentialId String
+
+  itemCode     String
+  itemName     String
+  unit         String?
+
+  buyPrice     Decimal   @default(0) @db.Decimal(14, 2)
+  sellPrice    Decimal   @default(0) @db.Decimal(14, 2)
+
+  stockCache   Int       @default(0)
+  isActive     Boolean   @default(true)
+  lastSyncedAt DateTime?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  credential   AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@unique([credentialId, itemCode])
+  @@index([credentialId, isActive])
 }
 
 model PosReservation {
@@ -293,6 +324,12 @@ model PosSale {
   createdAt          DateTime  @default(now())
   syncedAt           DateTime?
 
+  // Buyer identification (staff QR badge scan) and allowance payment usage
+  buyerType     String  @default("guest") // staff, guest
+  staffEmail    String?
+  staffName     String?
+  allowanceUsed Decimal @default(0) @db.Decimal(14, 2)
+
   user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   credential  AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
   reservation PosReservation?     @relation(fields: [reservationId], references: [id], onDelete: SetNull)
@@ -301,6 +338,7 @@ model PosSale {
   @@unique([userId, idempotencyKey])
   @@index([credentialId, createdAt])
   @@index([credentialId, status])
+  @@index([credentialId, staffEmail, createdAt])
 }
 
 model PosStockAllocation {

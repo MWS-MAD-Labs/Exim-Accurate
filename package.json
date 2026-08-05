@@ -24,7 +24,7 @@
     "@mantine/hooks": "^7.15.2",
     "@mantine/modals": "^7.15.2",
     "@mantine/notifications": "^7.15.2",
-    "@prisma/client": "^6.19.2",
+    "@prisma/client": "^6.19.0",
     "@tabler/icons-react": "^3.23.0",
     "bcryptjs": "^2.4.3",
     "dayjs": "^1.11.13",

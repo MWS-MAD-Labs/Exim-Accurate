@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPosContext, isAdmin, withSerializableRetry } from "@/lib/pos-server";
-import { paymentMethodSchema } from "@/lib/pos";
+import { getPosContext, getStaffAllowance, isAdmin, withSerializableRetry } from "@/lib/pos-server";
+import { calculateTotals, paymentMethodSchema } from "@/lib/pos";
 import { syncPosSale } from "@/lib/accurate/pos";
 
 
@@ -19,6 +19,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (reservation.sale) return NextResponse.json(reservation.sale);
   const context = await getPosContext(session.user.id, reservation.credentialId, isAdmin(session.user.role));
   if (!context?.settings || !context.accurate) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
+
+  let allowanceUsed = 0;
+  if (payment.data === "allowance") {
+    const { revenue } = calculateTotals(reservation.items.map((item) => ({ ...item, unitPrice: Number(item.unitPrice), unitCost: Number(item.unitCost) })));
+    const allowance = await getStaffAllowance(reservation.credentialId, reservation.staffEmail);
+    if (revenue > allowance.remaining) {
+      return NextResponse.json({ error: "Insufficient allowance balance. Please use cash or QRIS instead.", allowance }, { status: 409 });
+    }
+    allowanceUsed = revenue;
+  }
+
   const sale = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
     const changed = await tx.posReservation.updateMany({ where: { id, status: "active", expiresAt: { gt: new Date() } }, data: { status: "picked_up", pickupAt: new Date() } });
     if (changed.count !== 1) throw new Error("RESERVATION_CONFLICT");
@@ -27,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!allocation || allocation.heldQuantity < item.quantity) throw new Error("ALLOCATION_CONFLICT");
       await tx.posStockAllocation.update({ where: { id: allocation.id }, data: { heldQuantity: { decrement: item.quantity }, soldQuantity: { increment: item.quantity } } });
     }
-    return tx.posSale.create({ data: { userId: reservation.userId, credentialId: reservation.credentialId, reservationId: reservation.id, idempotencyKey: `reservation:${reservation.id}`, requestFingerprint: `reservation:${reservation.id}`, warehouseId: reservation.warehouseId, warehouseName: reservation.warehouseName, paymentMethod: payment.data, items: { create: reservation.items.map((item) => ({ itemCode: item.itemCode, itemName: item.itemName, quantity: item.quantity, unitPrice: item.unitPrice, unitCost: item.unitCost })) } }, include: { items: true } });
+    return tx.posSale.create({ data: { userId: reservation.userId, credentialId: reservation.credentialId, reservationId: reservation.id, idempotencyKey: `reservation:${reservation.id}`, requestFingerprint: `reservation:${reservation.id}`, warehouseId: reservation.warehouseId, warehouseName: reservation.warehouseName, paymentMethod: payment.data, buyerType: "staff", staffEmail: reservation.staffEmail, staffName: reservation.staffName, allowanceUsed, items: { create: reservation.items.map((item) => ({ itemCode: item.itemCode, itemName: item.itemName, quantity: item.quantity, unitPrice: item.unitPrice, unitCost: item.unitCost })) } }, include: { items: true } });
   }).catch((error: unknown) => { if (error instanceof Error && ["RESERVATION_CONFLICT", "ALLOCATION_CONFLICT"].includes(error.message)) return null; throw error; }));
   if (!sale) return NextResponse.json({ error: "Reservation changed by another request" }, { status: 409 });
   try {

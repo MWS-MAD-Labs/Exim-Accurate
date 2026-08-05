@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { reservationRequestSchema, makeReservationReference } from "@/lib/pos";
-import { canonicalSaleItems, expireReservations, getPosContext, withSerializableRetry } from "@/lib/pos-server";
+import { applyPosCatalog, canonicalSaleItems, expireReservations, getPosContext, withSerializableRetry } from "@/lib/pos-server";
 import { resolvePosProducts } from "@/lib/accurate/pos";
 import crypto from "node:crypto";
 
@@ -31,9 +31,13 @@ export async function POST(req: NextRequest) {
   if (!context) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   if (!context.settings || !context.accurate) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
   await expireReservations(credentialId);
-  let products;
-  try { products = await resolvePosProducts(context.accurate, { id: context.settings.warehouseId, name: context.settings.warehouseName }, requestedItems.map((item) => item.itemCode)); }
+  let accurateProducts;
+  try { accurateProducts = await resolvePosProducts(context.accurate, { id: context.settings.warehouseId, name: context.settings.warehouseName }, requestedItems.map((item) => item.itemCode)); }
   catch { return NextResponse.json({ error: "Unable to verify products and warehouse stock" }, { status: 502 }); }
+  const products = await applyPosCatalog(credentialId, accurateProducts);
+  if (products.length !== requestedItems.length) {
+    return NextResponse.json({ error: "Some items are not available in the POS catalog" }, { status: 409 });
+  }
   const items = canonicalSaleItems(requestedItems, products);
   const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ credentialId, expiresAt: expiresAt.toISOString(), items })).digest("hex");
   const existing = await prisma.posReservation.findUnique({ where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } }, include: { items: true } });

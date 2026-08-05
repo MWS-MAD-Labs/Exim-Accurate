@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { saleRequestSchema, calculateTotals } from "@/lib/pos";
-import { canonicalSaleItems, expireReservations, getPosContext, withSerializableRetry } from "@/lib/pos-server";
+import { applyPosCatalog, canonicalSaleItems, expireReservations, getPosContext, getStaffAllowance, withSerializableRetry } from "@/lib/pos-server";
 import { resolvePosProducts, syncPosSale } from "@/lib/accurate/pos";
 import crypto from "node:crypto";
 
@@ -13,16 +13,32 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = saleRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid sale" }, { status: 400 });
-  const { credentialId, items: requestedItems, paymentMethod, idempotencyKey } = parsed.data;
+  const { credentialId, items: requestedItems, paymentMethod, idempotencyKey, buyerType, staffEmail, staffName } = parsed.data;
   const context = await getPosContext(session.user.id, credentialId);
   if (!context) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   if (!context.settings || !context.accurate) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
   await expireReservations(credentialId);
-  let products;
-  try { products = await resolvePosProducts(context.accurate, { id: context.settings.warehouseId, name: context.settings.warehouseName }, requestedItems.map((item) => item.itemCode)); }
+  let accurateProducts;
+  try { accurateProducts = await resolvePosProducts(context.accurate, { id: context.settings.warehouseId, name: context.settings.warehouseName }, requestedItems.map((item) => item.itemCode)); }
   catch { return NextResponse.json({ error: "Unable to verify products and warehouse stock" }, { status: 502 }); }
+  const products = await applyPosCatalog(credentialId, accurateProducts);
+  if (products.length !== requestedItems.length) {
+    return NextResponse.json({ error: "Some items are not available in the POS catalog" }, { status: 409 });
+  }
   const items = canonicalSaleItems(requestedItems, products);
-  const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ credentialId, paymentMethod, items })).digest("hex");
+  const normalizedStaffEmail = staffEmail?.toLowerCase().trim();
+
+  let allowanceUsed = 0;
+  if (paymentMethod === "allowance") {
+    const { revenue } = calculateTotals(items);
+    const allowance = await getStaffAllowance(credentialId, normalizedStaffEmail!);
+    if (revenue > allowance.remaining) {
+      return NextResponse.json({ error: "Insufficient allowance balance. Please use cash or QRIS instead.", allowance }, { status: 409 });
+    }
+    allowanceUsed = revenue;
+  }
+
+  const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ credentialId, paymentMethod, items, buyerType, staffEmail: normalizedStaffEmail })).digest("hex");
   const existing = await prisma.posSale.findUnique({ where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } }, include: { items: true } });
   if (existing) {
     if (existing.requestFingerprint !== fingerprint) return NextResponse.json({ error: "Idempotency key was already used for a different sale" }, { status: 409 });
@@ -39,7 +55,7 @@ export async function POST(req: NextRequest) {
       const updated = await tx.posStockAllocation.updateMany({ where: { id: allocation.id, soldQuantity: { lte: allocation.stockSnapshot - allocation.heldQuantity - item.quantity } }, data: { soldQuantity: { increment: item.quantity } } });
       if (updated.count !== 1) throw new Error("INSUFFICIENT_STOCK");
     }
-    const sale = await tx.posSale.create({ data: { userId: session.user.id, credentialId, idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, paymentMethod, items: { create: items } }, include: { items: true } });
+    const sale = await tx.posSale.create({ data: { userId: session.user.id, credentialId, idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, paymentMethod, buyerType, staffEmail: normalizedStaffEmail, staffName, allowanceUsed, items: { create: items } }, include: { items: true } });
     return { sale, created: true };
   }).catch(async (error: unknown) => {
     if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") return null;

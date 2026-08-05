@@ -194,14 +194,25 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       href: "/dashboard/peminjaman",
     },
     {
-      label: "POS Cashier",
+      label: "Point of Sales",
       icon: <IconShoppingCart size={20} />,
-      href: "/dashboard/pos",
-    },
-    {
-      label: "POS Warehouse",
-      icon: <IconBuildingWarehouse size={20} />,
-      href: "/dashboard/pos/settings",
+      children: [
+        {
+          label: "POS Cashier",
+          icon: <IconShoppingCart size={16} />,
+          href: "/pos-cashier",
+        },
+        {
+          label: "Stock Management",
+          icon: <IconBuildingWarehouse size={16} />,
+          href: "/dashboard/pos",
+        },
+        {
+          label: "POS Settings",
+          icon: <IconSettings size={16} />,
+          href: "/dashboard/pos/settings",
+        },
+      ],
     },
     {
       label: "Analytics",

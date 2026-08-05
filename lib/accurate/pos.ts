@@ -38,6 +38,13 @@ export async function resolvePosProducts(credentials: PosAccurateCredentials, wa
   return uniqueCodes.map((code) => byCode.get(code)!);
 }
 
+/** Resolves stock for a batch of item codes, skipping any that cannot be found. */
+export async function resolvePosStock(credentials: PosAccurateCredentials, warehouse: PosWarehouse, itemCodes: string[]) {
+  const uniqueCodes = [...new Set(itemCodes)];
+  const products = (await Promise.all(uniqueCodes.map((code) => searchPosProducts(credentials, warehouse, code)))).flat();
+  return new Map(products.filter((product) => product.itemCode).map((product) => [product.itemCode, product.stock]));
+}
+
 export interface PosSaleForAdjustment {
   id: string;
   warehouseName: string;
