@@ -379,8 +379,8 @@ function ChartCard({
       badge={`${data.length} titik`}
     >
       {data.length ? (
-        <Box h={300}>
-          <ResponsiveContainer width="100%" height="100%">
+        <Box h={300} miw={0}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             {bars.length > 1 ? (
               <AreaChart
                 data={data}

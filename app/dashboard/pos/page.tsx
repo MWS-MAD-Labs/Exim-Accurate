@@ -2,6 +2,7 @@
 
 import { Button, Group, NumberInput, Paper, Select, Stack, Table, Text, TextInput, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
+import { createIdempotencyKey } from "@/lib/browser-id";
 import { useLanguage } from "@/lib/language";
 
 interface Credential { id: string; appKey: string; }
@@ -17,7 +18,7 @@ export default function PosPage() {
   const [cart, setCart] = useState<Cart[]>([]);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
 
   useEffect(() => {
     void fetch("/api/credentials").then((response) => response.json()).then(setCredentials);
@@ -28,7 +29,7 @@ export default function PosPage() {
     setCart([]);
     setProducts([]);
     setMessage("");
-    setIdempotencyKey(crypto.randomUUID());
+    setIdempotencyKey(createIdempotencyKey());
   };
 
   const search = async () => {
@@ -64,7 +65,7 @@ export default function PosPage() {
       if (response.ok) {
         setMessage(data.adjustmentNumber ? `${t.dashboard.pos.saleCompleted}: ${data.adjustmentNumber}` : t.dashboard.pos.saleCompleted);
         setCart([]);
-        setIdempotencyKey(crypto.randomUUID());
+        setIdempotencyKey(createIdempotencyKey());
       } else {
         setMessage(data.error || t.common.error);
       }

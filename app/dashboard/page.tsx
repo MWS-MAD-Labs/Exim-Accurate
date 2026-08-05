@@ -513,8 +513,8 @@ export default function DashboardPage() {
           {loading ? (
             <Skeleton height={200} radius="md" />
           ) : (
-            <Box h={220}>
-              <ResponsiveContainer width="100%" height="100%">
+            <Box h={220} miw={0}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <AreaChart
                   data={kioskWeeklyData}
                   margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
@@ -608,8 +608,8 @@ export default function DashboardPage() {
           {loading ? (
             <Skeleton height={200} radius="md" />
           ) : (
-            <Box h={220}>
-              <ResponsiveContainer width="100%" height="100%">
+            <Box h={220} miw={0}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <AreaChart
                   data={weeklyActivityData}
                   margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
@@ -821,8 +821,8 @@ export default function DashboardPage() {
           {loading ? (
             <Skeleton height={200} radius="md" />
           ) : (
-            <Box h={220}>
-              <ResponsiveContainer width="100%" height="100%">
+            <Box h={220} miw={0}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart
                   data={monthlyTrendData}
                   margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
