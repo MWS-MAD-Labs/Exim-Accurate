@@ -1,0 +1,441 @@
+diff --git a/components/DashboardLayout.tsx b/components/DashboardLayout.tsx
+index af9dc85..0d35f75 100644
+--- a/components/DashboardLayout.tsx
++++ b/components/DashboardLayout.tsx
+@@ -35,6 +35,8 @@ import {
+   IconClipboardList,
+   IconChartBar,
+   IconChartLine,
++  IconShoppingCart,
++  IconBuildingWarehouse,
+ } from "@tabler/icons-react";
+ import { ThemeToggle } from "@/components/ui/ThemeToggle";
+ import { LanguageSelect } from "@/components/ui/LanguageSelect";
+@@ -192,7 +194,17 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
+       href: "/dashboard/peminjaman",
+     },
+     {
+-      label: "Analytics",
++      label: "POS Cashier",
++      icon: <IconShoppingCart size={20} />,
++      href: "/dashboard/pos",
++    },
++    {
++      label: "POS Warehouse",
++      icon: <IconBuildingWarehouse size={20} />,
++      href: "/dashboard/pos/settings",
++    },
++    {
++      label: "Analytics", 
+       icon: <IconChartBar size={20} />,
+       children: [
+         {
+@@ -210,6 +222,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
+           icon: <IconScan size={16} />,
+           href: "/dashboard/analytics/pengambilan",
+         },
++        {
++          label: "POS Sales",
++          icon: <IconShoppingCart size={16} />,
++          href: "/dashboard/analytics/pos",
++        },
+       ],
+     },
+     {
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index 1058a71..f71dc36 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -23,6 +23,9 @@ model User {
+   kioskSyncData       KioskSyncData[]
+   borrowingSessions   BorrowingSession[]
+   borrowingActivities BorrowingActivity[]
++  posSales            PosSale[]
++  posReservations     PosReservation[]
++  posSettings         PosSettings[]
+ }
+ 
+ model AccurateCredentials {
+@@ -31,165 +34,168 @@ model AccurateCredentials {
+   appKey          String
+   signatureSecret String
+   apiToken        String
+-  refreshToken    String?  // OAuth refresh token for token refresh
++  refreshToken    String? // OAuth refresh token for token refresh
+   host            String?
+-  session         String?  // Session token from open-db.do
+-  dbId            Int?     // Database ID from Accurate
++  session         String? // Session token from open-db.do
++  dbId            Int? // Database ID from Accurate
+   createdAt       DateTime @default(now())
+   updatedAt       DateTime @updatedAt
+ 
+-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+-  checkoutSessions CheckoutSession[]
+-  exportJobs       ExportJob[]
+-  importJobs       ImportJob[]
+-  borrowingSessions BorrowingSession[]
++  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
++  checkoutSessions    CheckoutSession[]
++  exportJobs          ExportJob[]
++  importJobs          ImportJob[]
++  borrowingSessions   BorrowingSession[]
+   borrowingActivities BorrowingActivity[]
++  posSettings         PosSettings?
++  posSales            PosSale[]
++  posReservations     PosReservation[]
+ }
+ 
+ // Self Checkout feature - tracks staff checkout sessions
+ model CheckoutSession {
+-  id            String    @id @default(uuid())
+-  staffEmail    String    // Email from QR badge scan
+-  staffName     String?   // Parsed from email or badge
+-  staffDept     String?   // Department parsed from email
+-  createdAt     DateTime  @default(now())
+-  completedAt   DateTime?
+-  status        String    @default("pending") // pending, completed, failed
+-  errorMessage  String?
+-  
+-  items         CheckoutItem[]
+-  credentialId  String
+-  credential    AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+-  
+-  adjustmentId  Int?      // ID of created inventory adjustment in Accurate
++  id           String    @id @default(uuid())
++  staffEmail   String // Email from QR badge scan
++  staffName    String? // Parsed from email or badge
++  staffDept    String? // Department parsed from email
++  createdAt    DateTime  @default(now())
++  completedAt  DateTime?
++  status       String    @default("pending") // pending, completed, failed
++  errorMessage String?
++
++  items        CheckoutItem[]
++  credentialId String
++  credential   AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
++
++  adjustmentId Int? // ID of created inventory adjustment in Accurate
+ }
+ 
+ model CheckoutItem {
+-  id              String   @id @default(uuid())
+-  sessionId       String
+-  session         CheckoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+-  itemCode        String   // Scanned barcode/item code
+-  itemName        String?  // Fetched from Accurate
+-  quantity        Int      @default(1)
+-  scannedAt       DateTime @default(now())
++  id        String          @id @default(uuid())
++  sessionId String
++  session   CheckoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
++  itemCode  String // Scanned barcode/item code
++  itemName  String? // Fetched from Accurate
++  quantity  Int             @default(1)
++  scannedAt DateTime        @default(now())
+ }
+ 
+ // Cached kiosk statistics - synced daily via cron
+ model KioskSyncData {
+-  id              String   @id @default(uuid())
+-  userId          String
+-  year            Int
+-  month           Int      // 1-12
+-  totalCheckouts  Int      @default(0)
+-  uniqueUsers     Int      @default(0)
+-  topUsers        Json     @default("[]") // [{email, name, count}]
+-  topItems        Json     @default("[]") // [{itemCode, itemName, totalQuantity}]
+-  dailyData       Json     @default("[]") // [{date, count}]
+-  lastSyncAt      DateTime
+-  createdAt       DateTime @default(now())
+-  updatedAt       DateTime @updatedAt
+-
+-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
++  id             String   @id @default(uuid())
++  userId         String
++  year           Int
++  month          Int // 1-12
++  totalCheckouts Int      @default(0)
++  uniqueUsers    Int      @default(0)
++  topUsers       Json     @default("[]") // [{email, name, count}]
++  topItems       Json     @default("[]") // [{itemCode, itemName, totalQuantity}]
++  dailyData      Json     @default("[]") // [{date, count}]
++  lastSyncAt     DateTime
++  createdAt      DateTime @default(now())
++  updatedAt      DateTime @updatedAt
++
++  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+   @@unique([userId, year, month])
+ }
+ 
+ model ExportJob {
+-  id          String    @id @default(uuid())
+-  userId      String
++  id           String    @id @default(uuid())
++  userId       String
+   credentialId String?
+-  type        String // "inventory_adjustment"
+-  startedAt   DateTime  @default(now())
+-  completedAt DateTime?
+-  status      String // pending, running, done, error
+-  resultUrl   String?
++  type         String // "inventory_adjustment"
++  startedAt    DateTime  @default(now())
++  completedAt  DateTime?
++  status       String // pending, running, done, error
++  resultUrl    String?
+   errorMessage String?
+-  format      String?
+-  recordCount Int?
++  format       String?
++  recordCount  Int?
+ 
+-  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+-  credential  AccurateCredentials?  @relation(fields: [credentialId], references: [id], onDelete: SetNull)
++  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
++  credential AccurateCredentials? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+ }
+ 
+ model ImportJob {
+-  id          String    @id @default(uuid())
+-  userId      String
++  id           String    @id @default(uuid())
++  userId       String
+   credentialId String?
+-  type        String
+-  startedAt   DateTime  @default(now())
+-  completedAt DateTime?
+-  status      String
+-  resultUrl   String?
++  type         String
++  startedAt    DateTime  @default(now())
++  completedAt  DateTime?
++  status       String
++  resultUrl    String?
+   errorMessage String?
+-  format      String?
+-  fileName    String?
+-  recordCount Int?
++  format       String?
++  fileName     String?
++  recordCount  Int?
+   successCount Int?
+-  failedCount Int?
++  failedCount  Int?
+ 
+-  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+-  credential  AccurateCredentials?  @relation(fields: [credentialId], references: [id], onDelete: SetNull)
++  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
++  credential AccurateCredentials? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+ }
+ 
+ // Peminjaman (Borrowing) feature - items configured as available for borrowing
+ model BorrowableItem {
+-  id            String   @id @default(uuid())
++  id String @id @default(uuid())
+ 
+-  itemCode      String   // Accurate item code
+-  itemName      String   // Cached from Accurate
+-  totalStock    Int      // Reference number (how many we should have)
++  itemCode   String // Accurate item code
++  itemName   String // Cached from Accurate
++  totalStock Int // Reference number (how many we should have)
+ 
+-  createdAt     DateTime @default(now())
+-  updatedAt     DateTime @updatedAt
++  createdAt DateTime @default(now())
++  updatedAt DateTime @updatedAt
+ 
+   @@unique([itemCode])
+ }
+ 
+ // Tracks borrowing/return sessions
+ model BorrowingSession {
+-  id            String    @id @default(uuid())
+-  userId        String
+-  credentialId  String
++  id           String @id @default(uuid())
++  userId       String
++  credentialId String
+ 
+   borrowerEmail String
+   borrowerName  String?
+   borrowerDept  String?
+ 
+-  type          String    @default("borrow") // borrow, booking
+-  status        String    @default("active") // active, returned, partial
+-  startsAt      DateTime  @default(now())
+-  dueAt         DateTime?
+-  borrowedAt    DateTime  @default(now())
+-  returnedAt    DateTime?
+-  notes         String?
+-
+-  adjustmentOutId Int?    // Accurate adjustment ID for borrow (ADJUSTMENT_OUT)
+-  adjustmentInId  Int?    // Accurate adjustment ID for return (ADJUSTMENT_IN)
+-
+-  items         BorrowingItem[]
+-  activities    BorrowingActivity[]
+-  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+-  credential    AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
++  type       String    @default("borrow") // borrow, booking
++  status     String    @default("active") // active, returned, partial
++  startsAt   DateTime  @default(now())
++  dueAt      DateTime?
++  borrowedAt DateTime  @default(now())
++  returnedAt DateTime?
++  notes      String?
++
++  adjustmentOutId Int? // Accurate adjustment ID for borrow (ADJUSTMENT_OUT)
++  adjustmentInId  Int? // Accurate adjustment ID for return (ADJUSTMENT_IN)
++
++  items      BorrowingItem[]
++  activities BorrowingActivity[]
++  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
++  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+ }
+ 
+ model BorrowingItem {
+-  id          String    @id @default(uuid())
+-  sessionId   String
+-  session     BorrowingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
++  id        String           @id @default(uuid())
++  sessionId String
++  session   BorrowingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+ 
+-  itemCode    String    // Accurate item code
+-  itemName    String    // Cached from Accurate
+-  quantity    Int       @default(1)
++  itemCode String // Accurate item code
++  itemName String // Cached from Accurate
++  quantity Int    @default(1)
+ 
+   returnedQty Int       @default(0)
+   returnedAt  DateTime?
+ }
+ 
+ model BorrowingActivity {
+-  id            String    @id @default(uuid())
+-  userId        String
+-  credentialId  String
+-  sessionId     String?
++  id           String  @id @default(uuid())
++  userId       String
++  credentialId String
++  sessionId    String?
+ 
+   itemCode      String
+   itemName      String
+@@ -197,17 +203,108 @@ model BorrowingActivity {
+   borrowerName  String?
+   borrowerDept  String?
+ 
+-  activityType  String    // borrow, booking, return
++  activityType  String // borrow, booking, return
+   quantity      Int       @default(1)
+   occurredAt    DateTime  @default(now())
+   scheduleStart DateTime?
+   scheduleEnd   DateTime?
+   details       String?
+ 
+-  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+-  credential    AccurateCredentials   @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+-  session       BorrowingSession?     @relation(fields: [sessionId], references: [id], onDelete: SetNull)
++  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
++  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
++  session    BorrowingSession?   @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+ 
+   @@index([credentialId, occurredAt])
+   @@index([credentialId, itemCode, occurredAt])
+ }
++
++model PosSettings {
++  id            String   @id @default(uuid())
++  userId        String
++  credentialId  String   @unique
++  warehouseId   Int
++  warehouseName String
++  createdAt     DateTime @default(now())
++  updatedAt     DateTime @updatedAt
++
++  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
++  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
++
++  @@index([userId])
++}
++
++model PosReservation {
++  id           String    @id @default(uuid())
++  userId       String
++  credentialId String
++  reference    String    @unique
++  staffEmail   String
++  staffName    String?
++  status       String    @default("active") // active, picked_up, cancelled, expired
++  expiresAt    DateTime
++  pickupAt     DateTime?
++  cancelledAt  DateTime?
++  createdAt    DateTime  @default(now())
++  updatedAt    DateTime  @updatedAt
++
++  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
++  credential AccurateCredentials  @relation(fields: [credentialId], references: [id], onDelete: Cascade)
++  items      PosReservationItem[]
++  sale       PosSale?
++
++  @@index([credentialId, status, expiresAt])
++  @@index([userId, createdAt])
++}
++
++model PosReservationItem {
++  id            String  @id @default(uuid())
++  reservationId String
++  itemCode      String
++  itemName      String
++  quantity      Int
++  unitPrice     Decimal @db.Decimal(18, 2)
++  unitCost      Decimal @db.Decimal(18, 2)
++
++  reservation PosReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
++
++  @@index([reservationId, itemCode])
++}
++
++model PosSale {
++  id             String    @id @default(uuid())
++  userId         String
++  credentialId   String
++  reservationId  String?   @unique
++  idempotencyKey String
++  warehouseId    Int
++  warehouseName  String
++  paymentMethod  String
++  status         String    @default("pending_sync") // pending_sync, synced, sync_error
++  accurateId     Int?
++  syncError      String?
++  createdAt      DateTime  @default(now())
++  syncedAt       DateTime?
++
++  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
++  credential  AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
++  reservation PosReservation?     @relation(fields: [reservationId], references: [id], onDelete: SetNull)
++  items       PosSaleItem[]
++
++  @@unique([userId, idempotencyKey])
++  @@index([credentialId, createdAt])
++  @@index([credentialId, status])
++}
++
++model PosSaleItem {
++  id        String  @id @default(uuid())
++  saleId    String
++  itemCode  String
++  itemName  String
++  quantity  Int
++  unitPrice Decimal @db.Decimal(18, 2)
++  unitCost  Decimal @db.Decimal(18, 2)
++
++  sale PosSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
++
++  @@index([saleId, itemCode])
++}

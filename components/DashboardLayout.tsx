@@ -35,6 +35,8 @@ import {
   IconClipboardList,
   IconChartBar,
   IconChartLine,
+  IconShoppingCart,
+  IconBuildingWarehouse,
 } from "@tabler/icons-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
@@ -192,6 +194,16 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       href: "/dashboard/peminjaman",
     },
     {
+      label: "POS Cashier",
+      icon: <IconShoppingCart size={20} />,
+      href: "/dashboard/pos",
+    },
+    {
+      label: "POS Warehouse",
+      icon: <IconBuildingWarehouse size={20} />,
+      href: "/dashboard/pos/settings",
+    },
+    {
       label: "Analytics",
       icon: <IconChartBar size={20} />,
       children: [
@@ -209,6 +221,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           label: "Pengambilan",
           icon: <IconScan size={16} />,
           href: "/dashboard/analytics/pengambilan",
+        },
+        {
+          label: "POS Sales",
+          icon: <IconShoppingCart size={16} />,
+          href: "/dashboard/analytics/pos",
         },
       ],
     },

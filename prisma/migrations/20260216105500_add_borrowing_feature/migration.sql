@@ -10,6 +10,14 @@ CREATE TABLE IF NOT EXISTS "BorrowableItem" (
   CONSTRAINT "BorrowableItem_pkey" PRIMARY KEY ("id")
 );
 
+-- Legacy installations created this table before ownership fields existed.
+-- Add them before the index and foreign keys below so the migration remains safe.
+ALTER TABLE "BorrowableItem"
+  ADD COLUMN IF NOT EXISTS "userId" TEXT;
+
+ALTER TABLE "BorrowableItem"
+  ADD COLUMN IF NOT EXISTS "credentialId" TEXT;
+
 CREATE UNIQUE INDEX IF NOT EXISTS "BorrowableItem_credentialId_itemCode_key"
 ON "BorrowableItem"("credentialId", "itemCode");
 
@@ -77,42 +85,30 @@ ON "BorrowingActivity"("credentialId", "occurredAt");
 CREATE INDEX IF NOT EXISTS "BorrowingActivity_credentialId_itemCode_occurredAt_idx"
 ON "BorrowingActivity"("credentialId", "itemCode", "occurredAt");
 
-ALTER TABLE "BorrowableItem"
-  ADD CONSTRAINT "BorrowableItem_userId_fkey"
-  FOREIGN KEY ("userId") REFERENCES "User"("id")
-  ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "BorrowableItem"
-  ADD CONSTRAINT "BorrowableItem_credentialId_fkey"
-  FOREIGN KEY ("credentialId") REFERENCES "AccurateCredentials"("id")
-  ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "BorrowingSession"
-  ADD CONSTRAINT "BorrowingSession_userId_fkey"
-  FOREIGN KEY ("userId") REFERENCES "User"("id")
-  ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "BorrowingSession"
-  ADD CONSTRAINT "BorrowingSession_credentialId_fkey"
-  FOREIGN KEY ("credentialId") REFERENCES "AccurateCredentials"("id")
-  ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "BorrowingItem"
-  ADD CONSTRAINT "BorrowingItem_sessionId_fkey"
-  FOREIGN KEY ("sessionId") REFERENCES "BorrowingSession"("id")
-  ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "BorrowingActivity"
-  ADD CONSTRAINT "BorrowingActivity_userId_fkey"
-  FOREIGN KEY ("userId") REFERENCES "User"("id")
-  ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "BorrowingActivity"
-  ADD CONSTRAINT "BorrowingActivity_credentialId_fkey"
-  FOREIGN KEY ("credentialId") REFERENCES "AccurateCredentials"("id")
-  ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "BorrowingActivity"
-  ADD CONSTRAINT "BorrowingActivity_sessionId_fkey"
-  FOREIGN KEY ("sessionId") REFERENCES "BorrowingSession"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BorrowableItem_userId_fkey') THEN
+    ALTER TABLE "BorrowableItem" ADD CONSTRAINT "BorrowableItem_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BorrowableItem_credentialId_fkey') THEN
+    ALTER TABLE "BorrowableItem" ADD CONSTRAINT "BorrowableItem_credentialId_fkey" FOREIGN KEY ("credentialId") REFERENCES "AccurateCredentials"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BorrowingSession_userId_fkey') THEN
+    ALTER TABLE "BorrowingSession" ADD CONSTRAINT "BorrowingSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BorrowingSession_credentialId_fkey') THEN
+    ALTER TABLE "BorrowingSession" ADD CONSTRAINT "BorrowingSession_credentialId_fkey" FOREIGN KEY ("credentialId") REFERENCES "AccurateCredentials"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BorrowingItem_sessionId_fkey') THEN
+    ALTER TABLE "BorrowingItem" ADD CONSTRAINT "BorrowingItem_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "BorrowingSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BorrowingActivity_userId_fkey') THEN
+    ALTER TABLE "BorrowingActivity" ADD CONSTRAINT "BorrowingActivity_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BorrowingActivity_credentialId_fkey') THEN
+    ALTER TABLE "BorrowingActivity" ADD CONSTRAINT "BorrowingActivity_credentialId_fkey" FOREIGN KEY ("credentialId") REFERENCES "AccurateCredentials"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'BorrowingActivity_sessionId_fkey') THEN
+    ALTER TABLE "BorrowingActivity" ADD CONSTRAINT "BorrowingActivity_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "BorrowingSession"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
