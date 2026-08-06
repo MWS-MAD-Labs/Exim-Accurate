@@ -6,7 +6,7 @@ ADD COLUMN     "staffName" TEXT;
 
 -- AlterTable
 ALTER TABLE "PosSettings" ADD COLUMN     "allowancePerWorkingDay" DECIMAL(14,2) NOT NULL DEFAULT 0,
-ADD COLUMN     "workingDays" INTEGER[] DEFAULT ARRAY[1, 2, 3, 4, 5]::INTEGER[];
+ADD COLUMN     "workingDays" INTEGER[] NOT NULL DEFAULT ARRAY[1, 2, 3, 4, 5]::INTEGER[];
 
 -- CreateTable
 CREATE TABLE "PosProduct" (
