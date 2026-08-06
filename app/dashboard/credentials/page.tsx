@@ -13,7 +13,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useState, useEffect, useRef } from "react";
-import { IconTrash, IconCheck, IconKey } from "@tabler/icons-react";
+import { IconTrash, IconCheck, IconKey, IconRefresh } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useSearchParams } from "next/navigation";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -177,6 +177,20 @@ export default function CredentialsPage() {
                   </Table.Td>
                   <Table.Td>
                     <Group gap="xs">
+                      <Tooltip
+                        label={t.dashboard.credentials.reconnectTooltip}
+                        withArrow
+                      >
+                        <ActionIcon
+                          component="a"
+                          href={`/api/accurate/authorize?credentialId=${encodeURIComponent(cred.id)}`}
+                          color="blue"
+                          variant="light"
+                          aria-label={t.dashboard.credentials.reconnectTooltip}
+                        >
+                          <IconRefresh size={16} />
+                        </ActionIcon>
+                      </Tooltip>
                       <Tooltip
                         label={t.dashboard.credentials.disconnectTooltip}
                         withArrow

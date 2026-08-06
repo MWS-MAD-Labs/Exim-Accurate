@@ -191,7 +191,6 @@ export async function refreshAccessToken(
   }
 
   const data = await response.json();
-  console.log("[refreshAccessToken] Response:", JSON.stringify(data, null, 2));
 
   return {
     accessToken: data.access_token,
@@ -304,7 +303,6 @@ export async function accurateFetch<T = any>(
     };
 
     console.log(`Accurate API request: ${url}`);
-    console.log(`Accurate API headers:`, JSON.stringify(headers, null, 2));
 
     const response = await fetch(url, {
       ...options,
@@ -321,6 +319,16 @@ export async function accurateFetch<T = any>(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Accurate API error: ${response.status} ${errorText}`);
+
+      if (response.status === 403 && errorText.includes("insufficient_scope")) {
+        const requiredScope = errorText.match(/<scope>([^<]+)<\/scope>/)?.[1];
+        throw new Error(
+          requiredScope
+            ? `Accurate authorization is missing the ${requiredScope} permission. Reconnect the Accurate account, approve the requested permissions, then retry.`
+            : "Accurate authorization is missing a required permission. Reconnect the Accurate account, approve the requested permissions, then retry."
+        );
+      }
+
       throw new Error(
         `Accurate API error (${response.status}): ${errorText}`
       );

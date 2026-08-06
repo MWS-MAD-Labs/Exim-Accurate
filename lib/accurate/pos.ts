@@ -1,11 +1,14 @@
 import { accurateFetch } from "./client";
-import { saveInventoryAdjustment } from "./inventory";
+import {
+  parseAccurateSaveResponse,
+  saveInventoryAdjustment,
+  type AccurateSaveResponse,
+} from "./inventory";
 
 export interface PosAccurateCredentials { apiToken: string; signatureSecret: string; host: string; session: string; }
 export interface PosWarehouse { id: number; name: string; }
 export interface PosProduct { id: number; itemCode: string; itemName: string; stock: number; unitPrice: number; unitCost: number; warehouseId: number; warehouseName: string; }
 interface AccurateListResponse<T> { d?: T[]; }
-interface AccurateSaveResponse { s: boolean; d: { id: number; r?: string } | string[]; d_message?: string[]; }
 
 export async function listWarehouses(credentials: PosAccurateCredentials): Promise<PosWarehouse[]> {
   const response = await accurateFetch<AccurateListResponse<{ id: number; name: string }>>("/api/warehouse/list.do?fields=id,name&sp.pageSize=100", credentials);
@@ -25,7 +28,7 @@ export async function saveAccurateItem(
   credentials: PosAccurateCredentials,
   item: { accurateItemId?: number | null; itemCode: string; itemName: string; unit: string; buyPrice: number; sellPrice: number },
 ) {
-  const response = await accurateFetch<AccurateSaveResponse>("/api/item/save.do", credentials, {
+  const response = await accurateFetch<AccurateSaveResponse<{ id: number; r?: string }>>("/api/item/save.do", credentials, {
     method: "POST",
     body: {
       id: item.accurateItemId || undefined,
@@ -37,10 +40,7 @@ export async function saveAccurateItem(
       unitCost: item.buyPrice,
     },
   });
-  if (!response.s || Array.isArray(response.d)) {
-    throw new Error((Array.isArray(response.d) ? response.d[0] : response.d_message?.[0]) || "Unable to save Accurate item");
-  }
-  return response.d;
+  return parseAccurateSaveResponse(response, "Unable to save Accurate item");
 }
 
 export async function syncPosProduct(

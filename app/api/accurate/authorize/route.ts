@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { getBaseUrl } from "@/lib/url";
 
 export async function GET(req: NextRequest) {
@@ -22,12 +23,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Scopes for inventory adjustment operations
+  // Scopes required by inventory adjustment and POS product synchronization.
   const scopes = [
     "item_adjustment_view",
     "item_adjustment_save",
     "item_adjustment_delete",
     "item_view",
+    "item_save",
     "warehouse_view",
     "unit_view",
   ].join(" ");
@@ -38,9 +40,18 @@ export async function GET(req: NextRequest) {
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("scope", scopes);
 
-  const state = req.nextUrl.searchParams.get("state");
-  if (state) {
-    authorizeUrl.searchParams.set("state", state);
+  const credentialId = req.nextUrl.searchParams.get("credentialId");
+  if (credentialId) {
+    const credential = await prisma.accurateCredentials.findFirst({
+      where: { id: credentialId, userId: session.user.id },
+      select: { id: true },
+    });
+
+    if (!credential) {
+      return NextResponse.json({ error: "Credential not found" }, { status: 404 });
+    }
+
+    authorizeUrl.searchParams.set("state", credential.id);
   }
 
   return NextResponse.redirect(authorizeUrl.toString());

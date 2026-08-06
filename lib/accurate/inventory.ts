@@ -56,6 +56,26 @@ export interface ItemResponse {
   }>;
 }
 
+export interface AccurateSaveResponse<T> {
+  s?: boolean;
+  r?: T;
+  d?: T | string[];
+  d_message?: string[];
+}
+
+export function parseAccurateSaveResponse<T>(
+  response: AccurateSaveResponse<T>,
+  fallbackMessage: string,
+): T {
+  const result = response.r ?? (Array.isArray(response.d) ? undefined : response.d);
+  if (result && response.s !== false) {
+    return result;
+  }
+
+  const messages = Array.isArray(response.d) ? response.d : response.d_message;
+  throw new Error(messages?.[0] || fallbackMessage);
+}
+
 /**
  * List inventory adjustments with pagination
  */
@@ -144,7 +164,7 @@ export async function saveInventoryAdjustment(
     })),
   };
 
-  const response = await accurateFetch<{ d: { id: number } | string[]; s: boolean; d_message?: string[] }>(
+  const response = await accurateFetch<AccurateSaveResponse<{ id: number; r?: string; number?: string }>>(
     `/api/item-adjustment/save.do`,
     credentials,
     {
@@ -155,15 +175,15 @@ export async function saveInventoryAdjustment(
 
   console.log("[saveInventoryAdjustment] Response:", JSON.stringify(response).substring(0, 500));
 
-  if (!response.s) {
-    // When error, d can be an array of error messages
-    const errorMessages = Array.isArray(response.d) ? response.d : response.d_message;
-    throw new Error(errorMessages?.[0] || "Failed to save inventory adjustment");
-  }
+  const saved = parseAccurateSaveResponse(
+    response,
+    "Failed to save inventory adjustment",
+  );
 
-  // Accurate success response 'd' typically contains { id: number, r: string }
-  // where 'r' is the record number (e.g. IA.2023.00001)
-  return response.d as { id: number; r: string };
+  return {
+    id: saved.id,
+    r: saved.r || saved.number || String(saved.id),
+  };
 }
 
 /**

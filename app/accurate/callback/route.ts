@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
   const error = searchParams.get("error");
+  const credentialId = searchParams.get("state");
 
   if (error) {
     return redirectWithStatus(
@@ -86,10 +87,6 @@ export async function GET(req: NextRequest) {
     }
 
     const tokenJson = await tokenResponse.json();
-    console.log(
-      "[OAuth callback] Token response:",
-      JSON.stringify(tokenJson, null, 2),
-    );
 
     const apiToken =
       tokenJson.access_token || tokenJson.api_token || tokenJson.token;
@@ -105,18 +102,33 @@ export async function GET(req: NextRequest) {
       dbId,
     } = await resolveHost(apiToken);
 
-    await prisma.accurateCredentials.create({
-      data: {
-        userId: session.user.id,
-        appKey,
-        signatureSecret,
-        apiToken,
-        refreshToken,
-        host,
-        session: accurateSession,
-        dbId,
-      },
-    });
+    const credentialData = {
+      appKey,
+      signatureSecret,
+      apiToken,
+      refreshToken,
+      host,
+      session: accurateSession,
+      dbId,
+    };
+
+    if (credentialId) {
+      const updated = await prisma.accurateCredentials.updateMany({
+        where: { id: credentialId, userId: session.user.id },
+        data: credentialData,
+      });
+
+      if (updated.count === 0) {
+        throw new Error("Kredensial Accurate yang akan dihubungkan ulang tidak ditemukan");
+      }
+    } else {
+      await prisma.accurateCredentials.create({
+        data: {
+          userId: session.user.id,
+          ...credentialData,
+        },
+      });
+    }
 
     return redirectWithStatus(req, "status=connected");
   } catch (err: any) {

@@ -55,6 +55,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const failed = results.filter((result) => result.status === "error").length;
-  return NextResponse.json({ synced: results.length - failed, failed, results }, { status: failed > 0 ? 207 : 200 });
+  const failedResults = results.filter((result) => result.status === "error");
+  const failed = failedResults.length;
+  return NextResponse.json(
+    {
+      synced: results.length - failed,
+      failed,
+      results,
+      error: failedResults[0]?.error,
+    },
+    { status: failed > 0 ? 207 : 200 },
+  );
 }

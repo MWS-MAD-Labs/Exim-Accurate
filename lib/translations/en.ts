@@ -285,6 +285,7 @@ export const en = {
         action: "Action",
         notDetected: "Not detected",
       },
+      reconnectTooltip: "Reconnect account and refresh permissions",
       disconnectTooltip: "Disconnect account",
       disconnectConfirm: "Are you sure you want to delete this credential?",
       notifications: {

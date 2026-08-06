@@ -284,6 +284,7 @@ export const id = {
         action: "Aksi",
         notDetected: "Belum terdeteksi",
       },
+      reconnectTooltip: "Hubungkan ulang akun dan perbarui izin",
       disconnectTooltip: "Putuskan akun",
       disconnectConfirm: "Yakin ingin menghapus kredensial ini?",
       notifications: {
