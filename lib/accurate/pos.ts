@@ -50,6 +50,13 @@ export async function syncPosProduct(
 ) {
   const existing = await findAccurateItemByCode(credentials, product.itemCode);
   const saved = await saveAccurateItem(credentials, { ...product, accurateItemId: existing?.id ?? product.accurateItemId });
+
+  // Accurate rejects zero-quantity adjustment lines. A new/empty item already
+  // has zero stock, so there is no inventory movement to record.
+  if (product.stock === 0) {
+    return { accurateItemId: saved.id, adjustmentId: null, adjustmentNumber: null };
+  }
+
   const adjustment = await saveInventoryAdjustment(credentials, {
     transDate: new Date().toISOString().slice(0, 10),
     description: `POS product sync ${product.itemCode}`,
