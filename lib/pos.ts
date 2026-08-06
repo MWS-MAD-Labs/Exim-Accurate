@@ -117,18 +117,56 @@ export function countWorkingDaysInMonth(
   return count;
 }
 
+export interface AllowancePeriod {
+  startsAt: Date;
+  endsAt: Date;
+}
+
+export function startOfDate(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+export function getRecurringAllowancePeriod(cutoffDay: number, now = new Date()): AllowancePeriod {
+  const currentDate = startOfDate(now);
+  const endsThisMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), cutoffDay);
+  const endsAt = currentDate <= endsThisMonth
+    ? endsThisMonth
+    : new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, cutoffDay);
+  const startsAt = new Date(endsAt.getFullYear(), endsAt.getMonth() - 1, cutoffDay + 1);
+  return { startsAt, endsAt };
+}
+
+export function countWorkingDaysInPeriod(
+  startsAt: Date,
+  endsAt: Date,
+  workingDays: readonly number[],
+  holidayDates: readonly string[] = [],
+) {
+  const workingDaySet = new Set(workingDays);
+  const holidayDateSet = new Set(holidayDates);
+  let count = 0;
+  for (let cursor = startOfDate(startsAt); cursor <= endsAt; cursor.setDate(cursor.getDate() + 1)) {
+    if (workingDaySet.has(cursor.getDay()) && !holidayDateSet.has(toDateOnlyValue(cursor))) count += 1;
+  }
+  return count;
+}
+
+export function calculateAllowanceForPeriod(
+  allowancePerWorkingDay: number,
+  workingDays: readonly number[],
+  period: AllowancePeriod,
+  holidayDates: readonly string[] = [],
+) {
+  return countWorkingDaysInPeriod(period.startsAt, period.endsAt, workingDays, holidayDates) * allowancePerWorkingDay;
+}
+
 export function calculateMonthlyAllowance(
   allowancePerWorkingDay: number,
   workingDays: readonly number[],
   now = new Date(),
   holidayDates: readonly string[] = [],
 ) {
-  const workingDayCount = countWorkingDaysInMonth(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    workingDays,
-    holidayDates,
-  );
+  const workingDayCount = countWorkingDaysInMonth(now.getFullYear(), now.getMonth() + 1, workingDays, holidayDates);
   return workingDayCount * allowancePerWorkingDay;
 }
 

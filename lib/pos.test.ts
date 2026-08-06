@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   availableQuantity,
+  calculateAllowanceForPeriod,
   calculateMonthlyAllowance,
   calculateProfit,
   calculateRemainingAllowance,
   countWorkingDaysInMonth,
+  getRecurringAllowancePeriod,
   isReservationActive,
   reservationStatusAt,
   toggleHolidayDate,
@@ -52,6 +54,27 @@ test("ignores holidays outside the requested month", () => {
 test("toggles a holiday back to a working date", () => {
   assert.deepEqual(toggleHolidayDate([], "2026-08-03"), ["2026-08-03"]);
   assert.deepEqual(toggleHolidayDate(["2026-08-03"], "2026-08-03"), []);
+});
+
+test("uses a 23rd–22nd recurring allowance period for cutoff day 22", () => {
+  assert.deepEqual(
+    getRecurringAllowancePeriod(22, new Date(2026, 8, 10)),
+    { startsAt: new Date(2026, 7, 23), endsAt: new Date(2026, 8, 22) },
+  );
+  assert.deepEqual(
+    getRecurringAllowancePeriod(22, new Date(2026, 8, 23)),
+    { startsAt: new Date(2026, 8, 23), endsAt: new Date(2026, 9, 22) },
+  );
+});
+
+test("calculates an allowance across a custom inclusive period", () => {
+  const total = calculateAllowanceForPeriod(
+    50000,
+    [1, 2, 3, 4, 5],
+    { startsAt: new Date(2026, 5, 10), endsAt: new Date(2026, 6, 5) },
+    ["2026-06-17"],
+  );
+  assert.equal(total, 17 * 50000);
 });
 
 test("calculates the monthly staff allowance total from a daily rate", () => {

@@ -53,6 +53,7 @@ model AccurateCredentials {
   posReservations     PosReservation[]
   posAllocations      PosStockAllocation[]
   posProducts         PosProduct[]
+  posAllowancePeriodOverrides PosAllowancePeriodOverride[]
 }
 
 // Self Checkout feature - tracks staff checkout sessions
@@ -234,11 +235,26 @@ model PosSettings {
   allowancePerWorkingDay Decimal  @default(0) @db.Decimal(14, 2)
   workingDays            Int[]    @default([1, 2, 3, 4, 5]) // 0=Sunday .. 6=Saturday
   holidayDates           String[] @default([]) // Date-only values in YYYY-MM-DD format
+  allowanceCutoffDay     Int      @default(22) // Normal cycle ends on this day; the next starts the day after
 
   user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// One-off inclusive allowance periods, used when the normal cutoff cycle changes.
+model PosAllowancePeriodOverride {
+  id           String   @id @default(uuid())
+  credentialId String
+  startsAt     DateTime
+  endsAt       DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@index([credentialId, startsAt, endsAt])
 }
 
 // Local POS product catalog is the source of truth for stock and pricing.

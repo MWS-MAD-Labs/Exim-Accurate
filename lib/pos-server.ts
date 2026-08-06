@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import type { PosAccurateCredentials, PosProduct } from "@/lib/accurate/pos";
-import { calculateMonthlyAllowance, calculateRemainingAllowance } from "@/lib/pos";
+import { calculateAllowanceForPeriod, calculateRemainingAllowance, getRecurringAllowancePeriod, startOfDate, type AllowancePeriod } from "@/lib/pos";
 
 export async function getOwnedCredential(userId: string, credentialId: string) {
   return prisma.accurateCredentials.findFirst({ where: { id: credentialId, userId } });
@@ -36,23 +36,35 @@ export async function getStaffAllowance(credentialId: string, staffEmail: string
   const allowancePerWorkingDay = Number(settings?.allowancePerWorkingDay ?? 0);
   const workingDays = settings?.workingDays ?? [1, 2, 3, 4, 5];
   const holidayDates = settings?.holidayDates ?? [];
-  const total = calculateMonthlyAllowance(allowancePerWorkingDay, workingDays, now, holidayDates);
-
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const today = startOfDate(now);
+  const override = await prisma.posAllowancePeriodOverride.findFirst({
+    where: { credentialId, startsAt: { lte: today }, endsAt: { gte: today } },
+    orderBy: { startsAt: "desc" },
+  });
+  const period: AllowancePeriod = override
+    ? { startsAt: startOfDate(override.startsAt), endsAt: startOfDate(override.endsAt) }
+    : getRecurringAllowancePeriod(settings?.allowanceCutoffDay ?? 22, now);
+  const total = calculateAllowanceForPeriod(allowancePerWorkingDay, workingDays, period, holidayDates);
+  const periodEndExclusive = new Date(period.endsAt);
+  periodEndExclusive.setDate(periodEndExclusive.getDate() + 1);
   const usedSales = await prisma.posSale.findMany({
     where: {
       credentialId,
       staffEmail: staffEmail.toLowerCase().trim(),
       paymentMethod: "allowance",
       status: { not: "sync_error" },
-      createdAt: { gte: monthStart, lt: monthEnd },
+      createdAt: { gte: period.startsAt, lt: periodEndExclusive },
     },
     select: { allowanceUsed: true },
   });
   const used = usedSales.reduce((sum, sale) => sum + Number(sale.allowanceUsed), 0);
 
-  return { total, used, remaining: calculateRemainingAllowance(total, used) };
+  return {
+    total,
+    used,
+    remaining: calculateRemainingAllowance(total, used),
+    period: { startsAt: period.startsAt.toISOString(), endsAt: period.endsAt.toISOString(), isCustom: !!override },
+  };
 }
 
 export function canonicalizeRequestedItems(items: Array<{ itemCode: string; quantity: number }>) {

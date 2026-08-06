@@ -9,12 +9,13 @@ import {
   Select,
   Stack,
   Text,
+  TextInput,
   Title,
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/lib/language";
-import { toDateOnlyValue, toggleHolidayDate } from "@/lib/pos";
+import { getRecurringAllowancePeriod, toDateOnlyValue, toggleHolidayDate } from "@/lib/pos";
 
 interface Credential {
   id: string;
@@ -33,6 +34,13 @@ interface Settings {
   allowancePerWorkingDay: string;
   workingDays: number[];
   holidayDates: string[];
+  allowanceCutoffDay: number;
+  allowancePeriodOverrides: Array<{ id: string; startsAt: string; endsAt: string }>;
+}
+
+interface AllowancePeriodOverride {
+  startsAt: string;
+  endsAt: string;
 }
 
 export default function PosSettingsPage() {
@@ -45,6 +53,8 @@ export default function PosSettingsPage() {
   const [allowancePerWorkingDay, setAllowancePerWorkingDay] = useState<number | "">(0);
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [holidayDates, setHolidayDates] = useState<string[]>([]);
+  const [allowanceCutoffDay, setAllowanceCutoffDay] = useState<number | "">(22);
+  const [allowancePeriodOverrides, setAllowancePeriodOverrides] = useState<AllowancePeriodOverride[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -71,21 +81,45 @@ export default function PosSettingsPage() {
         setAllowancePerWorkingDay(Number(existing.allowancePerWorkingDay));
         setWorkingDays(existing.workingDays);
         setHolidayDates(existing.holidayDates);
+        setAllowanceCutoffDay(existing.allowanceCutoffDay);
+        setAllowancePeriodOverrides(existing.allowancePeriodOverrides.map(({ startsAt, endsAt }) => ({
+          startsAt: startsAt.slice(0, 10),
+          endsAt: endsAt.slice(0, 10),
+        })));
       } else {
         setWarehouseId(null);
         setWarehouseName("");
         setAllowancePerWorkingDay(0);
         setWorkingDays([1, 2, 3, 4, 5]);
         setHolidayDates([]);
+        setAllowanceCutoffDay(22);
+        setAllowancePeriodOverrides([]);
       }
     }
   };
 
-  const toggleHoliday = (date: Date) => {
+  const toggleNoAllowance = (date: Date) => {
     if (!workingDays.includes(date.getDay())) return;
     setHolidayDates((current) => toggleHolidayDate(current, toDateOnlyValue(date)));
   };
 
+  const getPeriodStyle = (date: Date) => {
+    const dateValue = toDateOnlyValue(date);
+    const customPeriod = allowancePeriodOverrides.find((period) => (
+      period.startsAt && period.endsAt && period.startsAt <= dateValue && dateValue <= period.endsAt
+    ));
+    if (customPeriod) {
+      return {
+        backgroundColor: "var(--mantine-color-violet-light)",
+        color: "var(--mantine-color-violet-light-color)",
+      };
+    }
+    const period = getRecurringAllowancePeriod(typeof allowanceCutoffDay === "number" ? allowanceCutoffDay : 22, date);
+    const cycleIndex = period.endsAt.getFullYear() * 12 + period.endsAt.getMonth();
+    return cycleIndex % 2 === 0
+      ? { backgroundColor: "var(--mantine-color-blue-light)", color: "var(--mantine-color-blue-light-color)" }
+      : { backgroundColor: "var(--mantine-color-teal-light)", color: "var(--mantine-color-teal-light-color)" };
+  };
 
   const save = async () => {
     if (!credentialId || !warehouseId || !warehouseName) return;
@@ -101,6 +135,8 @@ export default function PosSettingsPage() {
           allowancePerWorkingDay: allowancePerWorkingDay || 0,
           workingDays,
           holidayDates,
+          allowanceCutoffDay: allowanceCutoffDay || 22,
+          allowancePeriodOverrides,
         }),
       });
       const data = await response.json();
@@ -141,6 +177,47 @@ export default function PosSettingsPage() {
             min={0}
             disabled={!credentialId}
           />
+          <NumberInput
+            label={t.dashboard.pos.allowanceCutoffDay}
+            description={t.dashboard.pos.allowanceCutoffDayDescription}
+            value={allowanceCutoffDay}
+            onChange={(value) => setAllowanceCutoffDay(typeof value === "number" ? value : "")}
+            min={1}
+            max={28}
+            disabled={!credentialId}
+          />
+          <Stack gap="xs">
+            <Text size="sm" fw={500}>
+              {t.dashboard.pos.customAllowancePeriods}
+            </Text>
+            <Text size="xs" c="dimmed">
+              {t.dashboard.pos.customAllowancePeriodsDescription}
+            </Text>
+            {allowancePeriodOverrides.map((period, index) => (
+              <Group key={index} align="end" wrap="nowrap">
+                <TextInput
+                  type="date"
+                  label={t.dashboard.pos.periodStart}
+                  value={period.startsAt}
+                  onChange={(event) => setAllowancePeriodOverrides((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, startsAt: event.currentTarget.value } : entry))}
+                  disabled={!credentialId}
+                />
+                <TextInput
+                  type="date"
+                  label={t.dashboard.pos.periodCutoff}
+                  value={period.endsAt}
+                  onChange={(event) => setAllowancePeriodOverrides((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, endsAt: event.currentTarget.value } : entry))}
+                  disabled={!credentialId}
+                />
+                <Button color="red" variant="subtle" onClick={() => setAllowancePeriodOverrides((current) => current.filter((_, entryIndex) => entryIndex !== index))} disabled={!credentialId}>
+                  {t.dashboard.pos.remove}
+                </Button>
+              </Group>
+            ))}
+            <Button variant="light" onClick={() => setAllowancePeriodOverrides((current) => [...current, { startsAt: "", endsAt: "" }])} disabled={!credentialId}>
+              {t.dashboard.pos.addCustomAllowancePeriod}
+            </Button>
+          </Stack>
           <Stack gap="xs">
             <Text size="sm" fw={500}>
               {t.dashboard.pos.workingDays}
@@ -150,36 +227,39 @@ export default function PosSettingsPage() {
             </Text>
             <DatePicker
               defaultDate={new Date()}
-              onChange={(date) => date && toggleHoliday(date)}
+              numberOfColumns={2}
+              onChange={(date) => date && toggleNoAllowance(date)}
               getDayProps={(date) => {
                 const dateValue = toDateOnlyValue(date);
                 const isWorkingDay = workingDays.includes(date.getDay());
-                const isHoliday = holidayDates.includes(dateValue);
+                const hasNoAllowance = holidayDates.includes(dateValue);
                 return {
                   disabled: !credentialId || !isWorkingDay,
-                  "aria-label": `${dateValue}: ${isHoliday ? t.dashboard.pos.holiday : t.dashboard.pos.workingDay}`,
-                  style: isHoliday
+                  "aria-label": `${dateValue}: ${hasNoAllowance ? t.dashboard.pos.noAllowance : t.dashboard.pos.workingDay}`,
+                  style: hasNoAllowance
                     ? {
                         backgroundColor: "var(--mantine-color-red-6)",
                         color: "var(--mantine-color-white)",
                         fontWeight: 700,
                       }
                     : isWorkingDay
-                      ? {
-                          backgroundColor: "var(--mantine-color-blue-light)",
-                          color: "var(--mantine-color-blue-light-color)",
-                          fontWeight: 600,
-                        }
+                      ? { ...getPeriodStyle(date), fontWeight: 600 }
                       : undefined,
                 };
               }}
             />
             <Group gap="xs">
               <Badge color="blue" variant="light">
-                {t.dashboard.pos.workingDay}
+                {t.dashboard.pos.allowancePeriodA}
+              </Badge>
+              <Badge color="teal" variant="light">
+                {t.dashboard.pos.allowancePeriodB}
+              </Badge>
+              <Badge color="violet" variant="light">
+                {t.dashboard.pos.customPeriod}
               </Badge>
               <Badge color="red" variant="filled">
-                {t.dashboard.pos.holiday}
+                {t.dashboard.pos.noAllowance}
               </Badge>
             </Group>
           </Stack>

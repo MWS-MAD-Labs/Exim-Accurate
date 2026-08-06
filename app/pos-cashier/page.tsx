@@ -55,6 +55,7 @@ interface Allowance {
   total: number;
   used: number;
   remaining: number;
+  period: { startsAt: string; endsAt: string; isCustom: boolean };
 }
 
 type PaymentMethod = "allowance" | "cash" | "qris";
@@ -353,6 +354,10 @@ export default function PosCashierPage() {
                   </Text>
                   <Text>{allowance.used.toLocaleString()}</Text>
                 </Group>
+                <Text size="xs" c="dimmed" mt="sm">
+                  {t.dashboard.pos.allowancePeriod}: {allowance.period.startsAt.slice(0, 10)} – {allowance.period.endsAt.slice(0, 10)}
+                  {allowance.period.isCustom ? ` (${t.dashboard.pos.customPeriod})` : ""}
+                </Text>
               </Card>
             )}
           </Stack>
