@@ -16,6 +16,7 @@ import {
   TextInput,
   ThemeIcon,
   Title,
+  rem,
 } from "@mantine/core";
 import {
   IconArrowLeft,
@@ -123,6 +124,27 @@ export default function PosCashierPage() {
     () => cart.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0),
     [cart],
   );
+
+  const glassStyle = {
+    background: "var(--cashier-panel)",
+    backdropFilter: "blur(24px)",
+    border: "1px solid var(--cashier-stroke)",
+    borderRadius: rem(22),
+    boxShadow: "0 24px 60px rgba(3, 8, 20, 0.5)",
+  };
+  const softPanelStyle = {
+    background: "var(--cashier-panel-soft)",
+    border: "1px solid var(--cashier-stroke)",
+    borderRadius: rem(12),
+  };
+  const inputStyles = {
+    label: { color: "rgba(255,255,255,0.78)", fontWeight: 600 },
+    input: {
+      background: "rgba(7, 12, 23, 0.82)",
+      border: "1px solid var(--cashier-stroke)",
+      color: "white",
+    },
+  };
 
   const notify = (opts: Parameters<typeof notifications.show>[0]) =>
     notifications.show(opts, kioskNotificationsStore);
@@ -367,8 +389,19 @@ export default function PosCashierPage() {
   if (!credentialId) {
     return (
       <Center style={{ flex: 1 }} p="xl">
-        <Stack align="center" gap="md" maw={400}>
-          <Title order={2}>{t.dashboard.pos.cashierTitle}</Title>
+        <Stack align="center" gap="lg" maw={440} w="100%" p="xl" style={glassStyle}>
+          <ThemeIcon
+            size={72}
+            radius="xl"
+            variant="gradient"
+            gradient={{ from: "cyan.4", to: "indigo.6", deg: 135 }}
+            style={{ boxShadow: "0 0 28px rgba(56, 189, 248, 0.4)" }}
+          >
+            <IconShoppingCart size={34} />
+          </ThemeIcon>
+          <Title order={2} c="white" ta="center" className="pos-cashier-heading">
+            {t.dashboard.pos.cashierTitle}
+          </Title>
           <Select
             label={t.dashboard.pos.credential}
             data={credentials.map((credential) => ({
@@ -378,6 +411,7 @@ export default function PosCashierPage() {
             value={credentialId}
             onChange={setCredentialId}
             w="100%"
+            styles={inputStyles}
           />
         </Stack>
       </Center>
@@ -385,16 +419,32 @@ export default function PosCashierPage() {
   }
 
   return (
-    <Stack style={{ flex: 1 }} p="lg" gap="lg">
-      <Group justify="space-between">
+    <Stack style={{ flex: 1, minHeight: "100vh" }} p={{ base: "md", md: "lg" }} gap="lg">
+      <Group justify="space-between" align="center">
         <Group gap="xs">
-          <ThemeIcon size={40} radius="md" variant="light">
-            <IconShoppingCart size={22} />
+          <ThemeIcon
+            size={44}
+            radius="md"
+            variant="gradient"
+            gradient={{ from: "cyan.4", to: "indigo.6", deg: 135 }}
+            style={{ boxShadow: "0 0 22px rgba(56, 189, 248, 0.35)" }}
+          >
+            <IconShoppingCart size={24} />
           </ThemeIcon>
-          <Title order={2}>{t.dashboard.pos.cashierTitle}</Title>
+          <Title order={2} c="white" className="pos-cashier-heading">
+            {t.dashboard.pos.cashierTitle}
+          </Title>
         </Group>
         <Group gap="xs">
-          <Badge variant="light" leftSection={<IconKeyboard size={13} />}>
+          <Badge
+            variant="light"
+            leftSection={<IconKeyboard size={13} />}
+            style={{
+              background: "rgba(56, 189, 248, 0.14)",
+              color: "#bae6fd",
+              border: "1px solid rgba(56, 189, 248, 0.28)",
+            }}
+          >
             F2 {language === "id" ? "Cari" : "Search"} · F4 Checkout · Alt+N{" "}
             {language === "id" ? "Baru" : "New"}
           </Badge>
@@ -411,8 +461,14 @@ export default function PosCashierPage() {
       </Group>
 
       {step === "identify" && (
-        <Stack maw={520} mx="auto" style={{ width: "100%" }} gap="lg">
-          <Text ta="center" c="dimmed">
+        <Stack
+          maw={560}
+          mx="auto"
+          p="xl"
+          style={{ ...glassStyle, width: "100%" }}
+          gap="lg"
+        >
+          <Text ta="center" c="rgba(255,255,255,0.68)" size="lg">
             {t.dashboard.pos.identifyBuyer}
           </Text>
           <TextInput
@@ -425,6 +481,8 @@ export default function PosCashierPage() {
               if (event.key === "Enter") void identifyStaff(staffEmail);
             }}
             leftSection={<IconUser size={16} />}
+            size="lg"
+            styles={inputStyles}
           />
           <Group grow>
             <Button
@@ -447,7 +505,7 @@ export default function PosCashierPage() {
 
       {step === "shop" && (
         <Group align="flex-start" grow style={{ flex: 1 }}>
-          <Stack style={{ flex: 1 }}>
+          <Stack style={{ ...glassStyle, flex: 1, padding: rem(22) }}>
             <Box pos="relative">
               <TextInput
                 ref={itemInputRef}
@@ -508,6 +566,8 @@ export default function PosCashierPage() {
                     : undefined
                 }
                 autoComplete="off"
+                size="lg"
+                styles={inputStyles}
               />
               {suggestions.length > 0 && (
                 <Card
@@ -521,7 +581,7 @@ export default function PosCashierPage() {
                   left={0}
                   right={0}
                   mt={4}
-                  style={{ zIndex: 20 }}
+                  style={{ ...glassStyle, zIndex: 20, borderRadius: rem(12) }}
                 >
                   <Stack gap={2}>
                     {suggestions.map((product, index) => (
@@ -537,8 +597,12 @@ export default function PosCashierPage() {
                           cursor: "pointer",
                           background:
                             index === highlightedSuggestion
-                              ? "var(--mantine-color-blue-light)"
-                              : undefined,
+                              ? "rgba(56, 189, 248, 0.16)"
+                              : "rgba(7, 12, 23, 0.5)",
+                          border:
+                            index === highlightedSuggestion
+                              ? "1px solid rgba(56, 189, 248, 0.3)"
+                              : "1px solid transparent",
                         }}
                         onMouseEnter={() => {
                           setHighlightedSuggestion(index);
@@ -551,18 +615,18 @@ export default function PosCashierPage() {
                       >
                         <Group justify="space-between" wrap="nowrap">
                           <Box>
-                            <Text size="sm" fw={600}>
+                            <Text size="sm" fw={600} c="white">
                               {product.itemName}
                             </Text>
-                            <Text size="xs" c="dimmed">
+                            <Text size="xs" c="rgba(255,255,255,0.55)">
                               {product.itemCode}
                             </Text>
                           </Box>
                           <Stack gap={0} align="flex-end">
-                            <Text size="sm">
+                            <Text size="sm" c="white">
                               {product.unitPrice.toLocaleString()}
                             </Text>
-                            <Text size="xs" c="dimmed">
+                            <Text size="xs" c="rgba(255,255,255,0.55)">
                               Stock: {product.stock}
                             </Text>
                           </Stack>
@@ -573,7 +637,7 @@ export default function PosCashierPage() {
                 </Card>
               )}
             </Box>
-            <Text size="xs" c="dimmed">
+            <Text size="xs" c="rgba(255,255,255,0.58)">
               {language === "id"
                 ? "Gunakan ↑/↓ untuk memilih saran, Enter untuk menambahkan, dan F4 untuk checkout. Barcode scanner dapat langsung mengetik ke kolom ini."
                 : "Use ↑/↓ to choose a suggestion, Enter to add it, and F4 to checkout. A barcode scanner can type directly into this field."}
@@ -581,9 +645,11 @@ export default function PosCashierPage() {
           </Stack>
 
           <Stack style={{ flex: 1 }}>
-            <Card withBorder>
-              <Group justify="space-between" mb="xs">
-                <Text fw={600}>{t.dashboard.pos.cart}</Text>
+            <Card p="lg" style={glassStyle}>
+              <Group justify="space-between" mb="md">
+                <Text fw={600} c="white" size="lg" className="pos-cashier-heading">
+                  {t.dashboard.pos.cart}
+                </Text>
                 {buyerType === "staff" && (
                   <Badge color="blue">{staffName || staffEmail}</Badge>
                 )}
@@ -597,25 +663,31 @@ export default function PosCashierPage() {
                     key={line.itemCode}
                     justify="space-between"
                     wrap="nowrap"
+                    p="sm"
+                    style={softPanelStyle}
                   >
                     <Box style={{ flex: 1 }}>
-                      <Text size="sm">{line.itemName}</Text>
-                      <Text size="xs" c="dimmed">
+                      <Text size="sm" c="white" fw={500}>
+                        {line.itemName}
+                      </Text>
+                      <Text size="xs" c="rgba(255,255,255,0.55)">
                         {line.unitPrice.toLocaleString()} x {line.quantity}
                       </Text>
                     </Box>
                     <Group gap={4}>
                       <ActionIcon
-                        variant="light"
+                        variant="subtle"
+                        style={softPanelStyle}
                         onClick={() => updateQuantity(line.itemCode, -1)}
                       >
                         -
                       </ActionIcon>
-                      <Text w={24} ta="center">
+                      <Text w={24} ta="center" c="white" fw={600}>
                         {line.quantity}
                       </Text>
                       <ActionIcon
-                        variant="light"
+                        variant="subtle"
+                        style={softPanelStyle}
                         onClick={() => updateQuantity(line.itemCode, 1)}
                       >
                         +
@@ -623,6 +695,10 @@ export default function PosCashierPage() {
                       <ActionIcon
                         variant="subtle"
                         color="red"
+                        style={{
+                          background: "rgba(239, 68, 68, 0.1)",
+                          border: "1px solid rgba(239, 68, 68, 0.3)",
+                        }}
                         onClick={() => removeItem(line.itemCode)}
                       >
                         <IconTrash size={16} />
@@ -631,14 +707,29 @@ export default function PosCashierPage() {
                   </Group>
                 ))}
                 {cart.length === 0 && (
-                  <Text c="dimmed" size="sm">
-                    {t.dashboard.pos.scanItem}
-                  </Text>
+                  <Center mih={150}>
+                    <Stack align="center" gap="sm">
+                      <ThemeIcon
+                        size={56}
+                        radius="xl"
+                        variant="light"
+                        color="gray"
+                        style={softPanelStyle}
+                      >
+                        <IconShoppingCart size={28} />
+                      </ThemeIcon>
+                      <Text c="rgba(255,255,255,0.55)" size="sm" ta="center">
+                        {t.dashboard.pos.scanItem}
+                      </Text>
+                    </Stack>
+                  </Center>
                 )}
               </Stack>
               <Group justify="space-between" mt="md">
-                <Text fw={700}>{t.dashboard.pos.total}</Text>
-                <Text fw={700} size="lg">
+                <Text fw={700} c="rgba(255,255,255,0.75)">
+                  {t.dashboard.pos.total}
+                </Text>
+                <Text fw={700} size="xl" c="white">
                   {total.toLocaleString()}
                 </Text>
               </Group>
@@ -654,23 +745,25 @@ export default function PosCashierPage() {
             </Card>
 
             {buyerType === "staff" && allowance && (
-              <Card withBorder>
-                <Text fw={600} mb={4}>
+              <Card p="lg" style={glassStyle}>
+                <Text fw={600} mb={8} c="white" className="pos-cashier-heading">
                   {t.dashboard.pos.allowanceBalance}
                 </Text>
                 <Group justify="space-between">
-                  <Text size="sm" c="dimmed">
+                  <Text size="sm" c="rgba(255,255,255,0.6)">
                     {t.dashboard.pos.allowanceRemaining}
                   </Text>
-                  <Text fw={600}>{allowance.remaining.toLocaleString()}</Text>
+                  <Text fw={700} c="#7dd3fc">
+                    {allowance.remaining.toLocaleString()}
+                  </Text>
                 </Group>
                 <Group justify="space-between">
-                  <Text size="sm" c="dimmed">
+                  <Text size="sm" c="rgba(255,255,255,0.6)">
                     {t.dashboard.pos.allowanceUsed}
                   </Text>
-                  <Text>{allowance.used.toLocaleString()}</Text>
+                  <Text c="white">{allowance.used.toLocaleString()}</Text>
                 </Group>
-                <Text size="xs" c="dimmed" mt="sm">
+                <Text size="xs" c="rgba(255,255,255,0.5)" mt="sm">
                   {t.dashboard.pos.allowancePeriod}:{" "}
                   {allowance.period.startsAt.slice(0, 10)} –{" "}
                   {allowance.period.endsAt.slice(0, 10)}
@@ -685,13 +778,26 @@ export default function PosCashierPage() {
       )}
 
       {step === "pay" && (
-        <Stack maw={480} mx="auto" style={{ width: "100%" }} gap="lg">
-          <Card withBorder>
-            <Text fw={700} ta="center" size="xl">
+        <Stack
+          maw={520}
+          mx="auto"
+          p="xl"
+          style={{ ...glassStyle, width: "100%" }}
+          gap="lg"
+        >
+          <Card
+            p="lg"
+            style={{
+              ...softPanelStyle,
+              background: "rgba(56, 189, 248, 0.12)",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+            }}
+          >
+            <Text fw={700} ta="center" size="32px" c="white">
               {total.toLocaleString()}
             </Text>
           </Card>
-          <SimpleGrid cols={1}>
+          <SimpleGrid cols={1} spacing="md">
             {buyerType === "staff" && (
               <Button
                 size="lg"
@@ -741,12 +847,24 @@ export default function PosCashierPage() {
 
       {step === "done" && (
         <Center style={{ flex: 1 }}>
-          <Stack align="center" gap="md">
-            <ThemeIcon size={72} radius="xl" color="green">
+          <Stack align="center" gap="lg" p="xl" maw={520} w="100%" style={glassStyle}>
+            <ThemeIcon
+              size={88}
+              radius="xl"
+              variant="gradient"
+              gradient={{ from: "teal.4", to: "green.6", deg: 135 }}
+              style={{ boxShadow: "0 0 30px rgba(52, 211, 153, 0.4)" }}
+            >
               <IconShoppingCart size={36} />
             </ThemeIcon>
-            <Title order={2}>{t.dashboard.pos.saleCompleted}</Title>
-            {adjustmentNumber && <Text c="dimmed">{adjustmentNumber}</Text>}
+            <Title order={2} c="white" ta="center" className="pos-cashier-heading">
+              {t.dashboard.pos.saleCompleted}
+            </Title>
+            {adjustmentNumber && (
+              <Text c="rgba(255,255,255,0.65)" size="lg">
+                {adjustmentNumber}
+              </Text>
+            )}
             <Button ref={newTransactionButtonRef} onClick={startNewTransaction}>
               {t.dashboard.pos.newTransaction} (Alt+N)
             </Button>
