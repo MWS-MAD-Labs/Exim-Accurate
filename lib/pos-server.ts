@@ -35,7 +35,8 @@ export async function getStaffAllowance(credentialId: string, staffEmail: string
   const settings = await prisma.posSettings.findUnique({ where: { credentialId } });
   const allowancePerWorkingDay = Number(settings?.allowancePerWorkingDay ?? 0);
   const workingDays = settings?.workingDays ?? [1, 2, 3, 4, 5];
-  const total = calculateMonthlyAllowance(allowancePerWorkingDay, workingDays, now);
+  const holidayDates = settings?.holidayDates ?? [];
+  const total = calculateMonthlyAllowance(allowancePerWorkingDay, workingDays, now, holidayDates);
 
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -72,20 +73,39 @@ export function canonicalSaleItems(
   });
 }
 
-// POS sells and prices only items configured (and left active) in Stock Management (PosProduct).
-// Accurate remains the source of truth for stock, but sell/buy price used for POS transactions
-// and analytics comes from the local catalog, so cashiers/admins control pricing without
-// touching Accurate's item master.
-export async function applyPosCatalog(credentialId: string, products: PosProduct[]) {
+export async function resolveLocalPosProducts(
+  credentialId: string,
+  warehouse: { id: number; name: string },
+  requestedCodes?: readonly string[],
+  query = "",
+): Promise<PosProduct[]> {
+  const codes = requestedCodes ? [...new Set(requestedCodes)] : undefined;
   const catalog = await prisma.posProduct.findMany({
-    where: { credentialId, itemCode: { in: products.map((product) => product.itemCode) }, isActive: true },
+    where: {
+      credentialId,
+      isActive: true,
+      ...(codes ? { itemCode: { in: codes } } : {}),
+      ...(query.trim()
+        ? { OR: [{ itemCode: { contains: query.trim(), mode: "insensitive" } }, { itemName: { contains: query.trim(), mode: "insensitive" } }] }
+        : {}),
+    },
+    orderBy: { itemName: "asc" },
   });
-  const catalogByCode = new Map(catalog.map((entry) => [entry.itemCode, entry]));
-  return products.flatMap((product) => {
-    const entry = catalogByCode.get(product.itemCode);
-    if (!entry) return [];
-    return [{ ...product, itemName: entry.itemName, unitPrice: Number(entry.sellPrice), unitCost: Number(entry.buyPrice) }];
+  const allocations = await prisma.posStockAllocation.findMany({
+    where: { credentialId, warehouseId: warehouse.id, itemCode: { in: catalog.map((entry) => entry.itemCode) } },
+    select: { itemCode: true, heldQuantity: true },
   });
+  const heldByCode = new Map(allocations.map((allocation) => [allocation.itemCode, allocation.heldQuantity]));
+  return catalog.map((entry) => ({
+    id: entry.accurateItemId ?? 0,
+    itemCode: entry.itemCode,
+    itemName: entry.itemName,
+    stock: Math.max(0, entry.stock - (heldByCode.get(entry.itemCode) ?? 0)),
+    unitPrice: Number(entry.sellPrice),
+    unitCost: Number(entry.buyPrice),
+    warehouseId: warehouse.id,
+    warehouseName: warehouse.name,
+  }));
 }
 
 export async function expireReservations(credentialId: string) {

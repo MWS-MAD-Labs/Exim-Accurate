@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { searchPosProducts } from "@/lib/accurate/pos";
-import { applyPosCatalog, getPosContext } from "@/lib/pos-server";
+import { getPosContext, resolveLocalPosProducts } from "@/lib/pos-server";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -13,12 +12,11 @@ export async function GET(req: NextRequest) {
   const context = await getPosContext(session.user.id, credentialId);
   if (!context) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   if (!context.settings) return NextResponse.json({ error: "POS warehouse is not configured" }, { status: 409 });
-  if (!context.accurate) return NextResponse.json({ error: "Accurate session is not ready" }, { status: 409 });
-  try {
-    const accurateProducts = await searchPosProducts(context.accurate, { id: context.settings.warehouseId, name: context.settings.warehouseName }, params.get("q") || "");
-    const products = await applyPosCatalog(credentialId, accurateProducts);
-    return NextResponse.json({ warehouse: context.settings, products });
-  } catch {
-    return NextResponse.json({ error: "Unable to load products from Accurate" }, { status: 502 });
-  }
+  const products = await resolveLocalPosProducts(
+    credentialId,
+    { id: context.settings.warehouseId, name: context.settings.warehouseName },
+    undefined,
+    params.get("q") || "",
+  );
+  return NextResponse.json({ warehouse: context.settings, products });
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import {
+  Badge,
   Button,
-  Checkbox,
   Group,
   NumberInput,
   Paper,
@@ -11,8 +11,10 @@ import {
   Text,
   Title,
 } from "@mantine/core";
+import { DatePicker } from "@mantine/dates";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/lib/language";
+import { toDateOnlyValue, toggleHolidayDate } from "@/lib/pos";
 
 interface Credential {
   id: string;
@@ -30,17 +32,8 @@ interface Settings {
   warehouseName: string;
   allowancePerWorkingDay: string;
   workingDays: number[];
+  holidayDates: string[];
 }
-
-const DAY_KEYS = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-] as const;
 
 export default function PosSettingsPage() {
   const { t } = useLanguage();
@@ -51,6 +44,7 @@ export default function PosSettingsPage() {
   const [warehouseName, setWarehouseName] = useState("");
   const [allowancePerWorkingDay, setAllowancePerWorkingDay] = useState<number | "">(0);
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [holidayDates, setHolidayDates] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -76,19 +70,22 @@ export default function PosSettingsPage() {
         setWarehouseName(existing.warehouseName);
         setAllowancePerWorkingDay(Number(existing.allowancePerWorkingDay));
         setWorkingDays(existing.workingDays);
+        setHolidayDates(existing.holidayDates);
       } else {
         setWarehouseId(null);
         setWarehouseName("");
         setAllowancePerWorkingDay(0);
         setWorkingDays([1, 2, 3, 4, 5]);
+        setHolidayDates([]);
       }
     }
   };
 
-  const toggleDay = (day: number) =>
-    setWorkingDays((current) =>
-      current.includes(day) ? current.filter((value) => value !== day) : [...current, day].sort(),
-    );
+  const toggleHoliday = (date: Date) => {
+    if (!workingDays.includes(date.getDay())) return;
+    setHolidayDates((current) => toggleHolidayDate(current, toDateOnlyValue(date)));
+  };
+
 
   const save = async () => {
     if (!credentialId || !warehouseId || !warehouseName) return;
@@ -103,6 +100,7 @@ export default function PosSettingsPage() {
           warehouseName,
           allowancePerWorkingDay: allowancePerWorkingDay || 0,
           workingDays,
+          holidayDates,
         }),
       });
       const data = await response.json();
@@ -143,20 +141,46 @@ export default function PosSettingsPage() {
             min={0}
             disabled={!credentialId}
           />
-          <Stack gap={4}>
+          <Stack gap="xs">
             <Text size="sm" fw={500}>
               {t.dashboard.pos.workingDays}
             </Text>
-            <Group gap="sm">
-              {DAY_KEYS.map((key, day) => (
-                <Checkbox
-                  key={key}
-                  label={t.dashboard.pos[key]}
-                  checked={workingDays.includes(day)}
-                  onChange={() => toggleDay(day)}
-                  disabled={!credentialId}
-                />
-              ))}
+            <Text size="xs" c="dimmed">
+              {t.dashboard.pos.workingDaysDescription}
+            </Text>
+            <DatePicker
+              defaultDate={new Date()}
+              onChange={(date) => date && toggleHoliday(date)}
+              getDayProps={(date) => {
+                const dateValue = toDateOnlyValue(date);
+                const isWorkingDay = workingDays.includes(date.getDay());
+                const isHoliday = holidayDates.includes(dateValue);
+                return {
+                  disabled: !credentialId || !isWorkingDay,
+                  "aria-label": `${dateValue}: ${isHoliday ? t.dashboard.pos.holiday : t.dashboard.pos.workingDay}`,
+                  style: isHoliday
+                    ? {
+                        backgroundColor: "var(--mantine-color-red-6)",
+                        color: "var(--mantine-color-white)",
+                        fontWeight: 700,
+                      }
+                    : isWorkingDay
+                      ? {
+                          backgroundColor: "var(--mantine-color-blue-light)",
+                          color: "var(--mantine-color-blue-light-color)",
+                          fontWeight: 600,
+                        }
+                      : undefined,
+                };
+              }}
+            />
+            <Group gap="xs">
+              <Badge color="blue" variant="light">
+                {t.dashboard.pos.workingDay}
+              </Badge>
+              <Badge color="red" variant="filled">
+                {t.dashboard.pos.holiday}
+              </Badge>
             </Group>
           </Stack>
           <Button onClick={() => void save()} loading={saving} disabled={!credentialId || !warehouseId || !warehouseName}>

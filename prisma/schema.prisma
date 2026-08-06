@@ -231,8 +231,9 @@ model PosSettings {
   updatedAt     DateTime @updatedAt
 
   // Staff allowance: monthly total = allowancePerWorkingDay * count of workingDays in the current month
-  allowancePerWorkingDay Decimal @default(0) @db.Decimal(14, 2)
-  workingDays            Int[]   @default([1, 2, 3, 4, 5]) // 0=Sunday .. 6=Saturday
+  allowancePerWorkingDay Decimal  @default(0) @db.Decimal(14, 2)
+  workingDays            Int[]    @default([1, 2, 3, 4, 5]) // 0=Sunday .. 6=Saturday
+  holidayDates           String[] @default([]) // Date-only values in YYYY-MM-DD format
 
   user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
@@ -240,27 +241,30 @@ model PosSettings {
   @@index([userId])
 }
 
-// Local POS product catalog: buy/sell price is set here (not written back to Accurate),
-// so POS analytics (margin) do not depend on Accurate's own item pricing.
+// Local POS product catalog is the source of truth for stock and pricing.
+// Accurate follows these values through explicit outbound synchronization.
 model PosProduct {
-  id           String    @id @default(uuid())
+  id           String @id @default(uuid())
   credentialId String
 
-  itemCode     String
-  itemName     String
-  unit         String?
+  itemCode String
+  itemName String
+  unit     String?
 
-  buyPrice     Decimal   @default(0) @db.Decimal(14, 2)
-  sellPrice    Decimal   @default(0) @db.Decimal(14, 2)
+  buyPrice  Decimal @default(0) @db.Decimal(14, 2)
+  sellPrice Decimal @default(0) @db.Decimal(14, 2)
 
-  stockCache   Int       @default(0)
-  isActive     Boolean   @default(true)
-  lastSyncedAt DateTime?
+  stock          Int       @default(0)
+  isActive       Boolean   @default(true)
+  syncStatus     String    @default("pending") // pending, synced, error
+  syncError      String?
+  accurateItemId Int?
+  lastSyncedAt   DateTime?
 
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  credential   AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
 
   @@unique([credentialId, itemCode])
   @@index([credentialId, isActive])
@@ -319,7 +323,7 @@ model PosSale {
   warehouseName      String
   paymentMethod      String
   status             String    @default("pending_sync") // pending_sync, synced (confirmed inventory adjustment), sync_error
-  accurateId         Int?     // Accurate inventory adjustment ID
+  accurateId         Int? // Accurate inventory adjustment ID
   syncError          String?
   createdAt          DateTime  @default(now())
   syncedAt           DateTime?

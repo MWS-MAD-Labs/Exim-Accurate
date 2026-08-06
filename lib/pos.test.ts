@@ -8,6 +8,7 @@ import {
   countWorkingDaysInMonth,
   isReservationActive,
   reservationStatusAt,
+  toggleHolidayDate,
 } from "./pos";
 
 test("calculates revenue, cost, profit, and margin from immutable line values", () => {
@@ -37,9 +38,30 @@ test("counts Mon-Fri working days in a given month", () => {
   assert.equal(countWorkingDaysInMonth(2026, 8, [0, 1, 2, 3, 4, 5, 6]), 31);
 });
 
+test("excludes weekday holidays without counting weekend holiday entries", () => {
+  assert.equal(
+    countWorkingDaysInMonth(2026, 8, [1, 2, 3, 4, 5], ["2026-08-03", "2026-08-08"]),
+    20,
+  );
+});
+
+test("ignores holidays outside the requested month", () => {
+  assert.equal(countWorkingDaysInMonth(2026, 8, [1, 2, 3, 4, 5], ["2026-07-31", "2026-09-01"]), 21);
+});
+
+test("toggles a holiday back to a working date", () => {
+  assert.deepEqual(toggleHolidayDate([], "2026-08-03"), ["2026-08-03"]);
+  assert.deepEqual(toggleHolidayDate(["2026-08-03"], "2026-08-03"), []);
+});
+
 test("calculates the monthly staff allowance total from a daily rate", () => {
-  const total = calculateMonthlyAllowance(50000, [1, 2, 3, 4, 5], new Date("2026-08-15T00:00:00.000Z"));
-  assert.equal(total, 21 * 50000);
+  const total = calculateMonthlyAllowance(
+    50000,
+    [1, 2, 3, 4, 5],
+    new Date("2026-08-15T00:00:00.000Z"),
+    ["2026-08-03"],
+  );
+  assert.equal(total, 20 * 50000);
 });
 
 test("clamps remaining allowance at zero and never goes negative", () => {

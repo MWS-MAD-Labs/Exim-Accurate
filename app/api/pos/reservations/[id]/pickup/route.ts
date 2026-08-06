@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!reservation || (reservation.userId !== session.user.id && !isAdmin(session.user.role))) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
   if (reservation.sale) return NextResponse.json(reservation.sale);
   const context = await getPosContext(session.user.id, reservation.credentialId, isAdmin(session.user.role));
-  if (!context?.settings || !context.accurate) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
+  if (!context?.settings) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
 
   let allowanceUsed = 0;
   if (payment.data === "allowance") {
@@ -39,11 +39,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     for (const item of reservation.items) {
       const allocation = await tx.posStockAllocation.findUnique({ where: { credentialId_warehouseId_itemCode: { credentialId: reservation.credentialId, warehouseId: reservation.warehouseId, itemCode: item.itemCode } } });
       if (!allocation || allocation.heldQuantity < item.quantity) throw new Error("ALLOCATION_CONFLICT");
-      await tx.posStockAllocation.update({ where: { id: allocation.id }, data: { heldQuantity: { decrement: item.quantity }, soldQuantity: { increment: item.quantity } } });
+      const product = await tx.posProduct.findUnique({ where: { credentialId_itemCode: { credentialId: reservation.credentialId, itemCode: item.itemCode } } });
+      if (!product || product.stock < item.quantity) throw new Error("ALLOCATION_CONFLICT");
+      await tx.posProduct.update({ where: { id: product.id }, data: { stock: { decrement: item.quantity }, syncStatus: "pending", syncError: null } });
+      await tx.posStockAllocation.update({ where: { id: allocation.id }, data: { heldQuantity: { decrement: item.quantity }, soldQuantity: { increment: item.quantity }, stockSnapshot: product.stock - item.quantity } });
     }
     return tx.posSale.create({ data: { userId: reservation.userId, credentialId: reservation.credentialId, reservationId: reservation.id, idempotencyKey: `reservation:${reservation.id}`, requestFingerprint: `reservation:${reservation.id}`, warehouseId: reservation.warehouseId, warehouseName: reservation.warehouseName, paymentMethod: payment.data, buyerType: "staff", staffEmail: reservation.staffEmail, staffName: reservation.staffName, allowanceUsed, items: { create: reservation.items.map((item) => ({ itemCode: item.itemCode, itemName: item.itemName, quantity: item.quantity, unitPrice: item.unitPrice, unitCost: item.unitCost })) } }, include: { items: true } });
   }).catch((error: unknown) => { if (error instanceof Error && ["RESERVATION_CONFLICT", "ALLOCATION_CONFLICT"].includes(error.message)) return null; throw error; }));
   if (!sale) return NextResponse.json({ error: "Reservation changed by another request" }, { status: 409 });
+  if (!context.accurate) {
+    const failed = await prisma.posSale.update({
+      where: { id: sale.id },
+      data: { status: "sync_error", syncError: "Accurate session is not ready" },
+      include: { items: true },
+    });
+    return NextResponse.json({ sale: failed, error: "Pickup was saved locally but Accurate is not connected" }, { status: 502 });
+  }
   try {
     const adjustment = await syncPosSale(context.accurate, sale);
     const completed = await prisma.posSale.update({

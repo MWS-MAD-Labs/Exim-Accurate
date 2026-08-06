@@ -4,8 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { reservationRequestSchema, makeReservationReference } from "@/lib/pos";
-import { applyPosCatalog, canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getPosContext, withSerializableRetry } from "@/lib/pos-server";
-import { resolvePosProducts } from "@/lib/accurate/pos";
+import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getPosContext, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
 import crypto from "node:crypto";
 
 export async function GET(req: NextRequest) {
@@ -29,12 +28,13 @@ export async function POST(req: NextRequest) {
   if (expiresAt <= new Date()) return NextResponse.json({ error: "Pickup expiry must be in the future" }, { status: 400 });
   const context = await getPosContext(session.user.id, credentialId);
   if (!context) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
-  if (!context.settings || !context.accurate) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
+  if (!context.settings) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
   await expireReservations(credentialId);
-  let accurateProducts;
-  try { accurateProducts = await resolvePosProducts(context.accurate, { id: context.settings.warehouseId, name: context.settings.warehouseName }, requestedItems.map((item) => item.itemCode)); }
-  catch { return NextResponse.json({ error: "Unable to verify products and warehouse stock" }, { status: 502 }); }
-  const products = await applyPosCatalog(credentialId, accurateProducts);
+  const products = await resolveLocalPosProducts(
+    credentialId,
+    { id: context.settings.warehouseId, name: context.settings.warehouseName },
+    requestedItems.map((item) => item.itemCode),
+  );
   const uniqueRequestedItems = canonicalizeRequestedItems(requestedItems);
   if (products.length !== uniqueRequestedItems.length) {
     return NextResponse.json({ error: "Some items are not available in the POS catalog" }, { status: 409 });
@@ -48,9 +48,10 @@ export async function POST(req: NextRequest) {
   }
   const reservation = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
     for (const item of items) {
-      const product = products.find((candidate) => candidate.itemCode === item.itemCode)!;
+      const product = await tx.posProduct.findUnique({ where: { credentialId_itemCode: { credentialId, itemCode: item.itemCode } } });
+      if (!product?.isActive) throw new Error("INSUFFICIENT_STOCK");
       const allocation = await tx.posStockAllocation.upsert({ where: { credentialId_warehouseId_itemCode: { credentialId, warehouseId: context.settings!.warehouseId, itemCode: item.itemCode } }, update: { stockSnapshot: product.stock }, create: { userId: session.user.id, credentialId, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, itemCode: item.itemCode, stockSnapshot: product.stock } });
-      const updated = await tx.posStockAllocation.updateMany({ where: { id: allocation.id, heldQuantity: { lte: allocation.stockSnapshot - allocation.soldQuantity - item.quantity } }, data: { heldQuantity: { increment: item.quantity } } });
+      const updated = await tx.posStockAllocation.updateMany({ where: { id: allocation.id, heldQuantity: { lte: product.stock - item.quantity } }, data: { heldQuantity: { increment: item.quantity }, stockSnapshot: product.stock } });
       if (updated.count !== 1) throw new Error("INSUFFICIENT_STOCK");
     }
     return tx.posReservation.create({ data: { userId: session.user.id, credentialId, reference: makeReservationReference(), idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, staffEmail: session.user.email, staffName: null, expiresAt, items: { create: items } }, include: { items: true } });

@@ -5,45 +5,65 @@ export interface PosAccurateCredentials { apiToken: string; signatureSecret: str
 export interface PosWarehouse { id: number; name: string; }
 export interface PosProduct { id: number; itemCode: string; itemName: string; stock: number; unitPrice: number; unitCost: number; warehouseId: number; warehouseName: string; }
 interface AccurateListResponse<T> { d?: T[]; }
+interface AccurateSaveResponse { s: boolean; d: { id: number; r?: string } | string[]; d_message?: string[]; }
 
 export async function listWarehouses(credentials: PosAccurateCredentials): Promise<PosWarehouse[]> {
   const response = await accurateFetch<AccurateListResponse<{ id: number; name: string }>>("/api/warehouse/list.do?fields=id,name&sp.pageSize=100", credentials);
   return (response.d || []).map((warehouse) => ({ id: warehouse.id, name: warehouse.name }));
 }
 
-function parseWarehouse(item: Record<string, unknown>): { id: number; name: string } | null {
-  const warehouse = (item.warehouse && typeof item.warehouse === "object" ? item.warehouse : null) as Record<string, unknown> | null;
-  const id = Number(item.warehouseId ?? warehouse?.id);
-  const name = String(item.warehouseName ?? warehouse?.name ?? "");
-  return Number.isInteger(id) && id > 0 && name ? { id, name } : null;
-}
 
-export async function searchPosProducts(credentials: PosAccurateCredentials, warehouse: PosWarehouse, query: string): Promise<PosProduct[]> {
-  const params = new URLSearchParams({ fields: "id,no,name,unitPrice,unitCost,stock,warehouse,warehouseId,warehouseName", "sp.pageSize": "50", "filter.warehouse.id": String(warehouse.id) });
-  if (query.trim()) { params.set("filter.keywords.op", "CONTAIN"); params.set("filter.keywords.val[0]", query.trim()); }
+
+export async function findAccurateItemByCode(credentials: PosAccurateCredentials, itemCode: string) {
+  const params = new URLSearchParams({ fields: "id,no,name,unitPrice,unitCost", "filter.no.op": "EQUAL", "filter.no.val[0]": itemCode });
   const response = await accurateFetch<AccurateListResponse<Record<string, unknown>>>(`/api/item/list.do?${params.toString()}`, credentials);
-  return (response.d || []).flatMap((item) => {
-    const itemWarehouse = parseWarehouse(item);
-    if (!itemWarehouse || itemWarehouse.id !== warehouse.id || itemWarehouse.name !== warehouse.name) return [];
-    const product: PosProduct = { id: Number(item.id), itemCode: String(item.no || ""), itemName: String(item.name || item.no || ""), stock: Number(item.stock || 0), unitPrice: Number(item.unitPrice || item.salePrice || 0), unitCost: Number(item.unitCost || item.purchasePrice || 0), warehouseId: itemWarehouse.id, warehouseName: itemWarehouse.name };
-    return product.itemCode && Number.isFinite(product.stock) && product.stock >= 0 && Number.isFinite(product.unitPrice) && product.unitPrice >= 0 && Number.isFinite(product.unitCost) && product.unitCost >= 0 ? [product] : [];
+  const item = response.d?.find((candidate) => String(candidate.no || "") === itemCode);
+  return item ? { id: Number(item.id), itemCode: String(item.no), itemName: String(item.name || item.no) } : null;
+}
+
+export async function saveAccurateItem(
+  credentials: PosAccurateCredentials,
+  item: { accurateItemId?: number | null; itemCode: string; itemName: string; unit: string; buyPrice: number; sellPrice: number },
+) {
+  const response = await accurateFetch<AccurateSaveResponse>("/api/item/save.do", credentials, {
+    method: "POST",
+    body: {
+      id: item.accurateItemId || undefined,
+      no: item.itemCode,
+      name: item.itemName,
+      itemType: "INVENTORY",
+      unit1Name: item.unit,
+      unitPrice: item.sellPrice,
+      unitCost: item.buyPrice,
+    },
   });
+  if (!response.s || Array.isArray(response.d)) {
+    throw new Error((Array.isArray(response.d) ? response.d[0] : response.d_message?.[0]) || "Unable to save Accurate item");
+  }
+  return response.d;
 }
 
-export async function resolvePosProducts(credentials: PosAccurateCredentials, warehouse: PosWarehouse, requestedCodes: string[]) {
-  const uniqueCodes = [...new Set(requestedCodes)];
-  const products = (await Promise.all(uniqueCodes.map((code) => searchPosProducts(credentials, warehouse, code)))).flat();
-  const byCode = new Map(products.filter((product) => product.itemCode).map((product) => [product.itemCode, product]));
-  if (byCode.size !== uniqueCodes.length) throw new Error("PRODUCT_NOT_FOUND");
-  return uniqueCodes.map((code) => byCode.get(code)!);
+export async function syncPosProduct(
+  credentials: PosAccurateCredentials,
+  warehouse: PosWarehouse,
+  product: { accurateItemId?: number | null; itemCode: string; itemName: string; unit: string; stock: number; buyPrice: number; sellPrice: number },
+) {
+  const existing = await findAccurateItemByCode(credentials, product.itemCode);
+  const saved = await saveAccurateItem(credentials, { ...product, accurateItemId: existing?.id ?? product.accurateItemId });
+  const adjustment = await saveInventoryAdjustment(credentials, {
+    transDate: new Date().toISOString().slice(0, 10),
+    description: `POS product sync ${product.itemCode}`,
+    detailItem: [{
+      itemNo: product.itemCode,
+      quantity: product.stock,
+      itemAdjustmentType: "ADJUSTMENT_STOCK",
+      unitCost: product.buyPrice,
+      warehouseName: warehouse.name,
+    }],
+  });
+  return { accurateItemId: saved.id, adjustmentId: adjustment.id, adjustmentNumber: adjustment.r };
 }
 
-/** Resolves stock for a batch of item codes, skipping any that cannot be found. */
-export async function resolvePosStock(credentials: PosAccurateCredentials, warehouse: PosWarehouse, itemCodes: string[]) {
-  const uniqueCodes = [...new Set(itemCodes)];
-  const products = (await Promise.all(uniqueCodes.map((code) => searchPosProducts(credentials, warehouse, code)))).flat();
-  return new Map(products.filter((product) => product.itemCode).map((product) => [product.itemCode, product.stock]));
-}
 
 export interface PosSaleForAdjustment {
   id: string;

@@ -82,16 +82,37 @@ export function makeReservationReference(now = new Date()) {
   return `RES-${date}-${suffix}`;
 }
 
+export function toDateOnlyValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function toggleHolidayDate(holidayDates: readonly string[], date: string) {
+  const values = new Set(holidayDates);
+  if (values.has(date)) values.delete(date);
+  else values.add(date);
+  return [...values].sort();
+}
+
 /**
- * Counts how many days in [year, month] (1-12) fall on one of `workingDays`
- * (0=Sunday .. 6=Saturday). Used to compute the monthly staff allowance total.
+ * Counts how many days in [year, month] (1-12) fall on one of `workingDays`,
+ * excluding date-specific holidays represented as YYYY-MM-DD values.
  */
-export function countWorkingDaysInMonth(year: number, month: number, workingDays: readonly number[]) {
+export function countWorkingDaysInMonth(
+  year: number,
+  month: number,
+  workingDays: readonly number[],
+  holidayDates: readonly string[] = [],
+) {
   const workingDaySet = new Set(workingDays);
+  const holidayDateSet = new Set(holidayDates);
   const daysInMonth = new Date(year, month, 0).getDate();
   let count = 0;
   for (let day = 1; day <= daysInMonth; day += 1) {
-    if (workingDaySet.has(new Date(year, month - 1, day).getDay())) count += 1;
+    const date = new Date(year, month - 1, day);
+    if (workingDaySet.has(date.getDay()) && !holidayDateSet.has(toDateOnlyValue(date))) count += 1;
   }
   return count;
 }
@@ -100,8 +121,14 @@ export function calculateMonthlyAllowance(
   allowancePerWorkingDay: number,
   workingDays: readonly number[],
   now = new Date(),
+  holidayDates: readonly string[] = [],
 ) {
-  const workingDayCount = countWorkingDaysInMonth(now.getFullYear(), now.getMonth() + 1, workingDays);
+  const workingDayCount = countWorkingDaysInMonth(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    workingDays,
+    holidayDates,
+  );
   return workingDayCount * allowancePerWorkingDay;
 }
 
