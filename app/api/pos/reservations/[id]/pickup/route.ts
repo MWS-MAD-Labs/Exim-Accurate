@@ -22,6 +22,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   let allowanceUsed = 0;
   if (payment.data === "allowance") {
+    if (!reservation.staffEmail?.trim()) {
+      return NextResponse.json({ error: "This reservation has no staff email on file; allowance payment is unavailable." }, { status: 409 });
+    }
     const { revenue } = calculateTotals(reservation.items.map((item) => ({ ...item, unitPrice: Number(item.unitPrice), unitCost: Number(item.unitCost) })));
     const allowance = await getStaffAllowance(reservation.credentialId, reservation.staffEmail);
     if (revenue > allowance.remaining) {

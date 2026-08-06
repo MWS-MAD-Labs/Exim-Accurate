@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { reservationRequestSchema, makeReservationReference } from "@/lib/pos";
-import { applyPosCatalog, canonicalSaleItems, expireReservations, getPosContext, withSerializableRetry } from "@/lib/pos-server";
+import { applyPosCatalog, canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getPosContext, withSerializableRetry } from "@/lib/pos-server";
 import { resolvePosProducts } from "@/lib/accurate/pos";
 import crypto from "node:crypto";
 
@@ -35,7 +35,8 @@ export async function POST(req: NextRequest) {
   try { accurateProducts = await resolvePosProducts(context.accurate, { id: context.settings.warehouseId, name: context.settings.warehouseName }, requestedItems.map((item) => item.itemCode)); }
   catch { return NextResponse.json({ error: "Unable to verify products and warehouse stock" }, { status: 502 }); }
   const products = await applyPosCatalog(credentialId, accurateProducts);
-  if (products.length !== requestedItems.length) {
+  const uniqueRequestedItems = canonicalizeRequestedItems(requestedItems);
+  if (products.length !== uniqueRequestedItems.length) {
     return NextResponse.json({ error: "Some items are not available in the POS catalog" }, { status: 409 });
   }
   const items = canonicalSaleItems(requestedItems, products);
