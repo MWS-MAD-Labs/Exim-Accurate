@@ -82,7 +82,7 @@ async function performSync(forceStartDate?: string | null) {
             let totalCheckouts = 0;
 
             for (let cred of user.accurateCredentials) {
-                console.log(`[sync-kiosk] Credential ${cred.id}: apiToken=${!!cred.apiToken}, host=${!!cred.host}, session=${!!cred.session}, dbId=${!!cred.dbId}`);
+                console.log(`[sync-kiosk] Processing credential ${cred.id}`);
                 if (!cred.apiToken) {
                     console.log(`[sync-kiosk] Skipping credential ${cred.id}: no apiToken`);
                     continue;
@@ -180,11 +180,6 @@ async function performSync(forceStartDate?: string | null) {
                         if (response.d && response.d.length > 0) {
                             console.log(`[sync-kiosk] Page ${page}: ${response.d.length} adjustments found`);
                             
-                            // Log all descriptions to see what we are dealing with
-                            response.d.forEach((adj, idx) => {
-                                if (idx < 5) console.log(`[sync-kiosk]   - Adjustment ${adj.id}: "${adj.description || '(no description)'}"`);
-                            });
-
                             // Filter self-checkout adjustments
                             const selfCheckouts = response.d.filter(
                                 (adj) => adj.description?.toLowerCase().includes("self checkout"),

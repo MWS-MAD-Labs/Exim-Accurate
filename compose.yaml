@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/faisalnh/exim-accurate:latest
+    image: ghcr.io/mws-mad-labs/exim-accurate:latest
     restart: unless-stopped
     env_file:
       - .env

@@ -108,8 +108,6 @@ export async function listInventoryAdjustments(
     { method: "GET" }
   );
 
-  console.log("[listInventoryAdjustments] Response:", JSON.stringify(response).substring(0, 500));
-
   return response;
 }
 
@@ -172,8 +170,6 @@ export async function saveInventoryAdjustment(
       body: requestBody,
     }
   );
-
-  console.log("[saveInventoryAdjustment] Response:", JSON.stringify(response).substring(0, 500));
 
   const saved = parseAccurateSaveResponse(
     response,
@@ -270,9 +266,6 @@ export async function exportInventoryAdjustments(
 
       // Flatten item lines
       for (const item of detail.detailItem) {
-        // Detailed logging for debugging
-        console.log(`[exportInventoryAdjustments] Processing item:`, JSON.stringify(item, null, 2));
-
         allRecords.push({
           adjustmentNumber: detail.number,
           date: detail.transDate,

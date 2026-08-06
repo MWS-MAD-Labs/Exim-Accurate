@@ -2,8 +2,7 @@ version: "3.8"
 
 services:
   app:
-    build: .
-    image: exima:latest
+    image: ghcr.io/mws-mad-labs/exim-accurate:latest
     restart: unless-stopped
     env_file:
       - .env

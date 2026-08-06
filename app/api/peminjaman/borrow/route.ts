@@ -245,7 +245,9 @@ export async function POST(req: NextRequest) {
                     })),
                 };
 
-                console.log("[peminjaman/borrow] Creating ADJUSTMENT_OUT:", JSON.stringify(adjustmentData));
+                console.log(
+                    `[peminjaman/borrow] Creating ADJUSTMENT_OUT with ${adjustmentData.detailItem.length} item lines`,
+                );
 
                 const result = await saveInventoryAdjustment(
                     {

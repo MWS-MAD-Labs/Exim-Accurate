@@ -184,7 +184,9 @@ export async function POST(req: NextRequest) {
             })),
         };
 
-        console.log("[self-checkout/submit] Creating adjustment:", JSON.stringify(adjustmentData));
+        console.log(
+            `[self-checkout/submit] Creating adjustment with ${adjustmentData.detailItem.length} item lines`,
+        );
 
         const result = await saveInventoryAdjustment(
             {

@@ -80,12 +80,10 @@ export async function resolveHost(accessToken: string): Promise<{ host: string; 
   });
 
   if (!dbListResponse.ok) {
-    const text = await dbListResponse.text();
-    throw new Error(`Failed to get database list: ${dbListResponse.status} ${text}`);
+    throw new Error(`Failed to get Accurate database list (${dbListResponse.status})`);
   }
 
   const dbListData = await dbListResponse.json();
-  console.log("db-list response:", JSON.stringify(dbListData, null, 2));
 
   if (!dbListData.s || !dbListData.d || !Array.isArray(dbListData.d) || dbListData.d.length === 0) {
     throw new Error("No databases found in Accurate account");
@@ -103,22 +101,20 @@ export async function resolveHost(accessToken: string): Promise<{ host: string; 
   });
 
   if (!openDbResponse.ok) {
-    const text = await openDbResponse.text();
-    throw new Error(`Failed to open database: ${openDbResponse.status} ${text}`);
+    throw new Error(`Failed to open Accurate database (${openDbResponse.status})`);
   }
 
   const openDbData = await openDbResponse.json();
-  console.log("open-db response:", JSON.stringify(openDbData, null, 2));
 
   if (!openDbData.s) {
-    throw new Error(`Failed to open database: ${openDbData.d || "Unknown error"}`);
+    throw new Error("Accurate refused to open the selected database");
   }
 
   const host = openDbData.host;
   const session = openDbData.session;
 
   if (!host || !session) {
-    throw new Error(`Missing host or session in open-db response: ${JSON.stringify(openDbData)}`);
+    throw new Error("Missing host or session in Accurate open-db response");
   }
 
   return {
@@ -143,15 +139,13 @@ export async function refreshSession(accessToken: string, dbId: number): Promise
   });
 
   if (!openDbResponse.ok) {
-    const text = await openDbResponse.text();
-    throw new Error(`Failed to refresh session: ${openDbResponse.status} ${text}`);
+    throw new Error(`Failed to refresh Accurate session (${openDbResponse.status})`);
   }
 
   const openDbData = await openDbResponse.json();
-  console.log("[refreshSession] Response:", JSON.stringify(openDbData, null, 2));
 
   if (!openDbData.s) {
-    throw new Error(`Failed to refresh session: ${openDbData.d || "Unknown error"}`);
+    throw new Error("Accurate refused to refresh the database session");
   }
 
   return {
@@ -186,8 +180,7 @@ export async function refreshAccessToken(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Failed to refresh access token: ${response.status} ${text}`);
+    throw new Error(`Failed to refresh Accurate access token (${response.status})`);
   }
 
   const data = await response.json();
@@ -302,7 +295,9 @@ export async function accurateFetch<T = any>(
       "Content-Type": "application/json",
     };
 
-    console.log(`Accurate API request: ${url}`);
+    console.log(
+      `Accurate API request: ${(options.method || "GET").toUpperCase()} ${new URL(url).pathname}`,
+    );
 
     const response = await fetch(url, {
       ...options,
@@ -318,7 +313,7 @@ export async function accurateFetch<T = any>(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Accurate API error: ${response.status} ${errorText}`);
+      console.error(`Accurate API request failed with status ${response.status}`);
 
       if (response.status === 403 && errorText.includes("insufficient_scope")) {
         const requiredScope = errorText.match(/<scope>([^<]+)<\/scope>/)?.[1];
@@ -329,27 +324,23 @@ export async function accurateFetch<T = any>(
         );
       }
 
-      throw new Error(
-        `Accurate API error (${response.status}): ${errorText}`
-      );
+      throw new Error(`Accurate API request failed with status ${response.status}`);
     }
 
     const responseText = await response.text();
-    console.log(`Accurate API response body:`, responseText.substring(0, 500));
 
     let data;
     try {
       data = JSON.parse(responseText);
-    } catch (e) {
-      console.error(`Failed to parse JSON response:`, e);
-      throw new Error(`Failed to parse Accurate API response: ${responseText.substring(0, 200)}`);
+    } catch {
+      console.error("Failed to parse Accurate API JSON response");
+      throw new Error("Failed to parse Accurate API response");
     }
 
     // Check for Accurate-specific error responses
     // Accurate returns { s: boolean, d: data/error array }
     if (data.s === false) {
-      const errorMsg = Array.isArray(data.d) ? data.d.join(", ") : JSON.stringify(data.d);
-      throw new Error(`Accurate API error: ${errorMsg}`);
+      throw new Error("Accurate API returned an unsuccessful response");
     }
 
     return data;

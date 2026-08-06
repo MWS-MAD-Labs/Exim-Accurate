@@ -11,11 +11,11 @@ This guide uses **GitHub Actions** to build the image and **Komodo UI** to deplo
 ## Step 1: CI/CD Build (Automated)
 
 1. Any push to `main` triggers the GitHub Action: `.github/workflows/docker-build.yml`.
-2. The action builds the image and pushes it to `ghcr.io/faisalnh/exim-accurate:latest`.
+2. The action builds the image and pushes it to `ghcr.io/mws-mad-labs/exim-accurate:latest`.
 
 **Verification:**
-- Check [GitHub Actions](https://github.com/faisalnh/Exim-Accurate/actions) to ensure the build succeeds.
-- Check [GitHub Packages](https://github.com/faisalnh/Exim-Accurate/packages) to see the image.
+- Check [GitHub Actions](https://github.com/MWS-MAD-Labs/Exim-Accurate/actions) to ensure the build succeeds.
+- Check [GitHub Packages](https://github.com/orgs/MWS-MAD-Labs/packages?repo_name=Exim-Accurate) to see the image.
 
 > [!IMPORTANT]
 > To allow Komodo to pull the image without a token:
@@ -65,10 +65,10 @@ Using a **Komodo Procedure** ensures your stack not only syncs but also forces a
 
 ## Step 4: Post-Deployment Steps
 
-1. **Run Migration:**
-   - Click the **app** container in Komodo.
-   - Run: `npx prisma db push`
-   
+1. **Verify automatic migrations:**
+   - Check the **app** container logs for `All migrations have been successfully applied` or `No pending migrations to apply`.
+   - The image entrypoint runs `npx prisma migrate deploy` before starting Next.js. Do not use `prisma db push` in production.
+
 2. **Seed Admin User:**
    - Run: `npm run db:seed admin@yourdomain.com YourSecurePassword admin`
 

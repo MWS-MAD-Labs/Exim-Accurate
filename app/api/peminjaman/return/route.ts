@@ -231,7 +231,9 @@ export async function POST(req: NextRequest) {
                     })),
                 };
 
-                console.log("[peminjaman/return] Creating ADJUSTMENT_IN:", JSON.stringify(adjustmentData));
+                console.log(
+                    `[peminjaman/return] Creating ADJUSTMENT_IN with ${adjustmentData.detailItem.length} item lines`,
+                );
 
                 const result = await saveInventoryAdjustment(
                     {
