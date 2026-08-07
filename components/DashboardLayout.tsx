@@ -46,12 +46,7 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   href?: string;
-  children?: {
-    label: string;
-    icon: React.ReactNode;
-    href: string;
-    badge?: string;
-  }[];
+  children?: NavItem[];
   badge?: string;
 }
 
@@ -168,30 +163,36 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       href: "/dashboard",
     },
     {
-      label: t.dashboard.nav.inventoryAdjustment,
-      icon: <IconAdjustments size={20} />,
+      label: t.dashboard.nav.resourceManagement,
+      icon: <IconBuildingWarehouse size={20} />,
       children: [
         {
-          label: t.dashboard.nav.export,
-          icon: <IconFileExport size={16} />,
-          href: "/dashboard/export/inventory-adjustment",
+          label: t.dashboard.nav.inventoryAdjustment,
+          icon: <IconAdjustments size={16} />,
+          children: [
+            {
+              label: t.dashboard.nav.export,
+              icon: <IconFileExport size={16} />,
+              href: "/dashboard/export/inventory-adjustment",
+            },
+            {
+              label: t.dashboard.nav.import,
+              icon: <IconFileImport size={16} />,
+              href: "/dashboard/import/inventory-adjustment",
+            },
+          ],
         },
         {
-          label: t.dashboard.nav.import,
-          icon: <IconFileImport size={16} />,
-          href: "/dashboard/import/inventory-adjustment",
+          label: t.dashboard.nav.selfCheckout,
+          icon: <IconScan size={16} />,
+          href: "/kiosk",
+        },
+        {
+          label: t.dashboard.nav.peminjaman,
+          icon: <IconClipboardList size={16} />,
+          href: "/dashboard/peminjaman",
         },
       ],
-    },
-    {
-      label: t.dashboard.nav.selfCheckout,
-      icon: <IconScan size={20} />,
-      href: "/kiosk",
-    },
-    {
-      label: t.dashboard.nav.peminjaman,
-      icon: <IconClipboardList size={20} />,
-      href: "/dashboard/peminjaman",
     },
     {
       label: "Point of Sales",
@@ -248,15 +249,106 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   ];
 
   const isActive = (href: string) => pathname === href;
-  const isParentActive = (children?: { href: string }[]) =>
-    children?.some(
-      (child) =>
-        pathname === child.href || pathname.startsWith(`${child.href}/`),
-    );
+  const isItemActive = (item: NavItem): boolean => {
+    if (item.href) {
+      return pathname === item.href || pathname.startsWith(`${item.href}/`);
+    }
+
+    return item.children?.some(isItemActive) ?? false;
+  };
 
   const handleNavClick = (href: string) => {
     router.push(href);
     close();
+  };
+
+  const renderNavItem = (item: NavItem, depth = 0): React.ReactNode => {
+    const active = isItemActive(item);
+
+    if (item.children) {
+      return (
+        <NavLink
+          key={item.label}
+          label={
+            <Group gap="xs">
+              <Text size="sm" fw={active ? 600 : 500}>
+                {item.label}
+              </Text>
+              {item.badge && (
+                <Badge size="xs" variant="light">
+                  {item.badge}
+                </Badge>
+              )}
+            </Group>
+          }
+          leftSection={item.icon}
+          childrenOffset={depth === 0 ? 28 : 20}
+          defaultOpened={active}
+          style={{
+            borderRadius: rem(depth === 0 ? 8 : 6),
+            fontWeight: active ? 600 : 500,
+          }}
+          styles={{
+            root: {
+              "&:hover": {
+                backgroundColor: isDark
+                  ? "var(--mantine-color-dark-5)"
+                  : "var(--mantine-color-gray-1)",
+              },
+            },
+            children: {
+              paddingLeft: rem(depth === 0 ? 12 : 8),
+              borderLeft: isDark
+                ? "2px solid var(--mantine-color-dark-4)"
+                : "2px solid var(--mantine-color-gray-2)",
+              marginLeft: rem(depth === 0 ? 14 : 10),
+            },
+          }}
+        >
+          {item.children.map((child) => renderNavItem(child, depth + 1))}
+        </NavLink>
+      );
+    }
+
+    return (
+      <NavLink
+        key={item.href}
+        label={
+          <Group gap="xs">
+            <Text size="sm" fw={isActive(item.href!) ? 600 : 500}>
+              {item.label}
+            </Text>
+            {item.badge && (
+              <Badge size="xs" variant="light">
+                {item.badge}
+              </Badge>
+            )}
+          </Group>
+        }
+        leftSection={item.icon}
+        active={isActive(item.href!)}
+        onClick={() => handleNavClick(item.href!)}
+        style={{
+          borderRadius: rem(depth === 0 ? 8 : 6),
+        }}
+        styles={{
+          root: {
+            "&[dataActive]": {
+              backgroundColor: isDark
+                ? "rgba(34, 139, 230, 0.15)"
+                : "rgba(34, 139, 230, 0.1)",
+              color: "var(--mantine-color-brand-6)",
+              fontWeight: 600,
+            },
+            "&:hover": {
+              backgroundColor: isDark
+                ? "var(--mantine-color-dark-5)"
+                : "var(--mantine-color-gray-1)",
+            },
+          },
+        }}
+      />
+    );
   };
 
   return (
@@ -347,127 +439,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             : "1px solid var(--mantine-color-gray-2)",
         }}
       >
-        <Stack gap="xs">
-          {navItems.map((item) => {
-            if (item.children) {
-              const parentActive = isParentActive(item.children);
-
-              return (
-                <NavLink
-                  key={item.label}
-                  label={
-                    <Group gap="xs">
-                      <Text size="sm" fw={500}>
-                        {item.label}
-                      </Text>
-                      {item.badge && (
-                        <Badge size="xs" variant="light">
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </Group>
-                  }
-                  leftSection={item.icon}
-                  childrenOffset={28}
-                  defaultOpened={parentActive}
-                  style={{
-                    borderRadius: rem(8),
-                    fontWeight: parentActive ? 600 : 500,
-                  }}
-                  styles={{
-                    root: {
-                      "&:hover": {
-                        backgroundColor: isDark
-                          ? "var(--mantine-color-dark-5)"
-                          : "var(--mantine-color-gray-1)",
-                      },
-                    },
-                    children: {
-                      paddingLeft: rem(12),
-                      borderLeft: isDark
-                        ? "2px solid var(--mantine-color-dark-4)"
-                        : "2px solid var(--mantine-color-gray-2)",
-                      marginLeft: rem(14),
-                    },
-                  }}
-                >
-                  {item.children.map((child) => (
-                    <NavLink
-                      key={child.href}
-                      label={
-                        <Group gap="xs" justify="space-between" wrap="nowrap">
-                          <Text size="sm">{child.label}</Text>
-                          {child.badge && (
-                            <Badge size="xs" variant="light">
-                              {child.badge}
-                            </Badge>
-                          )}
-                        </Group>
-                      }
-                      leftSection={child.icon}
-                      active={isActive(child.href)}
-                      onClick={() => handleNavClick(child.href)}
-                      style={{
-                        borderRadius: rem(6),
-                      }}
-                      styles={{
-                        root: {
-                          "&[dataActive]": {
-                            backgroundColor: isDark
-                              ? "rgba(34, 139, 230, 0.15)"
-                              : "rgba(34, 139, 230, 0.1)",
-                            color: "var(--mantine-color-brand-6)",
-                            fontWeight: 600,
-                          },
-                        },
-                      }}
-                    />
-                  ))}
-                </NavLink>
-              );
-            }
-
-            return (
-              <NavLink
-                key={item.href}
-                label={
-                  <Group gap="xs">
-                    <Text size="sm" fw={isActive(item.href!) ? 600 : 500}>
-                      {item.label}
-                    </Text>
-                    {item.badge && (
-                      <Badge size="xs" variant="light">
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </Group>
-                }
-                leftSection={item.icon}
-                active={isActive(item.href!)}
-                onClick={() => handleNavClick(item.href!)}
-                style={{
-                  borderRadius: rem(8),
-                }}
-                styles={{
-                  root: {
-                    "&[dataActive]": {
-                      backgroundColor: isDark
-                        ? "rgba(34, 139, 230, 0.15)"
-                        : "rgba(34, 139, 230, 0.1)",
-                      color: "var(--mantine-color-brand-6)",
-                      fontWeight: 600,
-                    },
-                    "&:hover": {
-                      backgroundColor: isDark
-                        ? "var(--mantine-color-dark-5)"
-                        : "var(--mantine-color-gray-1)",
-                    },
-                  },
-                }}
-              />
-            );
-          })}
-        </Stack>
+        <Stack gap="xs">{navItems.map((item) => renderNavItem(item))}</Stack>
 
         <Box style={{ flex: 1 }} />
 

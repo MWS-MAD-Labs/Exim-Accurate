@@ -21,7 +21,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: exim_accurate
-    # Removed public port mapping to resolve port 5433 conflict
+    ports:
+      - "127.0.0.1:5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

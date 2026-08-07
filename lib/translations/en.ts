@@ -178,6 +178,7 @@ export const en = {
     },
     nav: {
       dashboard: "Dashboard",
+      resourceManagement: "Resources Management",
       inventoryAdjustment: "Inventory Adjustment",
       export: "Export (Get data)",
       import: "Import (Input data)",

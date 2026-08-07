@@ -177,6 +177,7 @@ export const id = {
     },
     nav: {
       dashboard: "Dasbor",
+      resourceManagement: "Resources Management",
       inventoryAdjustment: "Penyesuaian Persediaan",
       export: "Ekspor (Ambil data)",
       import: "Impor (Input data)",
