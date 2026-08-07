@@ -37,6 +37,7 @@ import {
   IconChartLine,
   IconShoppingCart,
   IconBuildingWarehouse,
+  IconUsers,
 } from "@tabler/icons-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
@@ -154,6 +155,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { colorScheme } = useMantineColorScheme();
+  const { data: session } = useSession();
   const isDark = colorScheme === "dark";
 
   const navItems: NavItem[] = [
@@ -246,6 +248,15 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       icon: <IconKey size={20} />,
       href: "/dashboard/credentials",
     },
+    ...(session?.user?.role === "admin"
+      ? [
+          {
+            label: t.dashboard.nav.userManagement,
+            icon: <IconUsers size={20} />,
+            href: "/admin",
+          },
+        ]
+      : []),
   ];
 
   const isActive = (href: string) => pathname === href;

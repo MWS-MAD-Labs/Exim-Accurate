@@ -185,6 +185,7 @@ export const en = {
       selfCheckout: "Self-Checkout",
       peminjaman: "Borrowing",
       credentials: "Accurate Credentials",
+      userManagement: "User Management",
     },
     userMenu: {
       account: "Account",

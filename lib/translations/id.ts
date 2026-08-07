@@ -184,6 +184,7 @@ export const id = {
       selfCheckout: "Checkout Mandiri",
       peminjaman: "Peminjaman",
       credentials: "Kredensial Accurate",
+      userManagement: "Manajemen Pengguna",
     },
     userMenu: {
       account: "Akun",
