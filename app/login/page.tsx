@@ -19,7 +19,8 @@ import {
   rem,
 } from "@mantine/core";
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
+import { getRoleHome } from "@/lib/access-control";
 import { useRouter } from "next/navigation";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
 import { useLanguage } from "@/lib/language";
@@ -82,7 +83,8 @@ export default function LoginPage() {
       if (result?.error) {
         setError(t.login.errorInvalid);
       } else {
-        router.push("/dashboard");
+        const session = await getSession();
+        router.push(getRoleHome(session?.user?.role));
         router.refresh();
       }
     } catch (err) {

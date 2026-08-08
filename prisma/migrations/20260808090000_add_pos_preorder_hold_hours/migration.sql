@@ -1,0 +1,2 @@
+ALTER TABLE "PosSettings"
+ADD COLUMN "preorderHoldHours" INTEGER NOT NULL DEFAULT 4;

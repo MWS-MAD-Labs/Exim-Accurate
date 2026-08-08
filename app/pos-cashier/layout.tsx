@@ -7,6 +7,7 @@ import "@mantine/notifications/styles.css";
 import type { Metadata } from "next";
 import { Orbitron, Space_Grotesk } from "next/font/google";
 import { authOptions } from "@/lib/auth";
+import { canOperatePos, getRoleHome } from "@/lib/access-control";
 import { KioskNotifications } from "../kiosk/kiosk-notifications";
 import { LocalDarkScheme } from "@/components/LocalDarkScheme";
 
@@ -35,6 +36,9 @@ export default async function PosCashierLayout({
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/pos-cashier");
+  }
+  if (!canOperatePos(session.user.role)) {
+    redirect(getRoleHome(session.user.role));
   }
 
   return (

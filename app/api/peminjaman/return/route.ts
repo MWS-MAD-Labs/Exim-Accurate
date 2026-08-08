@@ -8,6 +8,8 @@ import { saveInventoryAdjustment } from "@/lib/accurate/inventory";
 import { refreshSession, refreshAccessToken } from "@/lib/accurate/client";
 import { createBorrowingActivities } from "@/lib/peminjaman";
 import dayjs from "dayjs";
+import { getResourceCredential } from "@/lib/credential-access";
+import { canAccessResourceManagement } from "@/lib/access-control";
 
 interface ReturnItem {
     borrowingItemId: string;
@@ -19,10 +21,8 @@ interface ReturnRequest {
 }
 
 // Helper to ensure valid Accurate session
-async function ensureCredentialSession(credentialId: string, userId: string) {
-    let credential = await prisma.accurateCredentials.findFirst({
-        where: { id: credentialId, userId },
-    });
+async function ensureCredentialSession(credentialId: string, role: string) {
+    let credential = await getResourceCredential(role, credentialId);
 
     if (!credential) throw new Error("Credential not found");
 
@@ -76,6 +76,9 @@ export async function POST(req: NextRequest) {
     if (!session?.user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (!canAccessResourceManagement(session.user.role)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     let body: ReturnRequest;
     try {
@@ -89,6 +92,9 @@ export async function POST(req: NextRequest) {
     if (!items?.length) {
         return NextResponse.json({ error: "items are required" }, { status: 400 });
     }
+    if (items.some((item) => !item.borrowingItemId || !Number.isInteger(item.returnQty) || item.returnQty <= 0)) {
+        return NextResponse.json({ error: "Each return item must have a valid id and positive integer quantity" }, { status: 400 });
+    }
 
     try {
         // Fetch all borrowing items and their sessions
@@ -101,15 +107,18 @@ export async function POST(req: NextRequest) {
             },
         });
 
-        if (borrowingItems.length === 0) {
-            return NextResponse.json({ error: "No valid borrowing items found" }, { status: 404 });
+        const requestedIds = new Set(items.map((item) => item.borrowingItemId));
+        if (borrowingItems.length !== requestedIds.size) {
+            return NextResponse.json({ error: "One or more borrowing items were not found" }, { status: 404 });
         }
 
-        // Verify ownership
-        for (const bi of borrowingItems) {
-            if (bi.session.userId !== session.user.id) {
-                return NextResponse.json({ error: "Unauthorized access to borrowing item" }, { status: 403 });
-            }
+        const credentialIds = new Set(borrowingItems.map((item) => item.session.credentialId));
+        if (credentialIds.size !== 1) {
+            return NextResponse.json({ error: "All returned items must belong to the same credential" }, { status: 400 });
+        }
+        const credentialId = borrowingItems[0].session.credentialId;
+        if (!await getResourceCredential(session.user.role, credentialId)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         // Update each borrowing item's returnedQty
@@ -217,7 +226,7 @@ export async function POST(req: NextRequest) {
         if (itemsToAdjust.length > 0) {
             const firstSession = borrowingItems[0].session;
             try {
-                const credential = await ensureCredentialSession(firstSession.credentialId, session.user.id);
+                const credential = await ensureCredentialSession(firstSession.credentialId, session.user.role);
 
                 const description = `Pengembalian Peminjaman | ${dayjs().format("DD/MM/YYYY")}`;
 

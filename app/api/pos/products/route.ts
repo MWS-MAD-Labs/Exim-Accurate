@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getPosContext, resolveLocalPosProducts } from "@/lib/pos-server";
+import { getDefaultPosStore, getPosContext, resolveLocalPosProducts } from "@/lib/pos-server";
+import { canBrowsePosCatalog } from "@/lib/access-control";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canBrowsePosCatalog(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const params = new URL(req.url).searchParams;
-  const credentialId = params.get("credentialId");
-  if (!credentialId) return NextResponse.json({ error: "Credential is required" }, { status: 400 });
-  const context = await getPosContext(session.user.id, credentialId);
-  if (!context) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
+  const requestedCredentialId = params.get("credentialId");
+  const defaultStore = requestedCredentialId ? null : await getDefaultPosStore();
+  const credentialId = requestedCredentialId ?? defaultStore?.credentialId;
+  if (!credentialId) {
+    return NextResponse.json({ error: "POS store is not configured" }, { status: 409 });
+  }
+
+  const context = await getPosContext(session.user.id, credentialId, true);
+  if (!context) return NextResponse.json({ error: "POS store is not available" }, { status: 404 });
   if (!context.settings) return NextResponse.json({ error: "POS warehouse is not configured" }, { status: 409 });
   const products = await resolveLocalPosProducts(
     credentialId,
@@ -18,5 +25,11 @@ export async function GET(req: NextRequest) {
     undefined,
     params.get("q") || "",
   );
-  return NextResponse.json({ warehouse: context.settings, products });
+  return NextResponse.json({
+    store: {
+      warehouseName: context.settings.warehouseName,
+      holdHours: context.settings.preorderHoldHours,
+    },
+    products,
+  });
 }

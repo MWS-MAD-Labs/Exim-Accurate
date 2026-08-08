@@ -31,10 +31,12 @@ interface Settings {
   credentialId: string;
   warehouseId: number;
   warehouseName: string;
+  isActive: boolean;
   allowancePerWorkingDay: string;
   workingDays: number[];
   holidayDates: string[];
   allowanceCutoffDay: number;
+  preorderHoldHours: number;
   allowancePeriodOverrides: Array<{ id: string; startsAt: string; endsAt: string }>;
 }
 
@@ -54,15 +56,10 @@ export default function PosSettingsPage() {
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [holidayDates, setHolidayDates] = useState<string[]>([]);
   const [allowanceCutoffDay, setAllowanceCutoffDay] = useState<number | "">(22);
+  const [preorderHoldHours, setPreorderHoldHours] = useState<number | "">(4);
   const [allowancePeriodOverrides, setAllowancePeriodOverrides] = useState<AllowancePeriodOverride[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    void fetch("/api/credentials")
-      .then((r) => r.json())
-      .then(setCredentials);
-  }, []);
 
   const loadForCredential = async (id: string) => {
     setCredentialId(id);
@@ -82,6 +79,7 @@ export default function PosSettingsPage() {
         setWorkingDays(existing.workingDays);
         setHolidayDates(existing.holidayDates);
         setAllowanceCutoffDay(existing.allowanceCutoffDay);
+        setPreorderHoldHours(existing.preorderHoldHours);
         setAllowancePeriodOverrides(existing.allowancePeriodOverrides.map(({ startsAt, endsAt }) => ({
           startsAt: startsAt.slice(0, 10),
           endsAt: endsAt.slice(0, 10),
@@ -93,10 +91,20 @@ export default function PosSettingsPage() {
         setWorkingDays([1, 2, 3, 4, 5]);
         setHolidayDates([]);
         setAllowanceCutoffDay(22);
+        setPreorderHoldHours(4);
         setAllowancePeriodOverrides([]);
       }
     }
   };
+
+  useEffect(() => {
+    void fetch("/api/credentials")
+      .then((response) => response.json())
+      .then((data: Credential[]) => {
+        setCredentials(data);
+        if (data.length === 1) void loadForCredential(data[0].id);
+      });
+  }, []);
 
   const toggleNoAllowance = (date: Date) => {
     if (!workingDays.includes(date.getDay())) return;
@@ -136,6 +144,7 @@ export default function PosSettingsPage() {
           workingDays,
           holidayDates,
           allowanceCutoffDay: allowanceCutoffDay || 22,
+          preorderHoldHours: preorderHoldHours || 4,
           allowancePeriodOverrides,
         }),
       });
@@ -151,6 +160,9 @@ export default function PosSettingsPage() {
       <Title>{t.dashboard.pos.warehouseTitle}</Title>
       <Paper p="md" withBorder>
         <Stack>
+          <Text size="sm" c="dimmed">
+            Saving this page makes the selected credential the only active POS store for staff preorders and cashier operations.
+          </Text>
           <Select
             label={t.dashboard.pos.credential}
             data={credentials.map((credential) => ({ value: credential.id, label: credential.appKey }))}
@@ -175,6 +187,15 @@ export default function PosSettingsPage() {
             value={allowancePerWorkingDay}
             onChange={(value) => setAllowancePerWorkingDay(typeof value === "number" ? value : "")}
             min={0}
+            disabled={!credentialId}
+          />
+          <NumberInput
+            label="Preorder stock hold (hours)"
+            description="Available stock is locked for this many hours after a staff preorder is placed."
+            value={preorderHoldHours}
+            onChange={(value) => setPreorderHoldHours(typeof value === "number" ? value : "")}
+            min={1}
+            max={168}
             disabled={!credentialId}
           />
           <NumberInput

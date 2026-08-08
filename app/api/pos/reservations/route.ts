@@ -4,15 +4,25 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { reservationRequestSchema, makeReservationReference } from "@/lib/pos";
-import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getPosContext, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
+import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getDefaultPosStore, getPosContext, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
 import crypto from "node:crypto";
+import { isRoleAllowed } from "@/lib/access-control";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isRoleAllowed(session.user.role, ["admin", "cashier", "staff"])) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const params = new URL(req.url).searchParams;
   const mine = params.get("mine") !== "false";
-  const reservations = await prisma.posReservation.findMany({ where: mine ? { userId: session.user.id } : { credential: { userId: session.user.id } }, include: { items: true, sale: true }, orderBy: { createdAt: "desc" } });
+  const reservations = await prisma.posReservation.findMany({
+    where: mine
+      ? { userId: session.user.id }
+      : isRoleAllowed(session.user.role, ["admin", "cashier"])
+        ? { credential: { posSettings: { isNot: null } } }
+        : { userId: session.user.id },
+    include: { items: true, sale: true },
+    orderBy: { createdAt: "desc" },
+  });
   const credentialIds = [...new Set(reservations.map((reservation) => reservation.credentialId))];
   for (const credentialId of credentialIds) await expireReservations(credentialId);
   const refreshed = await prisma.posReservation.findMany({ where: { id: { in: reservations.map((reservation) => reservation.id) } }, include: { items: true, sale: true }, orderBy: { createdAt: "desc" } });
@@ -22,13 +32,20 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isRoleAllowed(session.user.role, ["admin", "staff"])) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const parsed = reservationRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid reservation" }, { status: 400 });
-  const { credentialId, idempotencyKey, items: requestedItems, expiresAt } = parsed.data;
-  if (expiresAt <= new Date()) return NextResponse.json({ error: "Pickup expiry must be in the future" }, { status: 400 });
-  const context = await getPosContext(session.user.id, credentialId);
+  const { credentialId: requestedCredentialId, idempotencyKey, items: requestedItems } = parsed.data;
+  const defaultStore = requestedCredentialId ? null : await getDefaultPosStore();
+  const credentialId = requestedCredentialId ?? defaultStore?.credentialId;
+  if (!credentialId) return NextResponse.json({ error: "POS store is not configured" }, { status: 409 });
+  const context = await getPosContext(session.user.id, credentialId, true);
   if (!context) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   if (!context.settings) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
+  const holdHours = Number.isInteger(context.settings.preorderHoldHours) && context.settings.preorderHoldHours > 0
+    ? Math.min(context.settings.preorderHoldHours, 168)
+    : 4;
+  const expiresAt = new Date(Date.now() + holdHours * 60 * 60 * 1000);
   await expireReservations(credentialId);
   const products = await resolveLocalPosProducts(
     credentialId,
@@ -70,6 +87,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isRoleAllowed(session.user.role, ["admin", "staff"])) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json().catch(() => null) as { id?: string; action?: string } | null;
   if (!body?.id || body.action !== "cancel") return NextResponse.json({ error: "Invalid lifecycle action" }, { status: 400 });
   const reservation = await prisma.posReservation.findFirst({ where: { id: body.id, userId: session.user.id }, include: { items: true } });

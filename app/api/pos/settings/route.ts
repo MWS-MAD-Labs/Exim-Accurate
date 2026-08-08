@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listWarehouses } from "@/lib/accurate/pos";
-import { getOwnedCredential, isAdmin } from "@/lib/pos-server";
+import { isAdmin } from "@/lib/pos-server";
 import { z } from "zod";
 
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -16,6 +16,7 @@ const schema = z.object({
   workingDays: z.array(z.number().int().min(0).max(6)).min(1).max(7).default([1, 2, 3, 4, 5]),
   holidayDates: z.array(dateOnlySchema).default([]),
   allowanceCutoffDay: z.number().int().min(1).max(28).default(22),
+  preorderHoldHours: z.number().int().min(1).max(168).default(4),
   allowancePeriodOverrides: z.array(z.object({
     startsAt: dateOnlySchema,
     endsAt: dateOnlySchema,
@@ -32,11 +33,12 @@ const schema = z.object({
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const settings = await prisma.posSettings.findMany({
-    where: { userId: session.user.id },
+    where: {},
     select: {
-      id: true, credentialId: true, warehouseId: true, warehouseName: true, allowancePerWorkingDay: true, workingDays: true,
-      holidayDates: true, allowanceCutoffDay: true, updatedAt: true,
+      id: true, credentialId: true, warehouseId: true, warehouseName: true, isActive: true, allowancePerWorkingDay: true, workingDays: true,
+      holidayDates: true, allowanceCutoffDay: true, preorderHoldHours: true, updatedAt: true,
     },
   });
   const overrides = await prisma.posAllowancePeriodOverride.findMany({
@@ -44,7 +46,12 @@ export async function GET() {
     select: { id: true, credentialId: true, startsAt: true, endsAt: true },
     orderBy: { startsAt: "asc" },
   });
-  const overridesByCredential = Map.groupBy(overrides, (override) => override.credentialId);
+  const overridesByCredential = overrides.reduce((grouped, override) => {
+    const current = grouped.get(override.credentialId) ?? [];
+    current.push(override);
+    grouped.set(override.credentialId, current);
+    return grouped;
+  }, new Map<string, typeof overrides>());
   return NextResponse.json(settings.map((setting) => ({
     ...setting,
     allowancePeriodOverrides: overridesByCredential.get(setting.credentialId) ?? [],
@@ -57,8 +64,8 @@ export async function POST(req: NextRequest) {
   if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
-  const { credentialId, warehouseId, warehouseName, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, allowancePeriodOverrides } = parsed.data;
-  const credential = await getOwnedCredential(session.user.id, credentialId);
+  const { credentialId, warehouseId, warehouseName, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, preorderHoldHours, allowancePeriodOverrides } = parsed.data;
+  const credential = await prisma.accurateCredentials.findUnique({ where: { id: credentialId } });
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   if (!credential.host || !credential.session) return NextResponse.json({ error: "Accurate session is not ready" }, { status: 409 });
   try {
@@ -66,10 +73,14 @@ export async function POST(req: NextRequest) {
     const warehouse = warehouses.find((candidate) => candidate.id === warehouseId && candidate.name === warehouseName);
     if (!warehouse) return NextResponse.json({ error: "Warehouse is not valid for this credential" }, { status: 409 });
     const settings = await prisma.$transaction(async (tx) => {
+      await tx.posSettings.updateMany({
+        where: { credentialId: { not: credentialId }, isActive: true },
+        data: { isActive: false },
+      });
       const saved = await tx.posSettings.upsert({
         where: { credentialId },
-        update: { warehouseId, warehouseName, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay },
-        create: { userId: session.user.id, credentialId, warehouseId, warehouseName, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay },
+        update: { warehouseId, warehouseName, isActive: true, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, preorderHoldHours },
+        create: { userId: session.user.id, credentialId, warehouseId, warehouseName, isActive: true, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, preorderHoldHours },
       });
       await tx.posAllowancePeriodOverride.deleteMany({ where: { credentialId } });
       if (allowancePeriodOverrides.length) {

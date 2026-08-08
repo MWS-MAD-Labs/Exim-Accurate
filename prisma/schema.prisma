@@ -39,6 +39,7 @@ model AccurateCredentials {
   host            String?
   session         String? // Session token from open-db.do
   dbId            Int? // Database ID from Accurate
+  disconnectedAt  DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -228,6 +229,7 @@ model PosSettings {
   credentialId  String   @unique
   warehouseId   Int
   warehouseName String
+  isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -236,11 +238,13 @@ model PosSettings {
   workingDays            Int[]    @default([1, 2, 3, 4, 5]) // 0=Sunday .. 6=Saturday
   holidayDates           String[] @default([]) // Date-only values in YYYY-MM-DD format
   allowanceCutoffDay     Int      @default(22) // Normal cycle ends on this day; the next starts the day after
+  preorderHoldHours      Int      @default(4) // Hours that staff preorder stock remains locked
 
   user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([isActive])
 }
 
 // One-off inclusive allowance periods, used when the normal cutoff cycle changes.

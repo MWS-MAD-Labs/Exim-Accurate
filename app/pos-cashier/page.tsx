@@ -9,6 +9,8 @@ import {
   Card,
   Center,
   Group,
+  Loader,
+  Modal,
   Select,
   SimpleGrid,
   Stack,
@@ -29,12 +31,16 @@ import {
   IconUser,
   IconUserOff,
   IconWallet,
+  IconPackageExport,
+  IconClock,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { kioskNotificationsStore } from "../kiosk/kiosk-notifications";
 
 import { createIdempotencyKey } from "@/lib/browser-id";
 import { useLanguage } from "@/lib/language";
+import { CameraScanner } from "@/components/CameraScanner";
+import { parseReservationQrPayload } from "@/lib/reservation-qr";
 
 interface Credential {
   id: string;
@@ -58,6 +64,23 @@ interface Allowance {
   used: number;
   remaining: number;
   period: { startsAt: string; endsAt: string; isCustom: boolean };
+}
+
+interface PickupReservation {
+  id: string;
+  reference: string;
+  staffEmail: string;
+  staffName: string | null;
+  warehouseName: string;
+  status: "active" | "picked_up" | "cancelled" | "expired";
+  expiresAt: string;
+  items: Array<{
+    id: string;
+    itemCode: string;
+    itemName: string;
+    quantity: number;
+    unitPrice: string;
+  }>;
 }
 
 type PaymentMethod = "allowance" | "cash" | "qris";
@@ -96,6 +119,12 @@ export default function PosCashierPage() {
   );
   const [adjustmentNumber, setAdjustmentNumber] = useState<string | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
+  const [pickupOpened, setPickupOpened] = useState(false);
+  const [pickupReservation, setPickupReservation] = useState<PickupReservation | null>(null);
+  const [pickupPaymentMethod, setPickupPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [pickupLoading, setPickupLoading] = useState(false);
+  const [pickupError, setPickupError] = useState("");
+  const [scannerKey, setScannerKey] = useState(0);
 
   const badgeInputRef = useRef<HTMLInputElement>(null);
   const itemInputRef = useRef<HTMLInputElement>(null);
@@ -316,6 +345,66 @@ export default function PosCashierPage() {
     }
   };
 
+  const openPickup = () => {
+    setPickupReservation(null);
+    setPickupPaymentMethod(null);
+    setPickupError("");
+    setScannerKey((current) => current + 1);
+    setPickupOpened(true);
+  };
+
+  const lookupReservation = async (payload: string) => {
+    const reservationId = parseReservationQrPayload(payload);
+    if (!reservationId) {
+      setPickupError("This code is not a staff preorder QR code.");
+      setScannerKey((current) => current + 1);
+      return;
+    }
+    setPickupLoading(true);
+    setPickupError("");
+    try {
+      const response = await fetch(`/api/pos/reservations/${encodeURIComponent(reservationId)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Reservation not found");
+      setPickupReservation(data);
+      if (data.status !== "active") setPickupError(`This preorder is ${String(data.status).replace("_", " ")}.`);
+    } catch (error) {
+      setPickupReservation(null);
+      setPickupError(error instanceof Error ? error.message : "Unable to load preorder");
+      setScannerKey((current) => current + 1);
+    } finally {
+      setPickupLoading(false);
+    }
+  };
+
+  const confirmPickup = async () => {
+    if (!pickupReservation || !pickupPaymentMethod || pickupLoading) return;
+    setPickupLoading(true);
+    setPickupError("");
+    try {
+      const response = await fetch(`/api/pos/reservations/${pickupReservation.id}/pickup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentMethod: pickupPaymentMethod }),
+      });
+      const data = await response.json();
+      if (!response.ok && !data.sale) throw new Error(data.error || "Unable to confirm pickup");
+      notify({
+        title: "Preorder picked up",
+        message: data.adjustmentNumber || pickupReservation.reference,
+        color: data.error ? "orange" : "green",
+        autoClose: 4000,
+      });
+      setPickupOpened(false);
+      setPickupReservation(null);
+      setPickupPaymentMethod(null);
+    } catch (error) {
+      setPickupError(error instanceof Error ? error.message : "Unable to confirm pickup");
+    } finally {
+      setPickupLoading(false);
+    }
+  };
+
   const startNewTransaction = useCallback(() => {
     setStep("identify");
     setBuyerType(null);
@@ -448,6 +537,13 @@ export default function PosCashierPage() {
             F2 {language === "id" ? "Cari" : "Search"} · F4 Checkout · Alt+N{" "}
             {language === "id" ? "Baru" : "New"}
           </Badge>
+          <Button
+            variant="light"
+            leftSection={<IconPackageExport size={17} />}
+            onClick={openPickup}
+          >
+            Preorder pickup
+          </Button>
           {step !== "identify" && (
             <Button
               variant="subtle"
@@ -459,6 +555,70 @@ export default function PosCashierPage() {
           )}
         </Group>
       </Group>
+
+      <Modal
+        opened={pickupOpened}
+        onClose={() => setPickupOpened(false)}
+        title="Preorder pickup"
+        size="lg"
+        centered
+      >
+        <Stack gap="md">
+          {!pickupReservation && !pickupLoading && (
+            <>
+              <Text size="sm" c="dimmed">Scan the QR code shown on the staff member&apos;s preorder page.</Text>
+              <CameraScanner
+                key={scannerKey}
+                onScanSuccess={(value) => void lookupReservation(value)}
+                qrbox={250}
+              />
+            </>
+          )}
+          {pickupLoading && !pickupReservation && <Center py="xl"><Loader /></Center>}
+          {pickupError && <Text c="red" fw={600}>{pickupError}</Text>}
+          {pickupReservation && (
+            <Stack>
+              <Card withBorder p="md">
+                <Group justify="space-between" align="flex-start">
+                  <Box>
+                    <Text fw={800} size="lg">{pickupReservation.reference}</Text>
+                    <Text size="sm" c="dimmed">{pickupReservation.staffName || pickupReservation.staffEmail}</Text>
+                    <Text size="xs" c="dimmed">{pickupReservation.warehouseName}</Text>
+                  </Box>
+                  <Badge color={pickupReservation.status === "active" ? "green" : "gray"}>{pickupReservation.status.replace("_", " ")}</Badge>
+                </Group>
+                <Group gap="xs" mt="md"><IconClock size={16} /><Text size="sm">Expires {new Date(pickupReservation.expiresAt).toLocaleString()}</Text></Group>
+                <Stack gap="xs" mt="md">
+                  {pickupReservation.items.map((item) => (
+                    <Group key={item.id} justify="space-between">
+                      <Box><Text size="sm" fw={600}>{item.itemName}</Text><Text size="xs" c="dimmed">{item.itemCode}</Text></Box>
+                      <Text size="sm">{item.quantity} × {Number(item.unitPrice).toLocaleString()}</Text>
+                    </Group>
+                  ))}
+                </Stack>
+                <Group justify="space-between" mt="md">
+                  <Text fw={700}>Total</Text>
+                  <Text fw={800} size="lg">{pickupReservation.items.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0).toLocaleString()}</Text>
+                </Group>
+              </Card>
+              {pickupReservation.status === "active" && (
+                <>
+                  <Text fw={600}>Payment method</Text>
+                  <SimpleGrid cols={3}>
+                    <Button variant={pickupPaymentMethod === "allowance" ? "filled" : "outline"} onClick={() => setPickupPaymentMethod("allowance")}>Allowance</Button>
+                    <Button variant={pickupPaymentMethod === "cash" ? "filled" : "outline"} onClick={() => setPickupPaymentMethod("cash")}>Cash</Button>
+                    <Button variant={pickupPaymentMethod === "qris" ? "filled" : "outline"} onClick={() => setPickupPaymentMethod("qris")}>QRIS</Button>
+                  </SimpleGrid>
+                  <Group grow>
+                    <Button variant="subtle" onClick={() => { setPickupReservation(null); setPickupPaymentMethod(null); setPickupError(""); setScannerKey((current) => current + 1); }}>Scan another</Button>
+                    <Button loading={pickupLoading} disabled={!pickupPaymentMethod} onClick={() => void confirmPickup()}>Confirm pickup</Button>
+                  </Group>
+                </>
+              )}
+            </Stack>
+          )}
+        </Stack>
+      </Modal>
 
       {step === "identify" && (
         <Stack

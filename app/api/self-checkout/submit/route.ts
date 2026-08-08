@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { saveInventoryAdjustment } from "@/lib/accurate/inventory";
 import { refreshSession, refreshAccessToken } from "@/lib/accurate/client";
+import { getResourceCredential } from "@/lib/credential-access";
 import dayjs from "dayjs";
 
 interface CheckoutItem {
@@ -76,12 +77,7 @@ export async function POST(req: NextRequest) {
 
     try {
         // Get credentials
-        let credential = await prisma.accurateCredentials.findFirst({
-            where: {
-                id: credentialId,
-                userId: session.user.id,
-            },
-        });
+        let credential = await getResourceCredential(session.user.role, credentialId);
 
         if (!credential) {
             return NextResponse.json({ error: "Kredensial tidak ditemukan" }, { status: 404 });

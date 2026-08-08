@@ -16,6 +16,7 @@ import {
     endOfDay,
 } from "@/lib/peminjaman";
 import dayjs from "dayjs";
+import { getResourceCredential } from "@/lib/credential-access";
 
 interface BorrowItem {
     itemCode: string;
@@ -51,10 +52,8 @@ function parseStaffInfo(email: string): { name: string; department: string } {
 }
 
 // Helper to ensure valid Accurate session
-async function ensureCredentialSession(credentialId: string, userId: string) {
-    let credential = await prisma.accurateCredentials.findFirst({
-        where: { id: credentialId, userId },
-    });
+async function ensureCredentialSession(credentialId: string, role: string) {
+    let credential = await getResourceCredential(role, credentialId);
 
     if (!credential) throw new Error("Credential not found");
 
@@ -231,7 +230,7 @@ export async function POST(req: NextRequest) {
         let adjustmentId: number | null = null;
         if (type === "borrow") {
             try {
-                const credential = await ensureCredentialSession(credentialId, session.user.id);
+                const credential = await ensureCredentialSession(credentialId, session.user.role);
 
                 const description = `Peminjaman by ${borrowerName || borrowerEmail}${borrowerDept ? ` | Dept: ${borrowerDept}` : ""} | Email: ${borrowerEmail}`;
 

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { parseCSV, parseXLSX } from "@/lib/import/parser";
 import { validateImportRows } from "@/lib/import/validator";
 import { refreshSession, refreshAccessToken } from "@/lib/accurate/client";
+import { getResourceCredential } from "@/lib/credential-access";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -26,12 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch credentials
-    const credential = await prisma.accurateCredentials.findFirst({
-      where: {
-        id: credentialId,
-        userId: session.user.id,
-      },
-    });
+    const credential = await getResourceCredential(session.user.role, credentialId);
 
     if (!credential || !credential.host || !credential.dbId) {
       return NextResponse.json(

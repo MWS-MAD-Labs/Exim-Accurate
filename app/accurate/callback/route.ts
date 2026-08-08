@@ -20,6 +20,9 @@ export async function GET(req: NextRequest) {
       new URL("/login?callbackUrl=/dashboard/credentials", baseUrl),
     );
   }
+  if (session.user.role !== "admin") {
+    return redirectWithStatus(req, "status=error&message=Akses%20admin%20diperlukan");
+  }
 
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
@@ -110,11 +113,12 @@ export async function GET(req: NextRequest) {
       host,
       session: accurateSession,
       dbId,
+      disconnectedAt: null,
     };
 
     if (credentialId) {
       const updated = await prisma.accurateCredentials.updateMany({
-        where: { id: credentialId, userId: session.user.id },
+        where: { id: credentialId },
         data: credentialData,
       });
 
@@ -122,20 +126,32 @@ export async function GET(req: NextRequest) {
         throw new Error("Kredensial Accurate yang akan dihubungkan ulang tidak ditemukan");
       }
     } else {
-      await prisma.accurateCredentials.create({
-        data: {
-          userId: session.user.id,
-          ...credentialData,
-        },
-      });
+      const existing = dbId
+        ? await prisma.accurateCredentials.findFirst({ where: { dbId } })
+        : null;
+
+      if (existing) {
+        await prisma.accurateCredentials.update({
+          where: { id: existing.id },
+          data: credentialData,
+        });
+      } else {
+        await prisma.accurateCredentials.create({
+          data: {
+            userId: session.user.id,
+            ...credentialData,
+          },
+        });
+      }
     }
 
     return redirectWithStatus(req, "status=connected");
-  } catch (err: any) {
-    const message = err?.message || "Kesalahan OAuth tidak terduga";
+  } catch (error: unknown) {
+    const errorName = error instanceof Error ? error.name : "UnknownError";
+    console.error(`[accurate/callback] OAuth connection failed: ${errorName}`);
     return redirectWithStatus(
       req,
-      `status=error&message=${encodeURIComponent(message)}`,
+      "status=error&message=Gagal%20menyimpan%20koneksi%20Accurate.%20Silakan%20coba%20hubungkan%20kembali.",
     );
   }
 }

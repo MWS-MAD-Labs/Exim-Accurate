@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getResourceCredential } from "@/lib/credential-access";
 
 // GET — List configured borrowable items with stock info
 export async function GET(req: NextRequest) {
@@ -86,10 +87,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        // Check credential belongs to user
-        const credential = await prisma.accurateCredentials.findFirst({
-            where: { id: credentialId, userId: session.user.id },
-        });
+        const credential = await getResourceCredential(session.user.role, credentialId);
         if (!credential) {
             return NextResponse.json({ error: "Credential not found" }, { status: 404 });
         }

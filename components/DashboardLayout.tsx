@@ -42,6 +42,7 @@ import {
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
 import { useLanguage } from "@/lib/language";
+import { getRoleHome } from "@/lib/access-control";
 
 interface NavItem {
   label: string;
@@ -158,44 +159,46 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const isDark = colorScheme === "dark";
 
-  const navItems: NavItem[] = [
+  const resourceManagementItem: NavItem = {
+    label: t.dashboard.nav.resourceManagement,
+    icon: <IconBuildingWarehouse size={20} />,
+    children: [
+      {
+        label: t.dashboard.nav.inventoryAdjustment,
+        icon: <IconAdjustments size={16} />,
+        children: [
+          {
+            label: t.dashboard.nav.export,
+            icon: <IconFileExport size={16} />,
+            href: "/dashboard/export/inventory-adjustment",
+          },
+          {
+            label: t.dashboard.nav.import,
+            icon: <IconFileImport size={16} />,
+            href: "/dashboard/import/inventory-adjustment",
+          },
+        ],
+      },
+      {
+        label: t.dashboard.nav.selfCheckout,
+        icon: <IconScan size={16} />,
+        href: "/kiosk",
+      },
+      {
+        label: t.dashboard.nav.peminjaman,
+        icon: <IconClipboardList size={16} />,
+        href: "/dashboard/peminjaman",
+      },
+    ],
+  };
+
+  const adminNavItems: NavItem[] = [
     {
       label: t.dashboard.nav.dashboard,
       icon: <IconDashboard size={20} />,
       href: "/dashboard",
     },
-    {
-      label: t.dashboard.nav.resourceManagement,
-      icon: <IconBuildingWarehouse size={20} />,
-      children: [
-        {
-          label: t.dashboard.nav.inventoryAdjustment,
-          icon: <IconAdjustments size={16} />,
-          children: [
-            {
-              label: t.dashboard.nav.export,
-              icon: <IconFileExport size={16} />,
-              href: "/dashboard/export/inventory-adjustment",
-            },
-            {
-              label: t.dashboard.nav.import,
-              icon: <IconFileImport size={16} />,
-              href: "/dashboard/import/inventory-adjustment",
-            },
-          ],
-        },
-        {
-          label: t.dashboard.nav.selfCheckout,
-          icon: <IconScan size={16} />,
-          href: "/kiosk",
-        },
-        {
-          label: t.dashboard.nav.peminjaman,
-          icon: <IconClipboardList size={16} />,
-          href: "/dashboard/peminjaman",
-        },
-      ],
-    },
+    resourceManagementItem,
     {
       label: "Point of Sales",
       icon: <IconShoppingCart size={20} />,
@@ -248,16 +251,18 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       icon: <IconKey size={20} />,
       href: "/dashboard/credentials",
     },
-    ...(session?.user?.role === "admin"
-      ? [
-          {
-            label: t.dashboard.nav.userManagement,
-            icon: <IconUsers size={20} />,
-            href: "/admin",
-          },
-        ]
-      : []),
+    {
+      label: t.dashboard.nav.userManagement,
+      icon: <IconUsers size={20} />,
+      href: "/admin",
+    },
   ];
+
+  const navItems = session?.user?.role === "resource"
+    ? [resourceManagementItem]
+    : session?.user?.role === "admin"
+      ? adminNavItems
+      : [];
 
   const isActive = (href: string) => pathname === href;
   const isItemActive = (item: NavItem): boolean => {
@@ -398,7 +403,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             <Group
               gap="xs"
               style={{ cursor: "pointer" }}
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push(getRoleHome(session?.user?.role))}
             >
               <Box
                 style={{

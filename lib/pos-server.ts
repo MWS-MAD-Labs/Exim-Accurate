@@ -3,13 +3,17 @@ import { Prisma } from "@prisma/client";
 import type { PosAccurateCredentials, PosProduct } from "@/lib/accurate/pos";
 import { calculateAllowanceForPeriod, calculateRemainingAllowance, getRecurringAllowancePeriod, startOfDate, type AllowancePeriod } from "@/lib/pos";
 
-export async function getOwnedCredential(userId: string, credentialId: string) {
-  return prisma.accurateCredentials.findFirst({ where: { id: credentialId, userId } });
+async function getOwnedCredential(userId: string, credentialId: string) {
+  return prisma.accurateCredentials.findFirst({
+    where: { id: credentialId, userId, disconnectedAt: null },
+  });
 }
 
-export async function getPosContext(userId: string, credentialId: string, allowAdmin = false) {
-  const credential = allowAdmin
-    ? await prisma.accurateCredentials.findFirst({ where: { id: credentialId } })
+export async function getPosContext(userId: string, credentialId: string, allowShared = false) {
+  const credential = allowShared
+    ? await prisma.accurateCredentials.findFirst({
+        where: { id: credentialId, disconnectedAt: null },
+      })
     : await getOwnedCredential(userId, credentialId);
   if (!credential) return null;
   const settings = await prisma.posSettings.findUnique({ where: { credentialId } });
@@ -29,6 +33,16 @@ export async function getPosContext(userId: string, credentialId: string, allowA
 
 export function isAdmin(role?: string | null) {
   return role === "admin";
+}
+
+export async function getDefaultPosStore() {
+  return prisma.posSettings.findFirst({
+    where: {
+      isActive: true,
+      credential: { disconnectedAt: null },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
 }
 
 export async function getStaffAllowance(credentialId: string, staffEmail: string, now = new Date()) {

@@ -54,7 +54,7 @@ async function performSync(forceStartDate?: string | null) {
     // Get all users with credentials
     const users = await prisma.user.findMany({
         include: {
-            accurateCredentials: true,
+            accurateCredentials: { where: { disconnectedAt: null } },
         },
     });
 

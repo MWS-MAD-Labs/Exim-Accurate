@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getOwnedCredential } from "@/lib/pos-server";
+import { isAdmin } from "@/lib/pos-server";
 import { z } from "zod";
 
 const upsertSchema = z.object({
@@ -29,9 +29,10 @@ const patchSchema = z.object({
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const credentialId = new URL(req.url).searchParams.get("credentialId");
   if (!credentialId) return NextResponse.json({ error: "Credential is required" }, { status: 400 });
-  const credential = await getOwnedCredential(session.user.id, credentialId);
+  const credential = await prisma.accurateCredentials.findUnique({ where: { id: credentialId } });
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   const products = await prisma.posProduct.findMany({ where: { credentialId }, orderBy: { itemName: "asc" } });
   return NextResponse.json(products);
@@ -40,10 +41,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const parsed = upsertSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid product" }, { status: 400 });
   const { credentialId, itemCode, itemName, unit, stock, buyPrice, sellPrice, isActive } = parsed.data;
-  const credential = await getOwnedCredential(session.user.id, credentialId);
+  const credential = await prisma.accurateCredentials.findUnique({ where: { id: credentialId } });
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   const product = await prisma.posProduct.upsert({
     where: { credentialId_itemCode: { credentialId, itemCode } },
@@ -56,10 +58,11 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const parsed = patchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   const { id, ...updates } = parsed.data;
-  const product = await prisma.posProduct.findFirst({ where: { id, credential: { userId: session.user.id } } });
+  const product = await prisma.posProduct.findUnique({ where: { id } });
   if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
   if (updates.stock !== undefined) {
     const settings = await prisma.posSettings.findUnique({ where: { credentialId: product.credentialId } });
@@ -79,9 +82,10 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Product id is required" }, { status: 400 });
-  const product = await prisma.posProduct.findFirst({ where: { id, credential: { userId: session.user.id } } });
+  const product = await prisma.posProduct.findUnique({ where: { id } });
   if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
   const activeHold = await prisma.posStockAllocation.findFirst({ where: { credentialId: product.credentialId, itemCode: product.itemCode, heldQuantity: { gt: 0 } } });
   if (activeHold) return NextResponse.json({ error: "Product has active reservation holds and cannot be removed" }, { status: 409 });

@@ -12,6 +12,9 @@ export async function GET(req: NextRequest) {
       new URL("/login?callbackUrl=/dashboard/credentials", baseUrl)
     );
   }
+  if (session.user.role !== "admin") {
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  }
 
   const clientId = process.env.ACCURATE_CLIENT_ID;
   const redirectUri = process.env.ACCURATE_REDIRECT_URI;
@@ -42,8 +45,8 @@ export async function GET(req: NextRequest) {
 
   const credentialId = req.nextUrl.searchParams.get("credentialId");
   if (credentialId) {
-    const credential = await prisma.accurateCredentials.findFirst({
-      where: { id: credentialId, userId: session.user.id },
+    const credential = await prisma.accurateCredentials.findUnique({
+      where: { id: credentialId },
       select: { id: true },
     });
 

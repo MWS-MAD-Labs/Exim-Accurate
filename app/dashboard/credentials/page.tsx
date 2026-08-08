@@ -11,6 +11,7 @@ import {
   Text,
   LoadingOverlay,
   Tooltip,
+  Badge,
 } from "@mantine/core";
 import { useState, useEffect, useRef } from "react";
 import { IconTrash, IconCheck, IconKey, IconRefresh } from "@tabler/icons-react";
@@ -23,6 +24,7 @@ interface Credential {
   id: string;
   appKey: string;
   host: string | null;
+  disconnectedAt: string | null;
   createdAt: string;
 }
 
@@ -98,19 +100,22 @@ export default function CredentialsPage() {
         method: "DELETE",
       });
 
-      if (response.ok) {
-        notifications.show({
-          title: t.dashboard.credentials.notifications.deleteSuccessTitle,
-          message: t.dashboard.credentials.notifications.deleteSuccessMessage,
-          color: "green",
-          icon: <IconCheck size={16} />,
-        });
-        fetchCredentials();
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error || t.dashboard.credentials.notifications.deleteErrorMessage);
       }
-    } catch (err) {
+
+      notifications.show({
+        title: t.dashboard.credentials.notifications.deleteSuccessTitle,
+        message: t.dashboard.credentials.notifications.deleteSuccessMessage,
+        color: "green",
+        icon: <IconCheck size={16} />,
+      });
+      await fetchCredentials();
+    } catch (error) {
       notifications.show({
         title: t.dashboard.credentials.notifications.deleteErrorTitle,
-        message: t.dashboard.credentials.notifications.deleteErrorMessage,
+        message: error instanceof Error ? error.message : t.dashboard.credentials.notifications.deleteErrorMessage,
         color: "red",
       });
     } finally {
@@ -170,7 +175,10 @@ export default function CredentialsPage() {
                 <Table.Tr key={cred.id}>
                   <Table.Td>{cred.appKey}</Table.Td>
                   <Table.Td>
-                    {cred.host || t.dashboard.credentials.table.notDetected}
+                    <Group gap="xs">
+                      <Text size="sm">{cred.host || t.dashboard.credentials.table.notDetected}</Text>
+                      {cred.disconnectedAt && <Badge color="orange" variant="light">Disconnected</Badge>}
+                    </Group>
                   </Table.Td>
                   <Table.Td>
                     {new Date(cred.createdAt).toLocaleDateString()}
@@ -199,6 +207,7 @@ export default function CredentialsPage() {
                           color="red"
                           onClick={() => handleDelete(cred.id)}
                           loading={loadingDeleteId === cred.id}
+                          disabled={!!cred.disconnectedAt}
                           aria-label={t.dashboard.credentials.disconnectTooltip}
                         >
                           <IconTrash size={16} />

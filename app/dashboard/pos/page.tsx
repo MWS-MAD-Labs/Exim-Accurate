@@ -16,7 +16,7 @@ import {
   Title,
 } from "@mantine/core";
 import { useEffect, useState } from "react";
-import { IconRefresh } from "@tabler/icons-react";
+import { IconRefresh, IconSettings } from "@tabler/icons-react";
 import { useLanguage } from "@/lib/language";
 
 interface Credential {
@@ -140,7 +140,9 @@ export default function PosStockManagementPage() {
       const data = await response.json();
       await loadCatalog(credentialId);
       if (!response.ok || data.failed) {
-        setMessage(data.error || `${data.failed || 0} ${t.dashboard.pos.syncFailed}`);
+        setMessage(data.error === "POS is not configured"
+          ? "Configure the POS warehouse in POS Settings before synchronizing products."
+          : data.error || `${data.failed || 0} ${t.dashboard.pos.syncFailed}`);
       } else {
         setMessage(t.dashboard.pos.syncComplete);
       }
@@ -173,6 +175,9 @@ export default function PosStockManagementPage() {
           <Group justify="space-between" mb="md">
             <Title order={3}>{t.dashboard.pos.catalog}</Title>
             <Group>
+              <Button component="a" href="/dashboard/pos/settings" variant="subtle" leftSection={<IconSettings size={16} />}>
+                POS Settings
+              </Button>
               <Button variant="light" leftSection={<IconRefresh size={16} />} onClick={() => void syncProducts()} loading={syncing}>
                 {t.dashboard.pos.syncStock}
               </Button>

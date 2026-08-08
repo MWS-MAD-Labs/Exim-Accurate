@@ -7,14 +7,16 @@ import { saleRequestSchema, calculateTotals } from "@/lib/pos";
 import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getPosContext, getStaffAllowance, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
 import { syncPosSale } from "@/lib/accurate/pos";
 import crypto from "node:crypto";
+import { canOperatePos } from "@/lib/access-control";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!canOperatePos(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const parsed = saleRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid sale" }, { status: 400 });
   const { credentialId, items: requestedItems, paymentMethod, idempotencyKey, buyerType, staffEmail, staffName } = parsed.data;
-  const context = await getPosContext(session.user.id, credentialId);
+  const context = await getPosContext(session.user.id, credentialId, true);
   if (!context) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   if (!context.settings) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
   await expireReservations(credentialId);
