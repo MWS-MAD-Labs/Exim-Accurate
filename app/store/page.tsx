@@ -18,6 +18,7 @@ import {
   NumberInput,
   Paper,
   ScrollArea,
+  Radio,
   SegmentedControl,
   SimpleGrid,
   Stack,
@@ -32,6 +33,7 @@ import {
   IconBox,
   IconCheck,
   IconClock,
+  IconCash,
   IconLogout,
   IconMinus,
   IconPlus,
@@ -39,6 +41,7 @@ import {
   IconSearch,
   IconShoppingBag,
   IconTrash,
+  IconWallet,
 } from "@tabler/icons-react";
 import { signOut, useSession } from "next-auth/react";
 import { createIdempotencyKey } from "@/lib/browser-id";
@@ -48,6 +51,15 @@ interface StoreInfo {
   warehouseName: string;
   holdHours: number;
 }
+
+interface Allowance {
+  total: number;
+  used: number;
+  remaining: number;
+  period: { startsAt: string; endsAt: string; isCustom: boolean };
+}
+
+type PaymentMethod = "allowance" | "cash" | "qris";
 
 interface Product {
   itemCode: string;
@@ -74,6 +86,7 @@ interface Reservation {
   expiresAt: string;
   pickupAt: string | null;
   createdAt: string;
+  preferredPaymentMethod: PaymentMethod;
   items: ReservationItem[];
 }
 
@@ -113,12 +126,14 @@ export default function StorePage() {
   const [cartOpened, cartHandlers] = useDisclosure(false);
   const [store, setStore] = useState<StoreInfo | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [allowance, setAllowance] = useState<Allowance | null>(null);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [query, setQuery] = useState("");
   const [view, setView] = useState("catalog");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [message, setMessage] = useState<{ color: string; text: string } | null>(null);
 
   const loadReservations = useCallback(async () => {
@@ -134,9 +149,11 @@ export default function StorePage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to load available stock");
       setStore(data.store);
+      setAllowance(data.allowance || null);
       setProducts(data.products || []);
     } catch (error) {
       setStore(null);
+      setAllowance(null);
       setProducts([]);
       setMessage({ color: "red", text: error instanceof Error ? error.message : "Unable to load available stock" });
     } finally {
@@ -164,6 +181,13 @@ export default function StorePage() {
   );
   const cartCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
   const cartTotal = cartLines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
+  const allowanceCoversCart = !!allowance && cartTotal > 0 && allowance.remaining >= cartTotal;
+  const amountOverAllowance = Math.max(0, cartTotal - (allowance?.remaining || 0));
+
+  useEffect(() => {
+    if (allowanceCoversCart) setPaymentMethod("allowance");
+    else setPaymentMethod((current) => current === "allowance" ? null : current);
+  }, [allowanceCoversCart]);
 
   const setQuantity = (product: Product, quantity: number) => {
     const safeQuantity = Math.max(0, Math.min(product.stock, Math.floor(quantity || 0)));
@@ -171,7 +195,7 @@ export default function StorePage() {
   };
 
   const reserve = async () => {
-    if (!store || !cartLines.length || submitting) return;
+    if (!store || !cartLines.length || !paymentMethod || submitting) return;
     setSubmitting(true);
     setMessage(null);
     try {
@@ -180,12 +204,14 @@ export default function StorePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           idempotencyKey: createIdempotencyKey(),
+          preferredPaymentMethod: paymentMethod,
           items: cartLines.map(({ itemCode, quantity }) => ({ itemCode, quantity })),
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to create preorder");
       setCart({});
+      setPaymentMethod(null);
       cartHandlers.close();
       setView("orders");
       setMessage({ color: "green", text: `Preorder ${data.reference} created. Show its QR code at the cashier.` });
@@ -350,6 +376,7 @@ export default function StorePage() {
                             <Badge color={meta.color}>{meta.label}</Badge>
                           </Group>
                           <Text size="sm" c="dimmed">{reservation.warehouseName}</Text>
+                          <Text size="xs" c="dimmed">Payment: {reservation.preferredPaymentMethod === "qris" ? "QRIS" : reservation.preferredPaymentMethod === "cash" ? "Cash" : "Staff allowance"}</Text>
                         </Box>
                         <Text fw={700}>{formatMoney(total)}</Text>
                       </Group>
@@ -401,7 +428,44 @@ export default function StorePage() {
           </ScrollArea>
           <Divider />
           <Group justify="space-between"><Text fw={600}>Total</Text><Text fw={800} size="xl">{formatMoney(cartTotal)}</Text></Group>
-          <Button size="lg" fullWidth loading={submitting} disabled={cartLines.length === 0} onClick={() => void reserve()}>Confirm preorder</Button>
+          <Paper withBorder p="md" radius="md">
+            <Group justify="space-between" align="flex-start">
+              <Group gap="sm">
+                <ThemeIcon variant="light" color={allowanceCoversCart ? "green" : "orange"}><IconWallet size={18} /></ThemeIcon>
+                <Box>
+                  <Text fw={700}>Staff allowance balance</Text>
+                  <Text size="xs" c="dimmed">
+                    {allowance ? `${new Date(allowance.period.startsAt).toLocaleDateString()} – ${new Date(allowance.period.endsAt).toLocaleDateString()}` : "Balance unavailable"}
+                  </Text>
+                </Box>
+              </Group>
+              <Text fw={800} c={allowanceCoversCart ? "green" : "orange"}>{allowance ? formatMoney(allowance.remaining) : "—"}</Text>
+            </Group>
+            {allowance && (
+              <Group justify="space-between" mt="sm">
+                <Text size="xs" c="dimmed">Used {formatMoney(allowance.used)} of {formatMoney(allowance.total)}</Text>
+                {allowanceCoversCart ? (
+                  <Text size="xs" c="green" fw={600}>{formatMoney(allowance.remaining - cartTotal)} remaining after pickup</Text>
+                ) : (
+                  <Text size="xs" c="orange" fw={600}>Short by {formatMoney(amountOverAllowance)}</Text>
+                )}
+              </Group>
+            )}
+          </Paper>
+          {allowanceCoversCart ? (
+            <Alert color="green" icon={<IconWallet size={18} />}>This preorder will use your staff allowance at pickup.</Alert>
+          ) : (
+            <Stack gap="xs">
+              <Alert color="orange" icon={<IconAlertCircle size={18} />}>Your allowance does not cover this preorder. Confirm how you want to pay the full amount at pickup.</Alert>
+              <Radio.Group value={paymentMethod || ""} onChange={(value) => setPaymentMethod(value as PaymentMethod)} label="Payment method">
+                <Group mt="xs">
+                  <Radio value="cash" label={<Group gap="xs"><IconCash size={16} />Cash</Group>} />
+                  <Radio value="qris" label={<Group gap="xs"><IconQrcode size={16} />QRIS</Group>} />
+                </Group>
+              </Radio.Group>
+            </Stack>
+          )}
+          <Button size="lg" fullWidth loading={submitting} disabled={cartLines.length === 0 || !paymentMethod} onClick={() => void reserve()}>Confirm preorder</Button>
           <Text size="xs" c="dimmed" ta="center">Confirming immediately locks the selected stock until the configured pickup deadline.</Text>
         </Stack>
       </Drawer>

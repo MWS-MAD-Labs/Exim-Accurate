@@ -74,6 +74,7 @@ interface PickupReservation {
   warehouseName: string;
   status: "active" | "picked_up" | "cancelled" | "expired";
   expiresAt: string;
+  preferredPaymentMethod: PaymentMethod;
   items: Array<{
     id: string;
     itemCode: string;
@@ -367,6 +368,7 @@ export default function PosCashierPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Reservation not found");
       setPickupReservation(data);
+      setPickupPaymentMethod(data.preferredPaymentMethod || null);
       if (data.status !== "active") setPickupError(`This preorder is ${String(data.status).replace("_", " ")}.`);
     } catch (error) {
       setPickupReservation(null);
@@ -603,7 +605,7 @@ export default function PosCashierPage() {
               </Card>
               {pickupReservation.status === "active" && (
                 <>
-                  <Text fw={600}>Payment method</Text>
+                  <Text fw={600}>Payment method <Text span size="xs" c="dimmed">(staff selected {pickupReservation.preferredPaymentMethod === "qris" ? "QRIS" : pickupReservation.preferredPaymentMethod === "allowance" ? "Allowance" : "Cash"})</Text></Text>
                   <SimpleGrid cols={3}>
                     <Button variant={pickupPaymentMethod === "allowance" ? "filled" : "outline"} onClick={() => setPickupPaymentMethod("allowance")}>Allowance</Button>
                     <Button variant={pickupPaymentMethod === "cash" ? "filled" : "outline"} onClick={() => setPickupPaymentMethod("cash")}>Cash</Button>

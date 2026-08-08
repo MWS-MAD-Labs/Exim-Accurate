@@ -38,6 +38,7 @@ export const saleRequestSchema = z
 export const reservationRequestSchema = z.object({
   credentialId: z.string().uuid().optional(),
   idempotencyKey: z.string().trim().min(8).max(128),
+  preferredPaymentMethod: paymentMethodSchema,
   items: z.array(posItemRequestSchema).min(1),
 });
 

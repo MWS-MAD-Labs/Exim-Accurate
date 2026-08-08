@@ -299,14 +299,15 @@ model PosReservation {
   requestFingerprint String
   warehouseId        Int
   warehouseName      String
-  staffEmail         String
-  staffName          String?
-  status             String    @default("active") // active, picked_up, cancelled, expired
-  expiresAt          DateTime
-  pickupAt           DateTime?
-  cancelledAt        DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  staffEmail             String
+  staffName              String?
+  preferredPaymentMethod String   @default("allowance") // allowance, cash, qris
+  status                 String   @default("active") // active, picked_up, cancelled, expired
+  expiresAt              DateTime
+  pickupAt               DateTime?
+  cancelledAt            DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   credential AccurateCredentials  @relation(fields: [credentialId], references: [id], onDelete: Cascade)
