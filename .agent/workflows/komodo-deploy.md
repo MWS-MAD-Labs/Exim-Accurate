@@ -31,7 +31,8 @@ This guide uses **GitHub Actions** to build the image and **Komodo UI** to deplo
 2. Ensure **Source** is set to `Git Repo` (linked to `exima` repo).
 3. Ensure **Compose File Path** is `compose.yaml`.
 4. Update/Verify **Environment** variables:
-   - Ensure `DATABASE_URL` host is `postgres`.
+   - Ensure `DATABASE_URL` uses the Compose service address, for example `postgresql://postgres:password@postgres:5432/exim_accurate?schema=public`.
+   - Do not use `localhost` or the host-published PostgreSQL port from inside the app container.
    - Ensure `NEXTAUTH_URL` and `ACCURATE_REDIRECT_URI` use the production domain.
 
 ---
@@ -66,7 +67,9 @@ Using a **Komodo Procedure** ensures your stack not only syncs but also forces a
 ## Step 4: Post-Deployment Steps
 
 1. **Verify automatic migrations:**
-   - Check the **app** container logs for `All migrations have been successfully applied` or `No pending migrations to apply`.
+   - Confirm the **postgres** container is healthy before the app starts.
+   - Check the **app** container logs for `All migrations have been successfully applied` or `No pending migrations to apply`, followed by `Starting application...`.
+   - Confirm the **app** container becomes healthy after Next.js starts listening on port `5758`.
    - The image entrypoint runs `npx prisma migrate deploy` before starting Next.js. Do not use `prisma db push` in production.
 
 2. **Seed Admin User:**
