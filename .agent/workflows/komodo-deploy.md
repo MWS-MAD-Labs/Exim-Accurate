@@ -32,7 +32,8 @@ This guide uses **GitHub Actions** to build the image and **Komodo UI** to deplo
 3. Ensure **Compose File Path** is `compose.yaml`.
 4. Update/Verify **Environment** variables:
    - Ensure `DATABASE_URL` uses the Compose service address, for example `postgresql://postgres:password@postgres:5432/exim_accurate?schema=public`.
-   - Do not use `localhost` or the host-published PostgreSQL port from inside the app container.
+   - Do not use `localhost` from inside the app container.
+   - PostgreSQL is intentionally not published on a host port in the production Compose file; the app reaches it over the private Compose network.
    - Ensure `NEXTAUTH_URL` and `ACCURATE_REDIRECT_URI` use the production domain.
 
 ---
