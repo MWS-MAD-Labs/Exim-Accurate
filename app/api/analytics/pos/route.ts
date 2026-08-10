@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const end = new Date(params.get("end") || new Date());
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
   const credentialId = params.get("credentialId");
-  const sales = await prisma.posSale.findMany({ where: { userId: session.user.id, ...(credentialId ? { credentialId } : {}), createdAt: { gte: start, lte: end }, status: "synced" }, include: { items: true }, orderBy: { createdAt: "asc" } });
+  const sales = await prisma.posSale.findMany({ where: { ...(credentialId ? { credentialId } : {}), createdAt: { gte: start, lte: end }, status: "synced" }, include: { items: true }, orderBy: { createdAt: "asc" } });
   const itemMap = new Map<string, { itemCode: string; itemName: string; units: number; revenue: Prisma.Decimal; cost: Prisma.Decimal }>();
   const paymentMap = new Map<string, number>();
   let revenue = new Prisma.Decimal(0); let cost = new Prisma.Decimal(0); let units = 0;
