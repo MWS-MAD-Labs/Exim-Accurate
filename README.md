@@ -1,326 +1,186 @@
-# Exima - Export/Import Manager for Accurate Online
+# Exima
 
-Exima is a web application designed to extend the capabilities of Accurate Online (Indonesian accounting software) by providing export and import functionality for Inventory Adjustments (Penyesuaian Persediaan).
+Exima extends Accurate Online with inventory adjustment import/export, self-checkout, borrowing, POS, and organization-scoped analytics.
 
-## Features
+## Core Features
 
-### MVP Features
-- **Export Inventory Adjustments** - Export inventory adjustment data to CSV, XLSX, or JSON formats
-- **Import Inventory Adjustments** - Import inventory adjustments from CSV/XLSX templates with validation
-- **Accurate API Integration** - Secure integration with Accurate Online API
-- **Credential Management** - Manage multiple Accurate API credentials
-- **Authentication** - Secure login with NextAuth
+- Inventory adjustment export to CSV, XLSX, and JSON
+- CSV/XLSX import with validation and preview
+- Accurate OAuth integration with host/session refresh
+- Organization-owned credential management
+- Self-checkout and kiosk workflows
+- Borrowing, booking, return, and availability management
+- POS catalog, reservations, sales, allowances, and Accurate synchronization
+- Organization-scoped operational analytics
+- Role-based access for admins, resource managers, cashiers, and staff
 
-## Technology Stack
+## Tenant and Credential Model
 
-### Frontend + Backend
-- **Next.js 16** with App Router
-- **TypeScript**
-- **Mantine UI** - Complete component library
-- **Tabler Icons**
-- **Zustand** - Client state management (light usage)
+`Organization` is the application tenant boundary. Users, Accurate credentials, POS settings, analytics data, and borrowing catalogs are authorized through organization ownership.
 
-### Backend
-- **Next.js Server Actions** + Route Handlers (API)
-- **PostgreSQL** with Prisma ORM
-- **NextAuth** (Credentials provider)
-- **Zod** - Schema validation
+- Each organization has at most one active Accurate credential by default.
+- Reconnecting Accurate refreshes or replaces the active connection.
+- Disconnected credentials are retained because historical jobs and borrowing sessions may still reference them.
+- Each organization can have one active POS store.
+- Borrowable item codes are unique within an organization.
+- Borrowing availability includes active loans and bookings across current and historical credentials in the organization.
+- Returns are saved locally first and synchronized through the current active credential. Failed synchronization is reported as `pending_reconciliation`.
 
-### Styling
-- **Mantine UI** theming system
-- No Tailwind, No Shadcn
+## Technology
 
-## Prerequisites
+- Next.js 16 and React 19
+- TypeScript
+- Mantine UI
+- PostgreSQL and Prisma
+- NextAuth
+- Zod
+- ExcelJS
+- Recharts
 
-- Node.js 18+ and npm
-- Docker and Docker Compose (for PostgreSQL)
-- Accurate Online account with API credentials
+## Local Development
 
-## Installation
+### Prerequisites
 
-### 1. Clone the repository
+- Node.js 22+
+- npm
+- Docker with Docker Compose
+- Accurate developer application/OAuth credentials
 
-```bash
+### Setup
+
+```sh
 git clone <repository-url>
-cd Exima-Accurate
-```
-
-### 2. Install dependencies
-
-```bash
+cd Exim-Accurate
 npm install
-```
-
-### 3. Set up environment variables
-
-Copy the `.env.example` file to `.env`:
-
-```bash
 cp .env.example .env
 ```
 
-Edit `.env` and configure your settings:
+Configure `.env`, including the database, NextAuth, Accurate OAuth, and cron values.
 
-```env
-# Database
-DATABASE_URL="postgresql://postgres:password@localhost:5432/exim_accurate?schema=public"
+Start PostgreSQL only:
 
-# NextAuth
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-secret-key-change-this-in-production"
-
-# Node Environment
-NODE_ENV="development"
+```sh
+docker compose -f compose.local.yaml up -d postgres
 ```
 
-### 4. Start PostgreSQL with Docker
+The development compose file exposes PostgreSQL on `127.0.0.1:5434`, so use the matching local `DATABASE_URL` from `.env.example`.
 
-```bash
-docker-compose up -d
+Apply migrations and create the first administrator:
+
+```sh
+npm run db:deploy
+npm run db:seed -- admin@example.com password123 admin
 ```
 
-This will start a PostgreSQL database on `localhost:5432`.
+Start the application:
 
-### 5. Run database migrations
-
-```bash
-npx prisma migrate dev --name init
-npx prisma generate
-```
-
-### 6. Create a default user
-
-You can create a user directly in the database or use Prisma Studio:
-
-```bash
-npx prisma studio
-```
-
-Or create a user via script:
-
-```bash
-node -e "
-const bcrypt = require('bcryptjs');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-
-async function main() {
-  const hashedPassword = await bcrypt.hash('password123', 10);
-  const user = await prisma.user.create({
-    data: {
-      email: 'admin@example.com',
-      password: hashedPassword,
-      role: 'admin',
-    },
-  });
-  console.log('User created:', user);
-}
-
-main().then(() => process.exit(0)).catch(console.error);
-"
-```
-
-### 7. Start the development server
-
-```bash
+```sh
 npm run dev
 ```
 
-The application will be available at `http://localhost:3000`.
+Open `http://localhost:3000`, sign in, and connect Accurate from **Accurate Credentials**.
 
-## Usage
+For Docker production deployment, migration reconciliation, verification, backup, and rollback procedures, see [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
-### 1. Login
+## Common Workflows
 
-Navigate to `http://localhost:3000/login` and sign in with your credentials.
+### Connect Accurate
 
-### 2. Add Accurate Credentials
+1. Sign in as an administrator.
+2. Open **Accurate Credentials**.
+3. Complete Accurate OAuth.
 
-1. Go to **Accurate Credentials** in the sidebar
-2. Enter your Accurate API credentials:
-   - App Key
-   - Signature Secret
-   - API Token
-3. Click **Save Credentials**
+The connection is shared by authorized users in the organization. Connecting again does not create a second active credential.
 
-The system will automatically resolve and save your Accurate host URL.
+### Export Inventory Adjustments
 
-### 3. Export Inventory Adjustments
+1. Open **Export → Inventory Adjustment**.
+2. Select the active organization credential.
+3. Choose a date range and format.
+4. Preview or download the export.
 
-1. Go to **Export > Inventory Adjustment**
-2. Select your Accurate credentials
-3. Choose a date range
-4. Select export format (CSV, XLSX, or JSON)
-5. Click **Export** to download the file
+### Import Inventory Adjustments
 
-You can also click **Preview** to see the first 20 rows before exporting.
-
-### 4. Import Inventory Adjustments
-
-#### Template Format
-
-Your CSV or XLSX file must contain these columns:
+Supported CSV/XLSX columns:
 
 | Column | Required | Description |
-|--------|----------|-------------|
-| itemCode | Yes | Item code from Accurate |
-| type | Yes | "Penambahan" or "Pengurangan" |
-| quantity | Yes | Positive number |
-| unit | Yes | Unit name |
-| adjustmentDate | Yes | YYYY-MM-DD format |
-| referenceNumber | No | Optional reference |
+| --- | --- | --- |
+| `itemCode` | Yes | Accurate item code |
+| `type` | Yes | `Penambahan` or `Pengurangan` |
+| `quantity` | Yes | Positive quantity |
+| `unit` | Yes | Accurate unit name |
+| `adjustmentDate` | Yes | `YYYY-MM-DD` |
+| `referenceNumber` | No | Optional reference |
 
-#### Import Process
+Validate the file before starting the import.
 
-1. Go to **Import > Inventory Adjustment**
-2. Select your Accurate credentials
-3. Upload your CSV or XLSX file
-4. Click **Validate** to check for errors
-5. Review the validation results
-6. Click **Import** to import the data to Accurate
+### Borrowing Returns
 
-## API Endpoints
+Historical loans remain returnable after their original credential is disconnected. The return is recorded locally and Accurate synchronization uses the organization's current active credential.
 
-### Authentication
-- `POST /api/auth/[...nextauth]` - NextAuth endpoints
+If synchronization cannot complete, the kiosk shows a reconciliation warning. Reconnect Accurate and reconcile the missing `ADJUSTMENT_IN`.
 
-### Credentials
-- `GET /api/credentials` - List user's credentials
-- `POST /api/credentials` - Add new credentials
-- `DELETE /api/credentials?id={id}` - Delete credentials
+## Development Commands
 
-### Export
-- `POST /api/export/inventory-adjustment` - Export inventory adjustments
-- `GET /api/export/inventory-adjustment/preview` - Preview export data
+```sh
+npm run dev          # Start Next.js development server
+npm run lint         # Run ESLint
+npm run type-check   # Generate Prisma client and run TypeScript checks
+npm test             # Run lint and type checks
+npm run build        # Create production build
+npm run start        # Start production server
 
-### Import
-- `POST /api/import/inventory-adjustment/validate` - Validate import file
-- `POST /api/import/inventory-adjustment` - Import inventory adjustments
-
-## Project Structure
-
-```
-Exima-Accurate/
-├── app/                          # Next.js App Router
-│   ├── api/                      # API Routes
-│   │   ├── auth/                 # NextAuth routes
-│   │   ├── credentials/          # Credentials API
-│   │   ├── export/               # Export APIs
-│   │   └── import/               # Import APIs
-│   ├── dashboard/                # Dashboard pages
-│   │   ├── credentials/          # Credentials management
-│   │   ├── export/               # Export pages
-│   │   └── import/               # Import pages
-│   ├── login/                    # Login page
-│   ├── layout.tsx                # Root layout
-│   └── page.tsx                  # Home page
-├── components/                   # React components
-│   └── DashboardLayout.tsx       # Dashboard layout with AppShell
-├── lib/                          # Library code
-│   ├── accurate/                 # Accurate API client
-│   │   ├── client.ts             # API client with auth & rate limiting
-│   │   └── inventory.ts          # Inventory adjustment module
-│   ├── export/                   # Export engines
-│   │   └── exporters.ts          # CSV/XLSX/JSON exporters
-│   ├── import/                   # Import engines
-│   │   ├── parser.ts             # CSV/XLSX parsers
-│   │   └── validator.ts          # Import validation
-│   ├── auth.ts                   # NextAuth configuration
-│   ├── prisma.ts                 # Prisma client
-│   └── providers.tsx             # React context providers
-├── prisma/                       # Prisma schema and migrations
-│   └── schema.prisma             # Database schema
-├── types/                        # TypeScript type definitions
-│   └── next-auth.d.ts            # NextAuth types
-├── docker-compose.yml            # PostgreSQL container
-├── .env.example                  # Environment variables template
-├── package.json                  # Dependencies
-└── README.md                     # This file
+npm run db:generate  # Generate Prisma client
+npm run db:migrate   # Create/apply development migration
+npm run db:deploy    # Apply existing migrations
+npm run db:studio    # Open Prisma Studio
+npm run db:seed -- admin@example.com password123 admin
 ```
 
-## Database Schema
+## Database Model Highlights
 
-### User
-Stores user authentication data and role information.
+- `Organization`: tenant boundary
+- `User`: authentication, role, and organization membership
+- `AccurateCredentials`: organization-owned OAuth/API connection; one active row per organization
+- `PosSettings`: organization-scoped store and allowance configuration
+- `BorrowableItem`: organization-scoped borrowing catalog
+- `BorrowingSession` and `BorrowingActivity`: historical borrowing records linked to their original credential
+- `CheckoutSession`: self-checkout history
+- `PosReservation`, `PosSale`, and `PosProduct`: POS operations
+- `ExportJob` and `ImportJob`: import/export audit records
 
-### AccurateCredentials
-Stores Accurate API credentials for each user.
+Refer to `prisma/schema.prisma` and migration files for the authoritative schema.
 
-### ExportJob
-Tracks export job status and results.
+## Security Rules
 
-### ImportJob
-Tracks import job status and results.
+- Always authorize client-provided IDs through the authenticated user's organization.
+- Never expose Accurate secrets, tokens, session values, or database credentials to clients or logs.
+- Preserve Accurate's limit of 8 requests per second and 8 concurrent requests.
+- Treat Accurate writes as non-transactional with local PostgreSQL writes and retain recoverable synchronization status.
+- Treat uploaded spreadsheet files as untrusted input.
 
-## Accurate API Integration
-
-### Authentication
-The application uses HMAC-SHA256 signature authentication with Accurate API:
-1. Generate ISO timestamp
-2. Create HMAC signature using signature secret
-3. Include in request headers
-
-### Rate Limiting
-Implements rate limiting to comply with Accurate API limits:
-- 8 requests per second
-- 8 concurrent requests maximum
-
-### Host Resolution
-Automatically resolves the correct Accurate host URL for each API token.
-
-## Development
-
-### Run Prisma Studio
-```bash
-npx prisma studio
-```
-
-### Generate Prisma Client
-```bash
-npx prisma generate
-```
-
-### Create Migration
-```bash
-npx prisma migrate dev --name <migration-name>
-```
-
-### Run Linting
-```bash
-npm run lint
-```
-
-### Build for Production
-```bash
-npm run build
-```
-
-### Start Production Server
-```bash
-npm run start
-```
+Additional engineering constraints are documented in [`project-context.md`](project-context.md).
 
 ## Troubleshooting
 
-### Database Connection Issues
-- Ensure Docker is running
-- Check PostgreSQL container is up: `docker ps`
-- Verify DATABASE_URL in `.env`
+### Database connection
 
-### Accurate API Errors
-- Verify your API credentials are correct
-- Ensure host has been resolved (check credentials page)
-- Check rate limiting isn't being exceeded
+- Confirm PostgreSQL is healthy: `docker compose -f compose.local.yaml ps`.
+- Verify `DATABASE_URL` and the local port.
+- Regenerate Prisma Client with `npm run db:generate` after schema changes.
 
-### Import Validation Failures
-- Ensure item codes exist in Accurate
-- Check date format is YYYY-MM-DD
-- Verify type is exactly "Penambahan" or "Pengurangan"
+### Accurate connection
+
+- Verify the organization has an active credential.
+- Check OAuth client ID, client secret, redirect URI, App Key, and signature secret.
+- Reconnect Accurate to refresh tokens and session data.
+
+### Borrowing return reconciliation
+
+- Confirm the local return appears in the dashboard.
+- Restore the organization's active Accurate connection.
+- Reconcile the missing `ADJUSTMENT_IN` and review application logs.
 
 ## License
 
 MIT
-
-## Support
-
-For issues and questions, please open an issue on GitHub.

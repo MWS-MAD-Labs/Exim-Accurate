@@ -101,7 +101,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - `npm test` combines linting and type-checking. CI runs `npm ci`, `npx prisma generate`, and `npm test`.
 - Do not commit generated build output, secrets, local environment files, or database dumps.
 - Prisma migration history is the deployment source of truth. For schema changes, create and review a migration; do not use runtime SQL patches or manually edit `_prisma_migrations`.
-- Production containers run `npx prisma migrate deploy` from `entrypoint.sh` before starting Next.js. New environments use normal migration deployment; legacy production databases may require the documented `prisma migrate resolve` reconciliation.
+- Production containers run `npx prisma migrate deploy` from `entrypoint.sh` before starting Next.js. New environments use normal migration deployment; legacy production databases may require the `prisma migrate resolve` reconciliation documented in `DEPLOYMENT.md`. Organization credential migrations must preserve historical credential-linked records while enforcing one active credential per organization.
 - Preserve Docker-compatible behavior: Node.js 20 Alpine, port `5758`, non-root `appuser`, and the existing entrypoint.
 - CI/CD runs on pushes to `main`, builds/pushes the Docker image to GHCR, then triggers the Komodo redeploy webhook. Workflow changes require reviewing required secrets and failure behavior.
 - Kiosk synchronization uses `Authorization: Bearer <CRON_SECRET>` and retries failed requests. Preserve this authentication and retry contract when changing the cron endpoint.
@@ -111,7 +111,7 @@ _This file contains critical rules and patterns that AI agents must follow when 
 
 ### Critical Don't-Miss Rules
 
-- Never trust a credential ID, user ID, item ID, or job ID from the client until ownership is verified against the authenticated user and, where applicable, the selected Accurate credential.
+- Never trust a credential ID, user ID, item ID, or job ID from the client until ownership is verified against the authenticated user's organization and, where applicable, the selected Accurate credential.
 - Never return `signatureSecret`, `apiToken`, `refreshToken`, `session`, database credentials, or environment secrets to the browser or API response. Select only safe credential fields for list/detail responses.
 - Use `getServerSession(authOptions)` consistently for protected routes and preserve the JWT `id`/`role` callbacks when changing authentication.
 - Do not log complete request headers, credential objects, access tokens, HMAC signatures, uploaded file contents, or raw sensitive provider responses. Redact identifiers and response bodies in diagnostics.
@@ -120,13 +120,13 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - Treat Accurate operations as non-transactional with local PostgreSQL operations. Persist enough status/error data to recover or explain a partial result, and avoid retrying non-idempotent mutations blindly.
 - Do not create duplicate borrowing, checkout, import, or export jobs on client retries. Reuse an idempotency key or perform a server-side duplicate check where the workflow supports it.
 - Borrowing availability and return quantities are domain constraints: reject overlapping bookings/loans, non-positive quantities, returns beyond borrowed quantities, and dates that violate the feature rules.
-- Keep `BorrowableItem` global/shared as defined by the current schema and migration history; do not reintroduce removed user or credential ownership columns without an explicit design change.
+- Keep `BorrowableItem` organization-owned. Item codes are unique within an organization, and availability/currently-out calculations must aggregate active borrowing sessions across all current and historical credentials in that organization.
 - Treat uploaded CSV/XLSX files as untrusted input. Enforce the configured size limit, validate headers and rows, reject unsupported formats, and never execute or interpret spreadsheet formulas as application commands.
 - Escape or safely encode exported values and user-controlled descriptions to avoid CSV/XLSX formula injection and unsafe HTML rendering.
 - Preserve bilingual UI behavior (`id` and `en`) when adding visible text, including errors, empty states, navigation labels, and notifications.
 - Handle timezone boundaries explicitly for date-range exports, bookings, borrowing durations, daily kiosk sync, and analytics aggregation; do not compare date strings from different zones without normalization.
 - Preserve cron protection and retry semantics for kiosk sync. A request without the expected `CRON_SECRET` must not trigger synchronization.
-- Prefer explicit, recoverable error states over silently swallowing failures. If an external operation is intentionally best-effort, document the resulting local status and user-visible behavior.
+- Prefer explicit, recoverable error states over silently swallowing failures. Borrowing returns are committed locally and synchronized through the organization's current active credential; Accurate failures must return a visible pending-reconciliation status.
 - Do not weaken validation, remove authorization checks, disable lint/type checks, or delete tests merely to make a change pass.
 
 ---

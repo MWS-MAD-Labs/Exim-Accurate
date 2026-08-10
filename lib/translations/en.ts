@@ -66,9 +66,9 @@ export const en = {
       title: "Quick Start",
       subtitle: "Self-host via Docker",
       step1: "Clone repository & copy .env.example",
-      step2: "Fill Accurate credentials + NextAuth",
-      step3: "docker compose up -d --build",
-      note: "Continue with `docker compose exec app npm run db:push`.",
+      step2: "Configure NextAuth and Accurate OAuth in .env",
+      step3: "docker compose -f compose.local.yaml up -d --build",
+      note: "The container applies Prisma migrations automatically on startup.",
     },
   },
   login: {

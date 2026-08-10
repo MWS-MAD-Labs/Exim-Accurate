@@ -29,7 +29,7 @@ This guide uses **GitHub Actions** to build the image and **Komodo UI** to deplo
 
 1. Open Komodo UI → **Stacks** → `exima`
 2. Ensure **Source** is set to `Git Repo` (linked to `exima` repo).
-3. Ensure **Compose File Path** is `compose.yaml`.
+3. Ensure **Compose File Path** is `compose.prebuilt.yaml`.
 4. Update/Verify **Environment** variables:
    - Ensure `DATABASE_URL` uses the Compose service address, for example `postgresql://postgres:password@postgres:5432/exim_accurate?schema=public`.
    - Do not use `localhost` from inside the app container.
@@ -59,7 +59,7 @@ Using a **Komodo Procedure** ensures your stack not only syncs but also forces a
 4.  Every push to `main` will now trigger the full redeploy pipeline.
 
 ### Manual
-1. In the `exima` stack, click **Pull** to sync the latest `compose.yaml`.
+1. In the `exima` stack, click **Pull** to sync the latest `compose.prebuilt.yaml`.
 2. Click **Deploy**.
 3. Komodo will pull the `latest` image from GHCR and start the containers.
 
@@ -74,7 +74,7 @@ Using a **Komodo Procedure** ensures your stack not only syncs but also forces a
    - The image entrypoint runs `npx prisma migrate deploy` before starting Next.js. Do not use `prisma db push` in production.
 
 2. **Seed Admin User:**
-   - Run: `npm run db:seed admin@yourdomain.com YourSecurePassword admin`
+   - Follow the one-off prebuilt-container procedure in `DEPLOYMENT.md`; the production image does not include the `tsx` seed runner.
 
 ---
 

@@ -66,9 +66,9 @@ export const id = {
       title: "Mulai Cepat",
       subtitle: "Self-host lewat Docker",
       step1: "Clone repositori & salin .env.example",
-      step2: "Isi kredensial Accurate + NextAuth",
-      step3: "docker compose up -d --build",
-      note: "Lanjutkan dengan `docker compose exec app npm run db:push`.",
+      step2: "Konfigurasi NextAuth dan OAuth Accurate di .env",
+      step3: "docker compose -f compose.local.yaml up -d --build",
+      note: "Container menerapkan migrasi Prisma secara otomatis saat startup.",
     },
   },
   login: {
