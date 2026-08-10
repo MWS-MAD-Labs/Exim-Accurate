@@ -89,8 +89,12 @@ export default function CredentialsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(t.dashboard.credentials.disconnectConfirm)) {
+  const handleDelete = async (id: string, isDisconnected: boolean) => {
+    const confirmationMessage = isDisconnected
+      ? t.dashboard.credentials.deleteConfirm
+      : t.dashboard.credentials.disconnectConfirm;
+
+    if (!confirm(confirmationMessage)) {
       return;
     }
 
@@ -200,15 +204,14 @@ export default function CredentialsPage() {
                         </ActionIcon>
                       </Tooltip>
                       <Tooltip
-                        label={t.dashboard.credentials.disconnectTooltip}
+                        label={cred.disconnectedAt ? t.dashboard.credentials.deleteTooltip : t.dashboard.credentials.disconnectTooltip}
                         withArrow
                       >
                         <ActionIcon
                           color="red"
-                          onClick={() => handleDelete(cred.id)}
+                          onClick={() => handleDelete(cred.id, !!cred.disconnectedAt)}
                           loading={loadingDeleteId === cred.id}
-                          disabled={!!cred.disconnectedAt}
-                          aria-label={t.dashboard.credentials.disconnectTooltip}
+                          aria-label={cred.disconnectedAt ? t.dashboard.credentials.deleteTooltip : t.dashboard.credentials.disconnectTooltip}
                         >
                           <IconTrash size={16} />
                         </ActionIcon>

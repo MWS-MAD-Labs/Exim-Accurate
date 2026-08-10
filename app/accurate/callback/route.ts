@@ -118,7 +118,10 @@ export async function GET(req: NextRequest) {
 
     if (credentialId) {
       const updated = await prisma.accurateCredentials.updateMany({
-        where: { id: credentialId },
+        where: {
+          id: credentialId,
+          userId: session.user.id,
+        },
         data: credentialData,
       });
 
@@ -127,7 +130,12 @@ export async function GET(req: NextRequest) {
       }
     } else {
       const existing = dbId
-        ? await prisma.accurateCredentials.findFirst({ where: { dbId } })
+        ? await prisma.accurateCredentials.findFirst({
+            where: {
+              dbId,
+              userId: session.user.id,
+            },
+          })
         : null;
 
       if (existing) {

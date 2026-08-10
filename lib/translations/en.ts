@@ -300,7 +300,9 @@ export const en = {
       },
       reconnectTooltip: "Reconnect account and refresh permissions",
       disconnectTooltip: "Disconnect account",
-      disconnectConfirm: "Are you sure you want to delete this credential?",
+      disconnectConfirm: "Are you sure you want to disconnect this credential?",
+      deleteTooltip: "Permanently delete credential",
+      deleteConfirm: "Are you sure you want to permanently delete this credential and its associated data?",
       notifications: {
         connectedTitle: "Connected",
         connectedMessage: "Accurate API Token successfully saved from OAuth",

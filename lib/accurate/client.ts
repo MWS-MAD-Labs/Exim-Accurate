@@ -180,6 +180,14 @@ export async function refreshAccessToken(
   });
 
   if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    const providerError =
+      errorBody && typeof errorBody.error === "string"
+        ? errorBody.error
+        : "unknown_error";
+    console.error(
+      `[refreshAccessToken] Accurate rejected token refresh: status=${response.status} error=${providerError}`,
+    );
     throw new Error(`Failed to refresh Accurate access token (${response.status})`);
   }
 

@@ -299,7 +299,9 @@ export const id = {
       },
       reconnectTooltip: "Hubungkan ulang akun dan perbarui izin",
       disconnectTooltip: "Putuskan akun",
-      disconnectConfirm: "Yakin ingin menghapus kredensial ini?",
+      disconnectConfirm: "Yakin ingin memutuskan kredensial ini?",
+      deleteTooltip: "Hapus kredensial secara permanen",
+      deleteConfirm: "Yakin ingin menghapus kredensial ini beserta data terkait secara permanen?",
       notifications: {
         connectedTitle: "Terhubung",
         connectedMessage: "Token API Accurate berhasil disimpan dari OAuth",

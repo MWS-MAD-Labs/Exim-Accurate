@@ -57,21 +57,25 @@ export async function DELETE(req: NextRequest) {
   try {
     const credential = await prisma.accurateCredentials.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, disconnectedAt: true },
     });
     if (!credential) {
       return NextResponse.json({ error: "Kredensial tidak ditemukan" }, { status: 404 });
     }
 
-    await prisma.accurateCredentials.update({
-      where: { id },
-      data: {
-        host: null,
-        session: null,
-        refreshToken: null,
-        disconnectedAt: new Date(),
-      },
-    });
+    if (credential.disconnectedAt) {
+      await prisma.accurateCredentials.delete({ where: { id } });
+    } else {
+      await prisma.accurateCredentials.update({
+        where: { id },
+        data: {
+          host: null,
+          session: null,
+          refreshToken: null,
+          disconnectedAt: new Date(),
+        },
+      });
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[credentials] Failed to delete credential", error);
