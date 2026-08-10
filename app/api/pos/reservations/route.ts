@@ -7,6 +7,7 @@ import { reservationRequestSchema, makeReservationReference } from "@/lib/pos";
 import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getDefaultPosStore, getPosContext, getStaffAllowance, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
 import crypto from "node:crypto";
 import { isRoleAllowed } from "@/lib/access-control";
+import { getOrganizationIdForUser } from "@/lib/organization";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -14,11 +15,18 @@ export async function GET(req: NextRequest) {
   if (!isRoleAllowed(session.user.role, ["admin", "cashier", "staff"])) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const params = new URL(req.url).searchParams;
   const mine = params.get("mine") !== "false";
+  const organizationId = await getOrganizationIdForUser(session.user.id);
+  if (!organizationId) return NextResponse.json({ error: "Organization not found" }, { status: 403 });
   const reservations = await prisma.posReservation.findMany({
     where: mine
       ? { userId: session.user.id }
       : isRoleAllowed(session.user.role, ["admin", "cashier"])
-        ? { credential: { posSettings: { isNot: null } } }
+        ? {
+            credential: {
+              organizationId,
+              posSettings: { is: { organizationId, isActive: true } },
+            },
+          }
         : { userId: session.user.id },
     include: { items: true, sale: true },
     orderBy: { createdAt: "desc" },
@@ -36,10 +44,10 @@ export async function POST(req: NextRequest) {
   const parsed = reservationRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid reservation" }, { status: 400 });
   const { credentialId: requestedCredentialId, idempotencyKey, preferredPaymentMethod, items: requestedItems } = parsed.data;
-  const defaultStore = requestedCredentialId ? null : await getDefaultPosStore();
+  const defaultStore = requestedCredentialId ? null : await getDefaultPosStore(session.user.id);
   const credentialId = requestedCredentialId ?? defaultStore?.credentialId;
   if (!credentialId) return NextResponse.json({ error: "POS store is not configured" }, { status: 409 });
-  const context = await getPosContext(session.user.id, credentialId, true);
+  const context = await getPosContext(session.user.id, credentialId);
   if (!context) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   if (!context.settings) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
   const holdHours = Number.isInteger(context.settings.preorderHoldHours) && context.settings.preorderHoldHours > 0

@@ -20,10 +20,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const reservation = await prisma.posReservation.findUnique({ where: { id }, include: { items: true, sale: true } });
   if (!reservation) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
   if (reservation.sale) return NextResponse.json(reservation.sale);
-  if (!await getOperationalPosCredential(session.user.role, reservation.credentialId)) {
+  if (!await getOperationalPosCredential(session.user.id, session.user.role, reservation.credentialId)) {
     return NextResponse.json({ error: "Reservation is not available to this POS operator" }, { status: 403 });
   }
-  const context = await getPosContext(session.user.id, reservation.credentialId, true);
+  const context = await getPosContext(session.user.id, reservation.credentialId);
   if (!context?.settings) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
 
   let allowanceUsed = 0;

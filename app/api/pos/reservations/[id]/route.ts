@@ -36,7 +36,7 @@ export async function GET(
   if (!canReadAny && reservation.userId !== session.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (canReadAny && !await getOperationalPosCredential(session.user.role, reservation.credentialId)) {
+  if (canReadAny && !await getOperationalPosCredential(session.user.id, session.user.role, reservation.credentialId)) {
     return NextResponse.json({ error: "Reservation is not available to this POS operator" }, { status: 403 });
   }
 

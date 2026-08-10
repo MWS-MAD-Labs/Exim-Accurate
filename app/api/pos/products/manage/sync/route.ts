@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const body = (await req.json().catch(() => null)) as { credentialId?: string } | null;
   if (!body?.credentialId) return NextResponse.json({ error: "Credential is required" }, { status: 400 });
-  const context = await getPosContext(session.user.id, body.credentialId, true);
+  const context = await getPosContext(session.user.id, body.credentialId);
   if (!context) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   if (!context.settings || !context.accurate) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
 

@@ -12,6 +12,7 @@ import {
     getBorrowDurationOptions,
     startOfDay,
 } from "@/lib/peminjaman";
+import { getResourceCredential } from "@/lib/credential-access";
 
 interface AvailabilityRequest {
     credentialId: string;
@@ -49,7 +50,15 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const unconfiguredItems = await findUnconfiguredBorrowableItems(items);
+        const credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
+        if (!credential) {
+            return NextResponse.json({ error: "Credential not found" }, { status: 404 });
+        }
+
+        const unconfiguredItems = await findUnconfiguredBorrowableItems(
+            credential.organizationId,
+            items,
+        );
         if (unconfiguredItems.length > 0) {
             return NextResponse.json(
                 {
@@ -70,6 +79,7 @@ export async function POST(req: NextRequest) {
         const durationOptions =
             type === "borrow"
                 ? await getBorrowDurationOptions({
+                    organizationId: credential.organizationId,
                     items,
                     startDate: startsAt,
                 })
@@ -82,6 +92,7 @@ export async function POST(req: NextRequest) {
         const selectedRange =
             requestedDueAt
                 ? await checkBorrowAvailability({
+                    organizationId: credential.organizationId,
                     items,
                     startDate: startsAt,
                     endDate: endOfDay(requestedDueAt),

@@ -13,9 +13,15 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const filters = await parseAnalyticsFilters(req);
-    const borrowingWhere: any = { borrowedAt: { gte: filters.startDate, lte: filters.endDate } };
-    const checkoutWhere: any = { createdAt: { gte: filters.startDate, lte: filters.endDate } };
+    const filters = await parseAnalyticsFilters(req, session.user.id);
+    const borrowingWhere: any = {
+      borrowedAt: { gte: filters.startDate, lte: filters.endDate },
+      credential: { organizationId: filters.organizationId },
+    };
+    const checkoutWhere: any = {
+      createdAt: { gte: filters.startDate, lte: filters.endDate },
+      credential: { organizationId: filters.organizationId },
+    };
     if (filters.credentialId) {
       borrowingWhere.credentialId = filters.credentialId;
       checkoutWhere.credentialId = filters.credentialId;

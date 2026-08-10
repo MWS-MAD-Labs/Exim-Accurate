@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const parsed = saleRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid sale" }, { status: 400 });
   const { credentialId, items: requestedItems, paymentMethod, idempotencyKey, buyerType, staffEmail, staffName } = parsed.data;
-  const context = await getPosContext(session.user.id, credentialId, true);
+  const context = await getPosContext(session.user.id, credentialId);
   if (!context) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   if (!context.settings) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
   await expireReservations(credentialId);

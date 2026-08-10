@@ -126,8 +126,9 @@ export function normalizeRequestedItems(items: RequestedBorrowItem[]) {
   return Array.from(grouped.values());
 }
 
-export async function listBorrowableItemCodes() {
+export async function listBorrowableItemCodes(organizationId: string) {
   const rows = await prisma.borrowableItem.findMany({
+    where: { organizationId },
     select: {
       itemCode: true,
     },
@@ -139,13 +140,15 @@ export async function listBorrowableItemCodes() {
   return rows.map((row) => row.itemCode);
 }
 
-export async function getBorrowableItemsMap(itemCodes?: string[]) {
+export async function getBorrowableItemsMap(
+  organizationId: string,
+  itemCodes?: string[],
+) {
   const rows = await prisma.borrowableItem.findMany({
-    where: itemCodes?.length
-      ? {
-          itemCode: { in: itemCodes },
-        }
-      : undefined,
+    where: {
+      organizationId,
+      ...(itemCodes?.length ? { itemCode: { in: itemCodes } } : {}),
+    },
     select: {
       itemCode: true,
       itemName: true,
@@ -157,10 +160,12 @@ export async function getBorrowableItemsMap(itemCodes?: string[]) {
 }
 
 export async function findUnconfiguredBorrowableItems(
+  organizationId: string,
   items: RequestedBorrowItem[],
 ) {
   const requestedItems = normalizeRequestedItems(items);
   const borrowableItems = await getBorrowableItemsMap(
+    organizationId,
     requestedItems.map((item) => item.itemCode),
   );
 
@@ -188,15 +193,17 @@ function isDateWithinRange(value: Date, startDate: Date, endDate: Date) {
 }
 
 async function buildAvailabilityContext(args: {
+  organizationId: string;
   items: RequestedBorrowItem[];
 }) {
   const requestedItems = normalizeRequestedItems(args.items);
   const itemCodes = requestedItems.map((item) => item.itemCode);
 
   const [borrowableItems, sessions] = await Promise.all([
-    getBorrowableItemsMap(itemCodes),
+    getBorrowableItemsMap(args.organizationId, itemCodes),
     prisma.borrowingSession.findMany({
       where: {
+        credential: { organizationId: args.organizationId },
         status: { in: ["active", "partial", "booked"] },
         items: {
           some: {
@@ -369,6 +376,7 @@ function evaluateAvailabilityRange(
 }
 
 export async function checkBorrowAvailability(args: {
+  organizationId: string;
   items: RequestedBorrowItem[];
   startDate: Date | string;
   endDate: Date | string;
@@ -382,11 +390,13 @@ export async function checkBorrowAvailability(args: {
 }
 
 export async function getBorrowDurationOptions(args: {
+  organizationId: string;
   items: RequestedBorrowItem[];
   startDate?: Date | string;
 }) {
   const startDate = startOfDay(args.startDate || new Date());
   const context = await buildAvailabilityContext({
+    organizationId: args.organizationId,
     items: args.items,
   });
 

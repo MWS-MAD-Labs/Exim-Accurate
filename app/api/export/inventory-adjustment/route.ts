@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch credentials
-    const credential = await getResourceCredential(session.user.role, credentialId);
+    const credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
 
     if (!credential || !credential.host || !credential.dbId) {
       return NextResponse.json(

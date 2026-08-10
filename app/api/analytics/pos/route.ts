@@ -3,16 +3,30 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { getOrganizationIdForUser } from "@/lib/organization";
+import { isAdmin } from "@/lib/pos-server";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  const organizationId = await getOrganizationIdForUser(session.user.id);
+  if (!organizationId) return NextResponse.json({ error: "Organization not found" }, { status: 403 });
   const params = new URL(req.url).searchParams;
   const start = new Date(params.get("start") || new Date(new Date().setDate(new Date().getDate() - 30)));
   const end = new Date(params.get("end") || new Date());
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
   const credentialId = params.get("credentialId");
-  const sales = await prisma.posSale.findMany({ where: { ...(credentialId ? { credentialId } : {}), createdAt: { gte: start, lte: end }, status: "synced" }, include: { items: true }, orderBy: { createdAt: "asc" } });
+  const sales = await prisma.posSale.findMany({
+    where: {
+      credential: { organizationId },
+      ...(credentialId ? { credentialId } : {}),
+      createdAt: { gte: start, lte: end },
+      status: "synced",
+    },
+    include: { items: true },
+    orderBy: { createdAt: "asc" },
+  });
   const itemMap = new Map<string, { itemCode: string; itemName: string; units: number; revenue: Prisma.Decimal; cost: Prisma.Decimal }>();
   const paymentMap = new Map<string, number>();
   let revenue = new Prisma.Decimal(0); let cost = new Prisma.Decimal(0); let units = 0;

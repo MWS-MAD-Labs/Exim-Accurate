@@ -24,6 +24,12 @@ async function main() {
   // Create user
   const user = await prisma.user.create({
     data: {
+      organization: {
+        connectOrCreate: {
+          where: { id: "default-organization" },
+          create: { id: "default-organization", name: "Default Organization" },
+        },
+      },
       email,
       password: hashedPassword,
       role,

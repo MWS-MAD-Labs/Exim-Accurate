@@ -21,7 +21,13 @@ export async function GET(req: NextRequest) {
     }
 
     try {
+        const credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
+        if (!credential) {
+            return NextResponse.json({ error: "Credential not found" }, { status: 404 });
+        }
+
         const items = await prisma.borrowableItem.findMany({
+            where: { organizationId: credential.organizationId },
             orderBy: { createdAt: "desc" },
         });
 
@@ -30,6 +36,7 @@ export async function GET(req: NextRequest) {
             by: ["itemCode"],
             where: {
                 session: {
+                    credential: { organizationId: credential.organizationId },
                     status: { in: ["active", "partial"] },
                 },
             },
@@ -87,7 +94,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const credential = await getResourceCredential(session.user.role, credentialId);
+        const credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
         if (!credential) {
             return NextResponse.json({ error: "Credential not found" }, { status: 404 });
         }
@@ -95,13 +102,17 @@ export async function POST(req: NextRequest) {
         // Upsert (update if exists, create if not)
         const item = await prisma.borrowableItem.upsert({
             where: {
-                itemCode,
+                organizationId_itemCode: {
+                    organizationId: credential.organizationId,
+                    itemCode,
+                },
             },
             update: {
                 itemName,
                 totalStock,
             },
             create: {
+                organizationId: credential.organizationId,
                 itemCode,
                 itemName,
                 totalStock,
@@ -124,14 +135,20 @@ export async function DELETE(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const credentialId = searchParams.get("credentialId");
 
-    if (!id) {
-        return NextResponse.json({ error: "id is required" }, { status: 400 });
+    if (!id || !credentialId) {
+        return NextResponse.json({ error: "id and credentialId are required" }, { status: 400 });
     }
 
     try {
+        const credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
+        if (!credential) {
+            return NextResponse.json({ error: "Credential not found" }, { status: 404 });
+        }
+
         const item = await prisma.borrowableItem.findFirst({
-            where: { id },
+            where: { id, organizationId: credential.organizationId },
         });
         if (!item) {
             return NextResponse.json({ error: "Item not found" }, { status: 404 });

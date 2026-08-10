@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listWarehouses } from "@/lib/accurate/pos";
 import { isAdmin } from "@/lib/pos-server";
+import { getOrganizationIdForUser } from "@/lib/organization";
 import { z } from "zod";
 
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -34,8 +35,10 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  const organizationId = await getOrganizationIdForUser(session.user.id);
+  if (!organizationId) return NextResponse.json({ error: "Organization not found" }, { status: 403 });
   const settings = await prisma.posSettings.findMany({
-    where: {},
+    where: { organizationId },
     select: {
       id: true, credentialId: true, warehouseId: true, warehouseName: true, isActive: true, allowancePerWorkingDay: true, workingDays: true,
       holidayDates: true, allowanceCutoffDay: true, preorderHoldHours: true, updatedAt: true,
@@ -65,7 +68,9 @@ export async function POST(req: NextRequest) {
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
   const { credentialId, warehouseId, warehouseName, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, preorderHoldHours, allowancePeriodOverrides } = parsed.data;
-  const credential = await prisma.accurateCredentials.findUnique({ where: { id: credentialId } });
+  const organizationId = await getOrganizationIdForUser(session.user.id);
+  if (!organizationId) return NextResponse.json({ error: "Organization not found" }, { status: 403 });
+  const credential = await prisma.accurateCredentials.findFirst({ where: { id: credentialId, organizationId, disconnectedAt: null } });
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   if (!credential.host || !credential.session) return NextResponse.json({ error: "Accurate session is not ready" }, { status: 409 });
   try {
@@ -74,13 +79,13 @@ export async function POST(req: NextRequest) {
     if (!warehouse) return NextResponse.json({ error: "Warehouse is not valid for this credential" }, { status: 409 });
     const settings = await prisma.$transaction(async (tx) => {
       await tx.posSettings.updateMany({
-        where: { credentialId: { not: credentialId }, isActive: true },
+        where: { organizationId, credentialId: { not: credentialId }, isActive: true },
         data: { isActive: false },
       });
       const saved = await tx.posSettings.upsert({
         where: { credentialId },
         update: { warehouseId, warehouseName, isActive: true, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, preorderHoldHours },
-        create: { userId: session.user.id, credentialId, warehouseId, warehouseName, isActive: true, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, preorderHoldHours },
+        create: { organizationId, userId: session.user.id, credentialId, warehouseId, warehouseName, isActive: true, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, preorderHoldHours },
       });
       await tx.posAllowancePeriodOverride.deleteMany({ where: { credentialId } });
       if (allowancePeriodOverrides.length) {

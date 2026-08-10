@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const credentialId = params.get("credentialId");
   const email = params.get("email")?.toLowerCase().trim();
   if (!credentialId || !email) return NextResponse.json({ error: "credentialId and email are required" }, { status: 400 });
-  const credential = await getOperationalPosCredential(session.user.role, credentialId);
+  const credential = await getOperationalPosCredential(session.user.id, session.user.role, credentialId);
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   const allowance = await getStaffAllowance(credentialId, email);
   return NextResponse.json(allowance);

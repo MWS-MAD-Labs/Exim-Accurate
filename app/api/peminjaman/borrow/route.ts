@@ -52,8 +52,8 @@ function parseStaffInfo(email: string): { name: string; department: string } {
 }
 
 // Helper to ensure valid Accurate session
-async function ensureCredentialSession(credentialId: string, role: string) {
-    let credential = await getResourceCredential(role, credentialId);
+async function ensureCredentialSession(userId: string, credentialId: string, role: string) {
+    let credential = await getResourceCredential(userId, role, credentialId);
 
     if (!credential) throw new Error("Credential not found");
 
@@ -152,7 +152,15 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const unconfiguredItems = await findUnconfiguredBorrowableItems(items);
+        const credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
+        if (!credential) {
+            return NextResponse.json({ error: "Credential not found" }, { status: 404 });
+        }
+
+        const unconfiguredItems = await findUnconfiguredBorrowableItems(
+            credential.organizationId,
+            items,
+        );
         if (unconfiguredItems.length > 0) {
             return NextResponse.json(
                 {
@@ -167,6 +175,7 @@ export async function POST(req: NextRequest) {
         }
 
         const availability = await checkBorrowAvailability({
+            organizationId: credential.organizationId,
             items,
             startDate: startsAt,
             endDate: dueAt,
@@ -230,7 +239,7 @@ export async function POST(req: NextRequest) {
         let adjustmentId: number | null = null;
         if (type === "borrow") {
             try {
-                const credential = await ensureCredentialSession(credentialId, session.user.role);
+                const credential = await ensureCredentialSession(session.user.id, credentialId, session.user.role);
 
                 const description = `Peminjaman by ${borrowerName || borrowerEmail}${borrowerDept ? ` | Dept: ${borrowerDept}` : ""} | Email: ${borrowerEmail}`;
 

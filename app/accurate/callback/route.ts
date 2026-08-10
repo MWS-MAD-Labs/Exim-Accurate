@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveHost } from "@/lib/accurate/client";
 import { getBaseUrl } from "@/lib/url";
+import { getOrganizationIdForUser } from "@/lib/organization";
 
 function redirectWithStatus(req: NextRequest, search: string) {
   const baseUrl = getBaseUrl(req);
@@ -116,41 +117,41 @@ export async function GET(req: NextRequest) {
       disconnectedAt: null,
     };
 
-    if (credentialId) {
-      const updated = await prisma.accurateCredentials.updateMany({
-        where: {
-          id: credentialId,
-          userId: session.user.id,
-        },
+    const organizationId = await getOrganizationIdForUser(session.user.id);
+    if (!organizationId) {
+      throw new Error("Organisasi pengguna tidak ditemukan");
+    }
+
+    const activeCredential = await prisma.accurateCredentials.findFirst({
+      where: { organizationId, disconnectedAt: null },
+    });
+    const reconnectCredential = credentialId
+      ? await prisma.accurateCredentials.findFirst({
+          where: { id: credentialId, organizationId },
+        })
+      : null;
+
+    if (credentialId && !reconnectCredential) {
+      throw new Error("Kredensial Accurate yang akan dihubungkan ulang tidak ditemukan");
+    }
+
+    // The organization keeps one stable active credential. A new OAuth grant
+    // replaces its tokens; a disconnected record is only reactivated when no
+    // active credential exists.
+    const targetCredential = activeCredential ?? reconnectCredential;
+    if (targetCredential) {
+      await prisma.accurateCredentials.update({
+        where: { id: targetCredential.id },
         data: credentialData,
       });
-
-      if (updated.count === 0) {
-        throw new Error("Kredensial Accurate yang akan dihubungkan ulang tidak ditemukan");
-      }
     } else {
-      const existing = dbId
-        ? await prisma.accurateCredentials.findFirst({
-            where: {
-              dbId,
-              userId: session.user.id,
-            },
-          })
-        : null;
-
-      if (existing) {
-        await prisma.accurateCredentials.update({
-          where: { id: existing.id },
-          data: credentialData,
-        });
-      } else {
-        await prisma.accurateCredentials.create({
-          data: {
-            userId: session.user.id,
-            ...credentialData,
-          },
-        });
-      }
+      await prisma.accurateCredentials.create({
+        data: {
+          organizationId,
+          userId: session.user.id,
+          ...credentialData,
+        },
+      });
     }
 
     return redirectWithStatus(req, "status=connected");

@@ -10,13 +10,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+model Organization {
   id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  role      String   @default("staff")
+  name      String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  users               User[]
+  accurateCredentials AccurateCredentials[]
+  posSettings         PosSettings[]
+  borrowableItems     BorrowableItem[]
+}
+
+model User {
+  id             String   @id @default(uuid())
+  organizationId String
+  email          String   @unique
+  password       String
+  role           String   @default("staff")
+  createdAt      DateTime @default(now())
+
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   accurateCredentials AccurateCredentials[]
   exportJobs          ExportJob[]
   importJobs          ImportJob[]
@@ -27,11 +41,14 @@ model User {
   posReservations     PosReservation[]
   posSettings         PosSettings[]
   posAllocations      PosStockAllocation[]
+
+  @@index([organizationId])
 }
 
 model AccurateCredentials {
   id              String   @id @default(uuid())
-  userId          String
+  organizationId  String
+  userId          String?
   appKey          String
   signatureSecret String
   apiToken        String
@@ -43,7 +60,8 @@ model AccurateCredentials {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  user                        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization                Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user                        User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
   checkoutSessions            CheckoutSession[]
   exportJobs                  ExportJob[]
   importJobs                  ImportJob[]
@@ -55,6 +73,8 @@ model AccurateCredentials {
   posAllocations              PosStockAllocation[]
   posProducts                 PosProduct[]
   posAllowancePeriodOverrides PosAllowancePeriodOverride[]
+
+  @@index([organizationId])
 }
 
 // Self Checkout feature - tracks staff checkout sessions
@@ -144,7 +164,8 @@ model ImportJob {
 
 // Peminjaman (Borrowing) feature - items configured as available for borrowing
 model BorrowableItem {
-  id String @id @default(uuid())
+  id             String @id @default(uuid())
+  organizationId String
 
   itemCode   String // Accurate item code
   itemName   String // Cached from Accurate
@@ -153,7 +174,10 @@ model BorrowableItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([itemCode])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, itemCode])
+  @@index([organizationId])
 }
 
 // Tracks borrowing/return sessions
@@ -224,9 +248,10 @@ model BorrowingActivity {
 }
 
 model PosSettings {
-  id            String   @id @default(uuid())
-  userId        String
-  credentialId  String   @unique
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String
+  credentialId   String   @unique
   warehouseId   Int
   warehouseName String
   isActive      Boolean  @default(true)
@@ -240,9 +265,11 @@ model PosSettings {
   allowanceCutoffDay     Int      @default(22) // Normal cycle ends on this day; the next starts the day after
   preorderHoldHours      Int      @default(4) // Hours that staff preorder stock remains locked
 
-  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential   AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId])
   @@index([userId])
   @@index([isActive])
 }

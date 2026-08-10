@@ -546,22 +546,34 @@ export default function PeminjamanKioskPage() {
                 body: JSON.stringify({ items }),
             });
 
+            const result = await res.json();
             if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || "Failed");
+                throw new Error(result.error || "Failed");
             }
 
             setCompleted(true);
             setCurrentStep("confirm");
+            const needsReconciliation =
+                result.synchronization?.status === "pending_reconciliation";
             notifications.show({
-                title:
-                    language === "id" ? "Pengembalian Berhasil" : "Return Successful",
-                message:
-                    language === "id"
+                title: needsReconciliation
+                    ? language === "id"
+                        ? "Pengembalian Tersimpan"
+                        : "Return Saved"
+                    : language === "id"
+                        ? "Pengembalian Berhasil"
+                        : "Return Successful",
+                message: needsReconciliation
+                    ? language === "id"
+                        ? "Pengembalian tersimpan secara lokal, tetapi sinkronisasi Accurate perlu direkonsiliasi."
+                        : "The return was saved locally, but Accurate synchronization requires reconciliation."
+                    : language === "id"
                         ? `${items.length} barang dikembalikan`
                         : `${items.length} items returned`,
-                color: "green",
-                icon: <IconCheck size={18} />,
+                color: needsReconciliation ? "orange" : "green",
+                icon: needsReconciliation
+                    ? <IconAlertTriangle size={18} />
+                    : <IconCheck size={18} />,
             });
         } catch (err: any) {
             notifications.show({

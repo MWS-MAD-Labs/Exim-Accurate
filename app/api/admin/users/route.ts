@@ -19,6 +19,7 @@ export async function GET() {
   }
 
   const users = await prisma.user.findMany({
+    where: { organizationId: admin.organizationId },
     select: {
       id: true,
       email: true,
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await prisma.user.create({
       data: {
+        organizationId: admin.organizationId,
         email: parsed.data.email,
         password: await bcrypt.hash(parsed.data.password, 12),
         role: parsed.data.role,

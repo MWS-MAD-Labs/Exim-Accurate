@@ -19,11 +19,13 @@ async function wouldRemoveLastAdmin(userId: string, nextRole?: string) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true },
+    select: { role: true, organizationId: true },
   });
   if (user?.role !== "admin") return false;
 
-  return (await prisma.user.count({ where: { role: "admin" } })) <= 1;
+  return (await prisma.user.count({
+    where: { role: "admin", organizationId: user.organizationId },
+  })) <= 1;
 }
 
 export async function PATCH(
@@ -46,9 +48,9 @@ export async function PATCH(
 
   const existingUser = await prisma.user.findUnique({
     where: { id },
-    select: { id: true },
+    select: { id: true, organizationId: true },
   });
-  if (!existingUser) {
+  if (!existingUser || existingUser.organizationId !== admin.organizationId) {
     return NextResponse.json({ error: "User not found." }, { status: 404 });
   }
 
@@ -92,13 +94,15 @@ export async function DELETE(
 
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { role: true },
+    select: { role: true, organizationId: true },
   });
-  if (!user) {
+  if (!user || user.organizationId !== admin.organizationId) {
     return NextResponse.json({ error: "User not found." }, { status: 404 });
   }
 
-  if (user.role === "admin" && (await prisma.user.count({ where: { role: "admin" } })) <= 1) {
+  if (user.role === "admin" && (await prisma.user.count({
+    where: { role: "admin", organizationId: user.organizationId },
+  })) <= 1) {
     return NextResponse.json(
       { error: "The system must keep at least one administrator." },
       { status: 409 },

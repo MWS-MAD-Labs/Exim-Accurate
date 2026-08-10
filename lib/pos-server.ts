@@ -4,17 +4,19 @@ import type { PosAccurateCredentials, PosProduct } from "@/lib/accurate/pos";
 import { calculateAllowanceForPeriod, calculateRemainingAllowance, getRecurringAllowancePeriod, startOfDate, type AllowancePeriod } from "@/lib/pos";
 
 async function getOwnedCredential(userId: string, credentialId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { organizationId: true },
+  });
+  if (!user) return null;
+
   return prisma.accurateCredentials.findFirst({
-    where: { id: credentialId, userId, disconnectedAt: null },
+    where: { id: credentialId, organizationId: user.organizationId, disconnectedAt: null },
   });
 }
 
-export async function getPosContext(userId: string, credentialId: string, allowShared = false) {
-  const credential = allowShared
-    ? await prisma.accurateCredentials.findFirst({
-        where: { id: credentialId, disconnectedAt: null },
-      })
-    : await getOwnedCredential(userId, credentialId);
+export async function getPosContext(userId: string, credentialId: string) {
+  const credential = await getOwnedCredential(userId, credentialId);
   if (!credential) return null;
   const settings = await prisma.posSettings.findUnique({ where: { credentialId } });
   if (!settings) return { credential, settings: null };
@@ -35,11 +37,18 @@ export function isAdmin(role?: string | null) {
   return role === "admin";
 }
 
-export async function getDefaultPosStore() {
+export async function getDefaultPosStore(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { organizationId: true },
+  });
+  if (!user) return null;
+
   return prisma.posSettings.findFirst({
     where: {
+      organizationId: user.organizationId,
       isActive: true,
-      credential: { disconnectedAt: null },
+      credential: { organizationId: user.organizationId, disconnectedAt: null },
     },
     orderBy: { updatedAt: "desc" },
   });

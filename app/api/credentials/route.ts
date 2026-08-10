@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getOrganizationIdForUser } from "@/lib/organization";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -16,13 +17,18 @@ export async function GET() {
     return NextResponse.json([]);
   }
 
+  const organizationId = await getOrganizationIdForUser(session.user.id);
+  if (!organizationId) {
+    return NextResponse.json({ error: "Organisasi pengguna tidak ditemukan" }, { status: 403 });
+  }
+
   const credentials = await prisma.accurateCredentials.findMany({
     where:
       role === "admin"
-        ? undefined
+        ? { organizationId }
         : role === "resource"
-          ? { disconnectedAt: null }
-          : { disconnectedAt: null, posSettings: { is: { isActive: true } } },
+          ? { organizationId, disconnectedAt: null }
+          : { organizationId, disconnectedAt: null, posSettings: { is: { isActive: true } } },
     select: {
       id: true,
       appKey: true,
@@ -55,8 +61,13 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
-    const credential = await prisma.accurateCredentials.findUnique({
-      where: { id },
+    const organizationId = await getOrganizationIdForUser(session.user.id);
+    if (!organizationId) {
+      return NextResponse.json({ error: "Organisasi pengguna tidak ditemukan" }, { status: 403 });
+    }
+
+    const credential = await prisma.accurateCredentials.findFirst({
+      where: { id, organizationId },
       select: { id: true, disconnectedAt: true },
     });
     if (!credential) {

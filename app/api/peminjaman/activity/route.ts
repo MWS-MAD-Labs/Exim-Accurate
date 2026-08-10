@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatDateOnly, listBorrowableItemCodes } from "@/lib/peminjaman";
+import { getResourceCredential } from "@/lib/credential-access";
 
 function isMissingSchemaError(error: unknown) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -40,7 +41,12 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const borrowableItemCodes = await listBorrowableItemCodes();
+        const credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
+        if (!credential) {
+            return NextResponse.json({ error: "Credential not found" }, { status: 404 });
+        }
+
+        const borrowableItemCodes = await listBorrowableItemCodes(credential.organizationId);
         if (borrowableItemCodes.length === 0) {
             return NextResponse.json({
                 activities: [],
@@ -56,6 +62,8 @@ export async function GET(req: NextRequest) {
         }
 
         const activityWhere = {
+            credentialId,
+            credential: { organizationId: credential.organizationId },
             itemCode: itemCode
                 ? itemCode
                 : {
@@ -82,6 +90,8 @@ export async function GET(req: NextRequest) {
         const sessions = itemCode && borrowingSessionDelegate
             ? await borrowingSessionDelegate.findMany({
                 where: {
+                    credentialId,
+                    credential: { organizationId: credential.organizationId },
                     items: {
                         some: {
                             itemCode: itemCode
@@ -113,6 +123,8 @@ export async function GET(req: NextRequest) {
 
                 return borrowingSessionDelegate.findMany({
                     where: {
+                        credentialId,
+                        credential: { organizationId: credential.organizationId },
                         items: {
                             some: {
                                 itemCode: itemCode

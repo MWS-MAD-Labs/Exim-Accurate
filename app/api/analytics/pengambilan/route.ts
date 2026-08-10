@@ -20,11 +20,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const filters = await parseAnalyticsFilters(req);
+    const filters = await parseAnalyticsFilters(req, session.user.id);
     const { searchParams } = new URL(req.url);
     const exactItemCode = searchParams.get("exactItemCode") === "true";
     const where: any = {
       createdAt: { gte: filters.startDate, lte: filters.endDate },
+      credential: { organizationId: filters.organizationId },
     };
 
     if (filters.credentialId) where.credentialId = filters.credentialId;

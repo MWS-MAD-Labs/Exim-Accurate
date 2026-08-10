@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     try {
         // Get credentials
-        let credential = await getResourceCredential(session.user.role, credentialId);
+        let credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
 
         if (!credential) {
             return NextResponse.json({ error: "Kredensial tidak ditemukan" }, { status: 404 });

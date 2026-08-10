@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getResourceCredential } from "@/lib/credential-access";
 
 // GET — Check if a borrower has unreturned items
 export async function GET(req: NextRequest) {
@@ -21,9 +22,20 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        // Find active/partial sessions for this borrower
+        const credential = await getResourceCredential(
+            session.user.id,
+            session.user.role,
+            credentialId,
+        );
+        if (!credential) {
+            return NextResponse.json({ error: "Credential not found" }, { status: 404 });
+        }
+
+        // Borrowing stock is organization-owned, so include active loans from
+        // current and historical credentials belonging to this organization.
         const activeSessions = await prisma.borrowingSession.findMany({
             where: {
+                credential: { organizationId: credential.organizationId },
                 borrowerEmail: email.toLowerCase().trim(),
                 status: { in: ["active", "partial"] },
             },

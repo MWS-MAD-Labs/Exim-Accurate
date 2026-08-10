@@ -10,13 +10,13 @@ export async function GET(req: NextRequest) {
   if (!canBrowsePosCatalog(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const params = new URL(req.url).searchParams;
   const requestedCredentialId = params.get("credentialId");
-  const defaultStore = requestedCredentialId ? null : await getDefaultPosStore();
+  const defaultStore = requestedCredentialId ? null : await getDefaultPosStore(session.user.id);
   const credentialId = requestedCredentialId ?? defaultStore?.credentialId;
   if (!credentialId) {
     return NextResponse.json({ error: "POS store is not configured" }, { status: 409 });
   }
 
-  const context = await getPosContext(session.user.id, credentialId, true);
+  const context = await getPosContext(session.user.id, credentialId);
   if (!context) return NextResponse.json({ error: "POS store is not available" }, { status: 404 });
   if (!context.settings) return NextResponse.json({ error: "POS warehouse is not configured" }, { status: 409 });
   const products = await resolveLocalPosProducts(

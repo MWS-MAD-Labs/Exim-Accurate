@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listBorrowableItemCodes } from "@/lib/peminjaman";
+import { getResourceCredential } from "@/lib/credential-access";
 
 // GET — List borrowing sessions with filters
 export async function GET(req: NextRequest) {
@@ -25,7 +26,12 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const borrowableItemCodes = await listBorrowableItemCodes();
+        const credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
+        if (!credential) {
+            return NextResponse.json({ error: "Credential not found" }, { status: 404 });
+        }
+
+        const borrowableItemCodes = await listBorrowableItemCodes(credential.organizationId);
         if (borrowableItemCodes.length === 0) {
             return NextResponse.json({
                 sessions: [],
@@ -37,6 +43,8 @@ export async function GET(req: NextRequest) {
         }
 
         const where: any = {
+            credentialId,
+            credential: { organizationId: credential.organizationId },
             items: {
                 some: {
                     itemCode: { in: borrowableItemCodes },

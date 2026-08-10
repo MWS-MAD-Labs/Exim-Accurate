@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getBaseUrl } from "@/lib/url";
+import { getOrganizationIdForUser } from "@/lib/organization";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -43,10 +44,15 @@ export async function GET(req: NextRequest) {
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("scope", scopes);
 
+  const organizationId = await getOrganizationIdForUser(session.user.id);
+  if (!organizationId) {
+    return NextResponse.json({ error: "Organization not found" }, { status: 403 });
+  }
+
   const credentialId = req.nextUrl.searchParams.get("credentialId");
   if (credentialId) {
-    const credential = await prisma.accurateCredentials.findUnique({
-      where: { id: credentialId },
+    const credential = await prisma.accurateCredentials.findFirst({
+      where: { id: credentialId, organizationId },
       select: { id: true },
     });
 

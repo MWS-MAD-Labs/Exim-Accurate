@@ -1,11 +1,13 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getOrganizationIdForUser } from "@/lib/organization";
 
 export type AnalyticsGroupBy = "day" | "week" | "month";
 
 export interface AnalyticsFilters {
   startDate: Date;
   endDate: Date;
+  organizationId: string;
   credentialId?: string;
   email?: string;
   itemCode?: string;
@@ -37,7 +39,10 @@ function parseDate(value: string | null, fallback: Date, endOfDay = false) {
   return parsed;
 }
 
-export async function parseAnalyticsFilters(req: NextRequest): Promise<AnalyticsFilters> {
+export async function parseAnalyticsFilters(
+  req: NextRequest,
+  userId: string,
+): Promise<AnalyticsFilters> {
   const { searchParams } = new URL(req.url);
   const groupByParam = searchParams.get("groupBy") || "day";
   if (!["day", "week", "month"].includes(groupByParam)) {
@@ -56,10 +61,15 @@ export async function parseAnalyticsFilters(req: NextRequest): Promise<Analytics
     throw new Error("Rentang tanggal maksimal 1 tahun");
   }
 
+  const organizationId = await getOrganizationIdForUser(userId);
+  if (!organizationId) {
+    throw new Error("Organisasi pengguna tidak ditemukan");
+  }
+
   const credentialId = searchParams.get("credentialId") || undefined;
   if (credentialId) {
-    const credential = await prisma.accurateCredentials.findUnique({
-      where: { id: credentialId },
+    const credential = await prisma.accurateCredentials.findFirst({
+      where: { id: credentialId, organizationId },
       select: { id: true },
     });
     if (!credential) {
@@ -70,6 +80,7 @@ export async function parseAnalyticsFilters(req: NextRequest): Promise<Analytics
   return {
     startDate,
     endDate,
+    organizationId,
     credentialId,
     email: searchParams.get("email") || undefined,
     itemCode: searchParams.get("itemCode") || undefined,
@@ -81,8 +92,9 @@ export async function parseAnalyticsFilters(req: NextRequest): Promise<Analytics
 }
 
 export function serializeFilters(filters: AnalyticsFilters) {
+  const { organizationId: _organizationId, ...publicFilters } = filters;
   return {
-    ...filters,
+    ...publicFilters,
     startDate: filters.startDate.toISOString(),
     endDate: filters.endDate.toISOString(),
   };

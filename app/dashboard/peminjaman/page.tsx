@@ -407,7 +407,7 @@ export default function PeminjamanDashboardPage() {
     // Delete borrowable item
     const handleDeleteItem = async (id: string) => {
         try {
-            const res = await fetch(`/api/peminjaman/items?id=${id}`, {
+            const res = await fetch(`/api/peminjaman/items?id=${id}&credentialId=${selectedCredentialId}`, {
                 method: "DELETE",
             });
             if (!res.ok) throw new Error("Failed to delete");

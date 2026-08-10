@@ -8,8 +8,8 @@ import { saveInventoryAdjustment } from "@/lib/accurate/inventory";
 import { refreshSession, refreshAccessToken } from "@/lib/accurate/client";
 import { createBorrowingActivities } from "@/lib/peminjaman";
 import dayjs from "dayjs";
-import { getResourceCredential } from "@/lib/credential-access";
 import { canAccessResourceManagement } from "@/lib/access-control";
+import { getOrganizationIdForUser } from "@/lib/organization";
 
 interface ReturnItem {
     borrowingItemId: string;
@@ -20,11 +20,15 @@ interface ReturnRequest {
     items: ReturnItem[];
 }
 
-// Helper to ensure valid Accurate session
-async function ensureCredentialSession(credentialId: string, role: string) {
-    let credential = await getResourceCredential(role, credentialId);
+// Returns use the organization's current Accurate connection, even when the
+// original loan belongs to a disconnected historical credential.
+async function ensureActiveCredentialSession(organizationId: string) {
+    let credential = await prisma.accurateCredentials.findFirst({
+        where: { organizationId, disconnectedAt: null },
+        orderBy: { updatedAt: "desc" },
+    });
 
-    if (!credential) throw new Error("Credential not found");
+    if (!credential) return null;
 
     if (!credential.session || !credential.host) {
         if (credential.dbId) {
@@ -97,10 +101,19 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        // Fetch all borrowing items and their sessions
+        const organizationId = await getOrganizationIdForUser(session.user.id);
+        if (!organizationId) {
+            return NextResponse.json({ error: "Organization not found" }, { status: 403 });
+        }
+
+        // Authorize each historical loan through its session credential's
+        // organization. The original credential does not need to remain active.
         const borrowingItems = await prisma.borrowingItem.findMany({
             where: {
                 id: { in: items.map((i) => i.borrowingItemId) },
+                session: {
+                    credential: { organizationId },
+                },
             },
             include: {
                 session: true,
@@ -110,15 +123,6 @@ export async function POST(req: NextRequest) {
         const requestedIds = new Set(items.map((item) => item.borrowingItemId));
         if (borrowingItems.length !== requestedIds.size) {
             return NextResponse.json({ error: "One or more borrowing items were not found" }, { status: 404 });
-        }
-
-        const credentialIds = new Set(borrowingItems.map((item) => item.session.credentialId));
-        if (credentialIds.size !== 1) {
-            return NextResponse.json({ error: "All returned items must belong to the same credential" }, { status: 400 });
-        }
-        const credentialId = borrowingItems[0].session.credentialId;
-        if (!await getResourceCredential(session.user.role, credentialId)) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         // Update each borrowing item's returnedQty
@@ -222,11 +226,23 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // Create ADJUSTMENT_IN in Accurate
+        let synchronization: {
+            status: "not_required" | "synced" | "pending_reconciliation";
+            message?: string;
+            adjustmentId?: number;
+        } = { status: "not_required" };
+
+        // Create ADJUSTMENT_IN using the organization's current active credential.
+        // Local returns remain committed if Accurate is unavailable.
         if (itemsToAdjust.length > 0) {
-            const firstSession = borrowingItems[0].session;
             try {
-                const credential = await ensureCredentialSession(firstSession.credentialId, session.user.role);
+                const credential = await ensureActiveCredentialSession(organizationId);
+                if (!credential) {
+                    synchronization = {
+                        status: "pending_reconciliation",
+                        message: "Return saved locally, but the organization has no active Accurate credential.",
+                    };
+                } else {
 
                 const description = `Pengembalian Peminjaman | ${dayjs().format("DD/MM/YYYY")}`;
 
@@ -254,21 +270,31 @@ export async function POST(req: NextRequest) {
                     adjustmentData
                 );
 
-                // Update the first session with adjustment in ID
-                for (const sessionId of sessionIds) {
-                    await prisma.borrowingSession.update({
-                        where: { id: sessionId },
-                        data: { adjustmentInId: result.id },
-                    });
+                    for (const sessionId of sessionIds) {
+                        await prisma.borrowingSession.update({
+                            where: { id: sessionId },
+                            data: { adjustmentInId: result.id },
+                        });
+                    }
+                    synchronization = {
+                        status: "synced",
+                        adjustmentId: result.id,
+                    };
                 }
-            } catch (accErr: any) {
-                console.error("[peminjaman/return] Accurate adjustment failed:", accErr.message);
+            } catch (accErr: unknown) {
+                const message = accErr instanceof Error ? accErr.message : "Unknown Accurate synchronization error";
+                console.error("[peminjaman/return] Accurate adjustment failed:", message);
+                synchronization = {
+                    status: "pending_reconciliation",
+                    message: `Return saved locally, but Accurate synchronization failed: ${message}`,
+                };
             }
         }
 
         return NextResponse.json({
             success: true,
             returnedItems: itemsToAdjust.length,
+            synchronization,
         });
     } catch (error: any) {
         console.error("[peminjaman/return] Error:", error);
