@@ -8,6 +8,7 @@ import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, get
 import crypto from "node:crypto";
 import { isRoleAllowed } from "@/lib/access-control";
 import { getOrganizationIdForUser } from "@/lib/organization";
+import { getOperationalPosCredential } from "@/lib/credential-access";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -17,17 +18,21 @@ export async function GET(req: NextRequest) {
   const mine = params.get("mine") !== "false";
   const organizationId = await getOrganizationIdForUser(session.user.id);
   if (!organizationId) return NextResponse.json({ error: "Organization not found" }, { status: 403 });
+  const canReadAny = !mine && isRoleAllowed(session.user.role, ["admin", "cashier"]);
+  const activeCredentials = canReadAny
+    ? await prisma.accurateCredentials.findMany({
+        where: {
+          organizationId,
+          disconnectedAt: null,
+          posSettings: { is: { isActive: true } },
+        },
+        select: { id: true },
+      })
+    : [];
   const reservations = await prisma.posReservation.findMany({
-    where: mine
-      ? { userId: session.user.id }
-      : isRoleAllowed(session.user.role, ["admin", "cashier"])
-        ? {
-            credential: {
-              organizationId,
-              posSettings: { is: { organizationId, isActive: true } },
-            },
-          }
-        : { userId: session.user.id },
+    where: canReadAny
+      ? { credentialId: { in: activeCredentials.map((credential) => credential.id) } }
+      : { userId: session.user.id },
     include: { items: true, sale: true },
     orderBy: { createdAt: "desc" },
   });
@@ -102,11 +107,21 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isRoleAllowed(session.user.role, ["admin", "staff"])) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!isRoleAllowed(session.user.role, ["admin", "cashier", "staff"])) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json().catch(() => null) as { id?: string; action?: string } | null;
   if (!body?.id || body.action !== "cancel") return NextResponse.json({ error: "Invalid lifecycle action" }, { status: 400 });
-  const reservation = await prisma.posReservation.findFirst({ where: { id: body.id, userId: session.user.id }, include: { items: true } });
+  const canManageAny = isRoleAllowed(session.user.role, ["admin", "cashier"]);
+  const reservation = await prisma.posReservation.findUnique({
+    where: { id: body.id },
+    include: { items: true },
+  });
   if (!reservation) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
+  if (canManageAny) {
+    const credential = await getOperationalPosCredential(session.user.id, session.user.role, reservation.credentialId);
+    if (!credential) return NextResponse.json({ error: "Reservation is not available to this POS operator" }, { status: 403 });
+  } else if (reservation.userId !== session.user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   if (reservation.status !== "active") return NextResponse.json(reservation);
   const updated = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
     const changed = await tx.posReservation.updateMany({ where: { id: reservation.id, status: "active", expiresAt: { gt: new Date() } }, data: { status: "cancelled", cancelledAt: new Date() } });
