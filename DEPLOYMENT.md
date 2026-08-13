@@ -171,7 +171,9 @@ npm run db:generate
 npm run db:studio
 ```
 
-Monitor application errors, database growth, Accurate rate-limit failures, migration failures, and pending borrowing reconciliation events.
+Monitor application errors, database growth, Accurate rate-limit failures, migration failures, pending borrowing reconciliation events, and Docker host disk usage.
+
+Komodo depends on its MongoDB container. If the Docker filesystem fills, Mongo may stop and webhook deployments will fail with a database server-selection error. Check capacity with `df -h /var/lib/docker` and `docker system df`. Inactive BuildKit cache can be reclaimed with `docker builder prune -f`; do not prune volumes or active images as a routine deployment step.
 
 ## Backup and Rollback
 
