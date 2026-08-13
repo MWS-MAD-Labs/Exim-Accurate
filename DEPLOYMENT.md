@@ -48,7 +48,7 @@ docker compose -f compose.prebuilt.yaml up -d
 
 The container entrypoint automatically runs `prisma migrate deploy` before starting Next.js. Do not use `prisma db push` in production.
 
-Komodo procedures should run `Sync Stack` followed by `Deploy Stack`. The explicit pull policy is required because a normal Compose deploy can otherwise reuse a locally cached `latest` image.
+Komodo procedures should run `Sync Stack` followed by `Deploy Stack`. Configure the `exima` stack to use only `compose.prebuilt.yaml`; legacy paths such as `compose.yaml` or `docker-compose.komodo.yml` are not present. The explicit pull policy is required because a normal Compose deploy can otherwise reuse a locally cached `latest` image.
 
 ## Initial Administrator
 
