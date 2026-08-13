@@ -32,7 +32,10 @@ export async function GET(req: NextRequest) {
   const [settings, users, salesStaff, reservationStaff] = await Promise.all([
     prisma.posSettings.findUnique({ where: { credentialId } }),
     prisma.user.findMany({
-      where: { organizationId: credential.organizationId, role: "staff" },
+      where: {
+        organizationId: credential.organizationId,
+        role: { in: ["admin", "staff"] },
+      },
       select: { email: true },
     }),
     prisma.posSale.findMany({
