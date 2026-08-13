@@ -26,6 +26,7 @@ model User {
   id             String   @id @default(uuid())
   organizationId String
   email          String   @unique
+  name           String?
   password       String
   role           String   @default("staff")
   createdAt      DateTime @default(now())

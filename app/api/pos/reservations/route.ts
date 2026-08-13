@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       const updated = await tx.posStockAllocation.updateMany({ where: { id: allocation.id, heldQuantity: { lte: product.stock - item.quantity } }, data: { heldQuantity: { increment: item.quantity }, stockSnapshot: product.stock } });
       if (updated.count !== 1) throw new Error("INSUFFICIENT_STOCK");
     }
-    return tx.posReservation.create({ data: { userId: session.user.id, credentialId, reference: makeReservationReference(), idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, staffEmail: session.user.email, staffName: null, preferredPaymentMethod, expiresAt, items: { create: items } }, include: { items: true } });
+    return tx.posReservation.create({ data: { userId: session.user.id, credentialId, reference: makeReservationReference(), idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, staffEmail: session.user.email, staffName: session.user.name, preferredPaymentMethod, expiresAt, items: { create: items } }, include: { items: true } });
   }).catch(async (error: unknown) => {
     if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") return null;
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

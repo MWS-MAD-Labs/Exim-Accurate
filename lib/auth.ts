@@ -36,6 +36,7 @@ export const authOptions: NextAuthOptions = {
         return {
           id: user.id,
           email: user.email,
+          name: user.name,
           role: user.role,
         };
       },
@@ -51,12 +52,14 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.name = user.name;
         token.role = user.role;
       } else if (token.id) {
         const currentUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { role: true },
+          select: { name: true, role: true },
         });
+        token.name = currentUser?.name ?? null;
         token.role = currentUser?.role ?? "";
       }
       return token;
@@ -64,6 +67,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.name = token.name as string | null;
         session.user.role = token.role as string;
       }
       return session;

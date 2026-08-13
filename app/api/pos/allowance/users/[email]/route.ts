@@ -41,7 +41,7 @@ export async function GET(
   const periodEndExclusive = new Date(periodEndsAt);
   periodEndExclusive.setDate(periodEndExclusive.getDate() + 1);
 
-  const [daysOff, sales, adjustments, latestIdentity] = await Promise.all([
+  const [daysOff, sales, adjustments, userIdentity, latestSaleIdentity] = await Promise.all([
     prisma.posStaffDayOff.findMany({
       where: { credentialId: query.data.credentialId, staffEmail, date: { gte: periodStartsAt, lt: periodEndExclusive } },
       orderBy: { date: "asc" },
@@ -68,6 +68,10 @@ export async function GET(
       select: { id: true, periodStartsAt: true, periodEndsAt: true, amount: true, note: true, createdAt: true, updatedAt: true, createdBy: { select: { email: true } } },
       orderBy: { updatedAt: "desc" },
     }),
+    prisma.user.findFirst({
+      where: { organizationId: credential.organizationId, email: staffEmail },
+      select: { name: true },
+    }),
     prisma.posSale.findFirst({
       where: { credentialId: query.data.credentialId, staffEmail, staffName: { not: null } },
       select: { staffName: true },
@@ -75,5 +79,11 @@ export async function GET(
     }),
   ]);
 
-  return NextResponse.json({ ...allowance, staffName: latestIdentity?.staffName ?? null, daysOff, sales, adjustments });
+  return NextResponse.json({
+    ...allowance,
+    staffName: userIdentity?.name ?? latestSaleIdentity?.staffName ?? null,
+    daysOff,
+    sales,
+    adjustments,
+  });
 }

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { USER_ROLES } from "@/lib/user-roles";
 
 const createUserSchema = z.object({
+  name: z.string().trim().min(1, "Name is required."),
   email: z.string().trim().email().transform((email) => email.toLowerCase()),
   password: z.string().min(8, "Password must contain at least 8 characters."),
   role: z.enum(USER_ROLES),
@@ -23,6 +24,7 @@ export async function GET() {
     select: {
       id: true,
       email: true,
+      name: true,
       role: true,
       createdAt: true,
       _count: {
@@ -58,10 +60,11 @@ export async function POST(request: NextRequest) {
       data: {
         organizationId: admin.organizationId,
         email: parsed.data.email,
+        name: parsed.data.name,
         password: await bcrypt.hash(parsed.data.password, 12),
         role: parsed.data.role,
       },
-      select: { id: true, email: true, role: true, createdAt: true },
+      select: { id: true, email: true, name: true, role: true, createdAt: true },
     });
 
     return NextResponse.json({ user }, { status: 201 });

@@ -7,6 +7,7 @@ async function main() {
   const email = process.argv[2] || "admin@example.com";
   const password = process.argv[3] || "password123";
   const role = process.argv[4] || "admin";
+  const name = process.argv[5]?.trim() || null;
 
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({
@@ -31,6 +32,7 @@ async function main() {
         },
       },
       email,
+      name,
       password: hashedPassword,
       role,
     },
@@ -38,6 +40,7 @@ async function main() {
 
   console.log("User created successfully:");
   console.log(`Email: ${user.email}`);
+  console.log(`Name: ${user.name || "Not set"}`);
   console.log(`Role: ${user.role}`);
   console.log(`ID: ${user.id}`);
 }

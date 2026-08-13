@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
         organizationId: credential.organizationId,
         role: { in: ["admin", "staff"] },
       },
-      select: { email: true },
+      select: { email: true, name: true },
     }),
     prisma.posSale.findMany({
       where: { credentialId, staffEmail: { not: null } },
@@ -53,10 +53,10 @@ export async function GET(req: NextRequest) {
   ]);
 
   const staff = new Map<string, string | null>();
-  for (const user of users) staff.set(user.email.toLowerCase(), null);
+  for (const user of users) staff.set(user.email.toLowerCase(), user.name);
   for (const entry of [...reservationStaff, ...salesStaff]) {
     const email = entry.staffEmail?.toLowerCase().trim();
-    if (email) staff.set(email, entry.staffName || staff.get(email) || null);
+    if (email && !staff.get(email)) staff.set(email, entry.staffName || null);
   }
   const normalizedSearch = search?.toLowerCase();
   const requestedPeriod = periodStart && periodEnd

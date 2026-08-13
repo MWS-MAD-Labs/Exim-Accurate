@@ -7,11 +7,12 @@ import { USER_ROLES } from "@/lib/user-roles";
 
 const updateUserSchema = z
   .object({
+    name: z.string().trim().min(1, "Name is required.").optional(),
     role: z.enum(USER_ROLES).optional(),
     password: z.string().min(8, "Password must contain at least 8 characters.").optional(),
   })
-  .refine((data) => data.role || data.password, {
-    message: "Provide a role or a new password.",
+  .refine((data) => data.name || data.role || data.password, {
+    message: "Provide a name, role, or a new password.",
   });
 
 async function wouldRemoveLastAdmin(userId: string, nextRole?: string) {
@@ -64,12 +65,13 @@ export async function PATCH(
   const user = await prisma.user.update({
     where: { id },
     data: {
+      ...(parsed.data.name ? { name: parsed.data.name } : {}),
       ...(parsed.data.role ? { role: parsed.data.role } : {}),
       ...(parsed.data.password
         ? { password: await bcrypt.hash(parsed.data.password, 12) }
         : {}),
     },
-    select: { id: true, email: true, role: true, createdAt: true },
+    select: { id: true, email: true, name: true, role: true, createdAt: true },
   });
 
   return NextResponse.json({ user });

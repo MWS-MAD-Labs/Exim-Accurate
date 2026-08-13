@@ -49,6 +49,7 @@ import {
 interface ManagedUser {
   id: string;
   email: string;
+  name: string | null;
   role: string;
   createdAt: string;
   _count: {
@@ -70,8 +71,14 @@ const roleIcons: Record<UserRole, React.ReactNode> = {
   staff: <IconUser size={20} />,
 };
 
-function initials(email: string) {
-  return email.slice(0, 2).toUpperCase();
+function initials(name: string | null, email: string) {
+  const source = name?.trim() || email;
+  return source
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 }
 
 function roleMeta(role: string) {
@@ -97,6 +104,7 @@ export function UserManagement() {
   const [editUser, setEditUser] = useState<ManagedUser | null>(null);
   const [passwordUser, setPasswordUser] = useState<ManagedUser | null>(null);
   const [deleteUser, setDeleteUser] = useState<ManagedUser | null>(null);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("staff");
@@ -142,11 +150,14 @@ export function UserManagement() {
     return users.filter(
       (user) =>
         (!roleFilter || user.role === roleFilter) &&
-        (!normalizedQuery || user.email.toLowerCase().includes(normalizedQuery)),
+        (!normalizedQuery ||
+          user.email.toLowerCase().includes(normalizedQuery) ||
+          user.name?.toLowerCase().includes(normalizedQuery)),
     );
   }, [query, roleFilter, users]);
 
   const resetCreateForm = () => {
+    setName("");
     setEmail("");
     setPassword("");
     setRole("staff");
@@ -158,7 +169,7 @@ export function UserManagement() {
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({ name, email, password, role }),
       });
       if (!response.ok) throw new Error(await readError(response));
 
@@ -182,22 +193,22 @@ export function UserManagement() {
     }
   };
 
-  const updateRole = async () => {
+  const updateUser = async () => {
     if (!editUser) return;
     setSaving(true);
     try {
       const response = await fetch(`/api/admin/users/${editUser.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
+        body: JSON.stringify({ name, role }),
       });
       if (!response.ok) throw new Error(await readError(response));
 
       setEditUser(null);
       await loadUsers();
       notifications.show({
-        title: "Role updated",
-        message: `${editUser.email} is now ${USER_ROLE_META[role].label}.`,
+        title: "User updated",
+        message: `${name} is now ${USER_ROLE_META[role].label}.`,
         color: "green",
         icon: <IconCheck size={16} />,
       });
@@ -312,7 +323,7 @@ export function UserManagement() {
           <Group align="flex-end" flex={1}>
             <TextInput
               label="Search users"
-              placeholder="Search by email"
+              placeholder="Search by name or email"
               leftSection={<IconSearch size={16} />}
               value={query}
               onChange={(event) => setQuery(event.currentTarget.value)}
@@ -363,13 +374,13 @@ export function UserManagement() {
                     <Table.Tr key={user.id}>
                       <Table.Td>
                         <Group gap="sm" wrap="nowrap">
-                          <Avatar color={meta.color} radius="xl">{initials(user.email)}</Avatar>
+                          <Avatar color={meta.color} radius="xl">{initials(user.name, user.email)}</Avatar>
                           <Box>
                             <Group gap="xs">
-                              <Text fw={600} size="sm">{user.email}</Text>
+                              <Text fw={600} size="sm">{user.name || user.email}</Text>
                               {isCurrentUser && <Badge size="xs" variant="outline">You</Badge>}
                             </Group>
-                            <Text size="xs" c="dimmed">ID: {user.id.slice(0, 8)}</Text>
+                            <Text size="xs" c="dimmed">{user.email}</Text>
                           </Box>
                         </Group>
                       </Table.Td>
@@ -397,11 +408,12 @@ export function UserManagement() {
                             <Menu.Item
                               leftSection={<IconShield size={16} />}
                               onClick={() => {
+                                setName(user.name || "");
                                 setRole(USER_ROLES.includes(user.role as UserRole) ? user.role as UserRole : "staff");
                                 setEditUser(user);
                               }}
                             >
-                              Change role
+                              Edit user
                             </Menu.Item>
                             <Menu.Item
                               leftSection={<IconKey size={16} />}
@@ -444,6 +456,13 @@ export function UserManagement() {
       >
         <Stack>
           <TextInput
+            label="Name"
+            placeholder="Full name"
+            value={name}
+            onChange={(event) => setName(event.currentTarget.value)}
+            required
+          />
+          <TextInput
             label="Email"
             placeholder="name@company.com"
             value={email}
@@ -469,16 +488,22 @@ export function UserManagement() {
           </Alert>
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button loading={saving} disabled={!email || password.length < 8} onClick={createUser}>
+            <Button loading={saving} disabled={!name.trim() || !email || password.length < 8} onClick={createUser}>
               Create user
             </Button>
           </Group>
         </Stack>
       </Modal>
 
-      <Modal opened={!!editUser} onClose={() => setEditUser(null)} title="Change user role" centered>
+      <Modal opened={!!editUser} onClose={() => setEditUser(null)} title="Edit user" centered>
         <Stack>
-          <Text size="sm">Update access for <Text span fw={700}>{editUser?.email}</Text>.</Text>
+          <Text size="sm">Update <Text span fw={700}>{editUser?.email}</Text>.</Text>
+          <TextInput
+            label="Name"
+            value={name}
+            onChange={(event) => setName(event.currentTarget.value)}
+            required
+          />
           <Select
             label="Role"
             data={roleOptions}
@@ -496,7 +521,7 @@ export function UserManagement() {
           )}
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setEditUser(null)}>Cancel</Button>
-            <Button loading={saving} onClick={updateRole}>Save role</Button>
+            <Button loading={saving} disabled={!name.trim()} onClick={updateUser}>Save changes</Button>
           </Group>
         </Stack>
       </Modal>
