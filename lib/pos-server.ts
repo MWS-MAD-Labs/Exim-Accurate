@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import type { PosAccurateCredentials, PosProduct } from "@/lib/accurate/pos";
-import { calculateAllowanceForPeriod, calculateRemainingAllowance, getRecurringAllowancePeriod, startOfDate, type AllowancePeriod } from "@/lib/pos";
+import { calculateStaffAllowanceBreakdown, getRecurringAllowancePeriod, startOfDate, type AllowancePeriod } from "@/lib/pos";
 
 async function getOwnedCredential(userId: string, credentialId: string) {
   const user = await prisma.user.findUnique({
@@ -54,39 +54,94 @@ export async function getDefaultPosStore(userId: string) {
   });
 }
 
-export async function getStaffAllowance(credentialId: string, staffEmail: string, now = new Date()) {
-  const settings = await prisma.posSettings.findUnique({ where: { credentialId } });
-  const allowancePerWorkingDay = Number(settings?.allowancePerWorkingDay ?? 0);
-  const workingDays = settings?.workingDays ?? [1, 2, 3, 4, 5];
-  const holidayDates = settings?.holidayDates ?? [];
+export async function resolveStaffAllowancePeriod(
+  credentialId: string,
+  cutoffDay: number,
+  now = new Date(),
+  requestedPeriod?: AllowancePeriod,
+) {
+  if (requestedPeriod) {
+    return {
+      period: { startsAt: startOfDate(requestedPeriod.startsAt), endsAt: startOfDate(requestedPeriod.endsAt) },
+      isCustom: true,
+    };
+  }
+
   const today = startOfDate(now);
   const override = await prisma.posAllowancePeriodOverride.findFirst({
     where: { credentialId, startsAt: { lte: today }, endsAt: { gte: today } },
     orderBy: { startsAt: "desc" },
   });
-  const period: AllowancePeriod = override
-    ? { startsAt: startOfDate(override.startsAt), endsAt: startOfDate(override.endsAt) }
-    : getRecurringAllowancePeriod(settings?.allowanceCutoffDay ?? 22, now);
-  const total = calculateAllowanceForPeriod(allowancePerWorkingDay, workingDays, period, holidayDates);
+  return override
+    ? { period: { startsAt: startOfDate(override.startsAt), endsAt: startOfDate(override.endsAt) }, isCustom: true }
+    : { period: getRecurringAllowancePeriod(cutoffDay, now), isCustom: false };
+}
+
+export async function getStaffAllowance(
+  credentialId: string,
+  staffEmail: string,
+  now = new Date(),
+  requestedPeriod?: AllowancePeriod,
+) {
+  const normalizedEmail = staffEmail.toLowerCase().trim();
+  const settings = await prisma.posSettings.findUnique({ where: { credentialId } });
+  const allowancePerWorkingDay = Number(settings?.allowancePerWorkingDay ?? 0);
+  const workingDays = settings?.workingDays ?? [1, 2, 3, 4, 5];
+  const holidayDates = settings?.holidayDates ?? [];
+  const { period, isCustom } = await resolveStaffAllowancePeriod(
+    credentialId,
+    settings?.allowanceCutoffDay ?? 22,
+    now,
+    requestedPeriod,
+  );
   const periodEndExclusive = new Date(period.endsAt);
   periodEndExclusive.setDate(periodEndExclusive.getDate() + 1);
-  const usedSales = await prisma.posSale.findMany({
-    where: {
-      credentialId,
-      staffEmail: staffEmail.toLowerCase().trim(),
-      paymentMethod: "allowance",
-      status: { not: "sync_error" },
-      createdAt: { gte: period.startsAt, lt: periodEndExclusive },
-    },
-    select: { allowanceUsed: true },
-  });
-  const used = usedSales.reduce((sum, sale) => sum + Number(sale.allowanceUsed), 0);
+
+  const [daysOff, adjustment, spent] = await Promise.all([
+    prisma.posStaffDayOff.findMany({
+      where: { credentialId, staffEmail: normalizedEmail, date: { gte: period.startsAt, lt: periodEndExclusive } },
+      select: { date: true },
+    }),
+    prisma.posStaffAllowanceAdjustment.findUnique({
+      where: {
+        credentialId_staffEmail_periodStartsAt_periodEndsAt: {
+          credentialId,
+          staffEmail: normalizedEmail,
+          periodStartsAt: period.startsAt,
+          periodEndsAt: period.endsAt,
+        },
+      },
+      select: { amount: true },
+    }),
+    prisma.posSale.aggregate({
+      where: {
+        credentialId,
+        staffEmail: normalizedEmail,
+        paymentMethod: "allowance",
+        status: { not: "sync_error" },
+        createdAt: { gte: period.startsAt, lt: periodEndExclusive },
+      },
+      _sum: { allowanceUsed: true },
+    }),
+  ]);
+
+  const breakdown = calculateStaffAllowanceBreakdown(
+    allowancePerWorkingDay,
+    workingDays,
+    period,
+    holidayDates,
+    daysOff.map((entry) => entry.date),
+    Number(adjustment?.amount ?? 0),
+    Number(spent._sum.allowanceUsed ?? 0),
+  );
 
   return {
-    total,
-    used,
-    remaining: calculateRemainingAllowance(total, used),
-    period: { startsAt: period.startsAt.toISOString(), endsAt: period.endsAt.toISOString(), isCustom: !!override },
+    staffEmail: normalizedEmail,
+    ...breakdown,
+    total: breakdown.totalAllowance,
+    used: breakdown.allowanceSpent,
+    remaining: breakdown.remainingAllowance,
+    period: { startsAt: period.startsAt.toISOString(), endsAt: period.endsAt.toISOString(), isCustom },
   };
 }
 

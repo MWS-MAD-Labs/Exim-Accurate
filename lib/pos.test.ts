@@ -4,6 +4,8 @@ import {
   availableQuantity,
   calculateAllowanceForPeriod,
   calculateMonthlyAllowance,
+  calculateStaffAllowanceBreakdown,
+  countEffectiveDaysOffInPeriod,
   calculateProfit,
   calculateRemainingAllowance,
   countWorkingDaysInMonth,
@@ -75,6 +77,46 @@ test("calculates an allowance across a custom inclusive period", () => {
     ["2026-06-17"],
   );
   assert.equal(total, 17 * 50000);
+});
+
+test("deduplicates staff days off and ignores holidays, weekends, and out-of-period dates", () => {
+  const period = { startsAt: new Date(2026, 7, 23), endsAt: new Date(2026, 8, 22) };
+  assert.equal(countEffectiveDaysOffInPeriod([
+    new Date(2026, 8, 2),
+    new Date(2026, 8, 2),
+    new Date(2026, 8, 5),
+    new Date(2026, 8, 6),
+    new Date(2026, 7, 20),
+  ], period, [1, 2, 3, 4, 5], ["2026-09-05"]), 1);
+});
+
+test("calculates per-user allowance with days off and a positive adjustment", () => {
+  const breakdown = calculateStaffAllowanceBreakdown(
+    25000,
+    [1, 2, 3, 4, 5],
+    { startsAt: new Date(2026, 7, 23), endsAt: new Date(2026, 8, 22) },
+    [],
+    [new Date(2026, 8, 2), new Date(2026, 8, 3)],
+    50000,
+    120000,
+  );
+  assert.equal(breakdown.daysOffCount, 2);
+  assert.equal(breakdown.totalAllowance, breakdown.effectiveWorkingDays * 25000 + 50000);
+  assert.equal(breakdown.remainingAllowance, breakdown.totalAllowance - 120000);
+});
+
+test("clamps a negative period adjustment at zero", () => {
+  const breakdown = calculateStaffAllowanceBreakdown(
+    100,
+    [1, 2, 3, 4, 5],
+    { startsAt: new Date(2026, 7, 3), endsAt: new Date(2026, 7, 3) },
+    [],
+    [],
+    -500,
+    20,
+  );
+  assert.equal(breakdown.totalAllowance, 0);
+  assert.equal(breakdown.remainingAllowance, 0);
 });
 
 test("calculates the monthly staff allowance total from a daily rate", () => {

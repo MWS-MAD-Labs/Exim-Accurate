@@ -1,6 +1,13 @@
 import crypto from "node:crypto";
 import { z } from "zod";
 
+export const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+export function parseDateOnly(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 export const paymentMethodSchema = z.enum(["allowance", "cash", "qris"]);
 
 export const buyerTypeSchema = z.enum(["staff", "guest"]);
@@ -149,6 +156,58 @@ export function countWorkingDaysInPeriod(
     if (workingDaySet.has(cursor.getDay()) && !holidayDateSet.has(toDateOnlyValue(cursor))) count += 1;
   }
   return count;
+}
+
+export function countEffectiveDaysOffInPeriod(
+  dates: readonly Date[],
+  period: AllowancePeriod,
+  workingDays: readonly number[],
+  holidayDates: readonly string[] = [],
+) {
+  const startsAt = startOfDate(period.startsAt).getTime();
+  const endsAt = startOfDate(period.endsAt).getTime();
+  const workingDaySet = new Set(workingDays);
+  const holidayDateSet = new Set(holidayDates);
+  const effectiveDates = new Set<string>();
+
+  for (const value of dates) {
+    const date = startOfDate(value);
+    const timestamp = date.getTime();
+    const dateOnly = toDateOnlyValue(date);
+    if (timestamp >= startsAt && timestamp <= endsAt && workingDaySet.has(date.getDay()) && !holidayDateSet.has(dateOnly)) {
+      effectiveDates.add(dateOnly);
+    }
+  }
+
+  return effectiveDates.size;
+}
+
+export function calculateStaffAllowanceBreakdown(
+  allowancePerWorkingDay: number,
+  workingDays: readonly number[],
+  period: AllowancePeriod,
+  holidayDates: readonly string[] = [],
+  daysOff: readonly Date[] = [],
+  manualAdjustment = 0,
+  allowanceSpent = 0,
+) {
+  const baseWorkingDays = countWorkingDaysInPeriod(period.startsAt, period.endsAt, workingDays, holidayDates);
+  const daysOffCount = countEffectiveDaysOffInPeriod(daysOff, period, workingDays, holidayDates);
+  const effectiveWorkingDays = Math.max(0, baseWorkingDays - daysOffCount);
+  const standardAllowance = effectiveWorkingDays * allowancePerWorkingDay;
+  const totalAllowance = Math.max(0, standardAllowance + manualAdjustment);
+
+  return {
+    baseWorkingDays,
+    daysOffCount,
+    effectiveWorkingDays,
+    dailyRate: allowancePerWorkingDay,
+    standardAllowance,
+    manualAdjustment,
+    totalAllowance,
+    allowanceSpent,
+    remainingAllowance: Math.max(0, totalAllowance - allowanceSpent),
+  };
 }
 
 export function calculateAllowanceForPeriod(

@@ -39,6 +39,7 @@ import {
   IconBuildingWarehouse,
   IconUsers,
   IconClock,
+  IconWallet,
 } from "@tabler/icons-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
@@ -218,6 +219,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           label: "Pre Order Management",
           icon: <IconClock size={16} />,
           href: "/dashboard/pos/preorders",
+        },
+        {
+          label: t.dashboard.pos.staffAllowanceTitle,
+          icon: <IconWallet size={16} />,
+          href: "/dashboard/pos/allowance",
         },
         {
           label: "POS Settings",

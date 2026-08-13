@@ -30,23 +30,24 @@ model User {
   role           String   @default("staff")
   createdAt      DateTime @default(now())
 
-  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  accurateCredentials AccurateCredentials[]
-  exportJobs          ExportJob[]
-  importJobs          ImportJob[]
-  kioskSyncData       KioskSyncData[]
-  borrowingSessions   BorrowingSession[]
-  borrowingActivities BorrowingActivity[]
-  posSales            PosSale[]
-  posReservations     PosReservation[]
-  posSettings         PosSettings[]
-  posAllocations      PosStockAllocation[]
+  organization                   Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  accurateCredentials            AccurateCredentials[]
+  exportJobs                     ExportJob[]
+  importJobs                     ImportJob[]
+  kioskSyncData                  KioskSyncData[]
+  borrowingSessions              BorrowingSession[]
+  borrowingActivities            BorrowingActivity[]
+  posSales                       PosSale[]
+  posReservations                PosReservation[]
+  posSettings                    PosSettings[]
+  posAllocations                 PosStockAllocation[]
+  posAllowanceAdjustmentsCreated PosStaffAllowanceAdjustment[]
 
   @@index([organizationId])
 }
 
 model AccurateCredentials {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   organizationId  String
   userId          String?
   appKey          String
@@ -57,22 +58,24 @@ model AccurateCredentials {
   session         String? // Session token from open-db.do
   dbId            Int? // Database ID from Accurate
   disconnectedAt  DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  organization                Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  user                        User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  checkoutSessions            CheckoutSession[]
-  exportJobs                  ExportJob[]
-  importJobs                  ImportJob[]
-  borrowingSessions           BorrowingSession[]
-  borrowingActivities         BorrowingActivity[]
-  posSettings                 PosSettings?
-  posSales                    PosSale[]
-  posReservations             PosReservation[]
-  posAllocations              PosStockAllocation[]
-  posProducts                 PosProduct[]
-  posAllowancePeriodOverrides PosAllowancePeriodOverride[]
+  organization                 Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user                         User?                         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  checkoutSessions             CheckoutSession[]
+  exportJobs                   ExportJob[]
+  importJobs                   ImportJob[]
+  borrowingSessions            BorrowingSession[]
+  borrowingActivities          BorrowingActivity[]
+  posSettings                  PosSettings?
+  posSales                     PosSale[]
+  posReservations              PosReservation[]
+  posAllocations               PosStockAllocation[]
+  posProducts                  PosProduct[]
+  posAllowancePeriodOverrides  PosAllowancePeriodOverride[]
+  posStaffDaysOff              PosStaffDayOff[]
+  posStaffAllowanceAdjustments PosStaffAllowanceAdjustment[]
 
   @@index([organizationId])
 }
@@ -252,11 +255,11 @@ model PosSettings {
   organizationId String
   userId         String
   credentialId   String   @unique
-  warehouseId   Int
-  warehouseName String
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  warehouseId    Int
+  warehouseName  String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Staff allowance: monthly total = allowancePerWorkingDay * count of workingDays in the current month
   allowancePerWorkingDay Decimal  @default(0) @db.Decimal(14, 2)
@@ -265,8 +268,8 @@ model PosSettings {
   allowanceCutoffDay     Int      @default(22) // Normal cycle ends on this day; the next starts the day after
   preorderHoldHours      Int      @default(4) // Hours that staff preorder stock remains locked
 
-  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   credential   AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
@@ -286,6 +289,42 @@ model PosAllowancePeriodOverride {
   credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
 
   @@index([credentialId, startsAt, endsAt])
+}
+
+model PosStaffDayOff {
+  id           String   @id @default(uuid())
+  credentialId String
+  staffEmail   String
+  date         DateTime
+  reason       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@unique([credentialId, staffEmail, date])
+  @@index([credentialId, staffEmail, date])
+}
+
+model PosStaffAllowanceAdjustment {
+  id             String   @id @default(uuid())
+  credentialId   String
+  staffEmail     String
+  periodStartsAt DateTime
+  periodEndsAt   DateTime
+  amount         Decimal  @db.Decimal(14, 2)
+  note           String?
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  // Preserve adjustment audit attribution; users referenced by an adjustment must be retained.
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([credentialId, staffEmail, periodStartsAt, periodEndsAt])
+  @@index([credentialId, staffEmail, periodStartsAt, periodEndsAt])
+  @@index([createdById])
 }
 
 // Local POS product catalog is the source of truth for stock and pricing.
@@ -318,23 +357,23 @@ model PosProduct {
 }
 
 model PosReservation {
-  id                 String    @id @default(uuid())
-  userId             String
-  credentialId       String
-  reference          String    @unique
-  idempotencyKey     String
-  requestFingerprint String
-  warehouseId        Int
-  warehouseName      String
+  id                     String    @id @default(uuid())
+  userId                 String
+  credentialId           String
+  reference              String    @unique
+  idempotencyKey         String
+  requestFingerprint     String
+  warehouseId            Int
+  warehouseName          String
   staffEmail             String
   staffName              String?
-  preferredPaymentMethod String   @default("allowance") // allowance, cash, qris
-  status                 String   @default("active") // active, picked_up, cancelled, expired
+  preferredPaymentMethod String    @default("allowance") // allowance, cash, qris
+  status                 String    @default("active") // active, picked_up, cancelled, expired
   expiresAt              DateTime
   pickupAt               DateTime?
   cancelledAt            DateTime?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   credential AccurateCredentials  @relation(fields: [credentialId], references: [id], onDelete: Cascade)
