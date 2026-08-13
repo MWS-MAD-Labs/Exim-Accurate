@@ -29,7 +29,7 @@ This guide uses **GitHub Actions** to build the image and **Komodo UI** to deplo
 
 1. Open Komodo UI → **Stacks** → `exima`
 2. Ensure **Source** is set to `Git Repo` (linked to `exima` repo).
-3. Ensure **Compose File Path** is `compose.prebuilt.yaml`.
+3. Ensure **Compose File Path** is `compose.prebuilt.yaml`. Its app service must retain `pull_policy: always` so a deploy refreshes the mutable `latest` image.
 4. Update/Verify **Environment** variables:
    - Ensure `DATABASE_URL` uses the Compose service address, for example `postgresql://postgres:password@postgres:5432/exim_accurate?schema=public`.
    - Do not use `localhost` from inside the app container.
@@ -41,7 +41,7 @@ This guide uses **GitHub Actions** to build the image and **Komodo UI** to deplo
 ## Step 3: Pull and Deploy (Manual or Automated)
 
 ### Automated (Recommended)
-Using a **Komodo Procedure** ensures your stack not only syncs but also forces an image pull and container restart.
+Using a **Komodo Procedure** with the Compose `pull_policy: always` setting ensures the stack syncs, refreshes the image, and replaces the app container when the image changes.
 
 1.  **Create Procedure**:
     - In Komodo UI → **Procedures** → **Create Procedure**.

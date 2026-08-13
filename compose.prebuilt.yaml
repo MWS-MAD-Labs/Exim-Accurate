@@ -1,6 +1,7 @@
 services:
   app:
     image: ghcr.io/mws-mad-labs/exim-accurate:latest
+    pull_policy: always
     restart: unless-stopped
     env_file:
       - .env

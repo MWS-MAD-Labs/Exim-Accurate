@@ -40,13 +40,15 @@ docker compose -f compose.local.yaml up -d --build
 
 The application is exposed on port `5758`. PostgreSQL data is persisted in the `postgres_data` volume.
 
-Use `compose.prebuilt.yaml` when deploying the prebuilt GHCR image:
+Use `compose.prebuilt.yaml` when deploying the prebuilt GHCR image. The app service sets `pull_policy: always`, so every Compose deployment refreshes the mutable `latest` tag before evaluating container replacement:
 
 ```sh
 docker compose -f compose.prebuilt.yaml up -d
 ```
 
 The container entrypoint automatically runs `prisma migrate deploy` before starting Next.js. Do not use `prisma db push` in production.
+
+Komodo procedures should run `Sync Stack` followed by `Deploy Stack`. The explicit pull policy is required because a normal Compose deploy can otherwise reuse a locally cached `latest` image.
 
 ## Initial Administrator
 
