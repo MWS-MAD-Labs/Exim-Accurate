@@ -69,7 +69,7 @@ Stores a normalized staff email, date, and optional reason. The unique key on `(
 
 ### `PosStaffAllowanceAdjustment`
 
-Stores one adjustment per staff member and exact allowance period. The amount can be positive or negative. `createdById` is retained for audit attribution.
+Stores one adjustment per staff member and exact allowance period. The amount can be positive or negative. `createdById` is retained for audit attribution. The unique period key also provides the composite lookup index; no duplicate non-unique index is created, avoiding PostgreSQL identifier truncation collisions.
 
 The creator relation intentionally uses `onDelete: Restrict`. A user who created an allowance adjustment cannot be deleted until the audit records are handled explicitly. This preserves accountability instead of silently deleting or detaching the creator identity.
 

@@ -34,8 +34,6 @@ ON "PosStaffDayOff"("credentialId", "staffEmail", "date");
 CREATE UNIQUE INDEX "PosStaffAllowanceAdjustment_credentialId_staffEmail_periodStartsAt_periodEndsAt_key"
 ON "PosStaffAllowanceAdjustment"("credentialId", "staffEmail", "periodStartsAt", "periodEndsAt");
 
-CREATE INDEX "PosStaffAllowanceAdjustment_credentialId_staffEmail_periodStartsAt_periodEndsAt_idx"
-ON "PosStaffAllowanceAdjustment"("credentialId", "staffEmail", "periodStartsAt", "periodEndsAt");
 
 CREATE INDEX "PosStaffAllowanceAdjustment_createdById_idx"
 ON "PosStaffAllowanceAdjustment"("createdById");

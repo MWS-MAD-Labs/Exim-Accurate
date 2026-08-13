@@ -323,7 +323,6 @@ model PosStaffAllowanceAdjustment {
   createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@unique([credentialId, staffEmail, periodStartsAt, periodEndsAt])
-  @@index([credentialId, staffEmail, periodStartsAt, periodEndsAt])
   @@index([createdById])
 }
 
