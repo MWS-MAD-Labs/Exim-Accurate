@@ -166,9 +166,10 @@ export default function StorePage() {
   }, [loadProducts, loadReservations]);
 
   const filteredProducts = useMemo(() => {
+    const inStockProducts = products.filter((product) => product.stock > 0);
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return products;
-    return products.filter((product) =>
+    if (!normalized) return inStockProducts;
+    return inStockProducts.filter((product) =>
       `${product.itemName} ${product.itemCode}`.toLowerCase().includes(normalized),
     );
   }, [products, query]);
