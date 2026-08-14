@@ -18,14 +18,15 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { DatePicker, DatePickerInput } from "@mantine/dates";
+import { DatePicker } from "@mantine/dates";
 import { IconCalendarOff, IconEdit, IconSearch, IconTrash } from "@tabler/icons-react";
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/lib/language";
 
 interface Credential { id: string; appKey: string }
 interface Period { startsAt: string; endsAt: string; isCustom: boolean }
+interface PeriodOption extends Period { isOngoing: boolean }
 interface Allowance {
   staffEmail: string;
   staffName: string | null;
@@ -75,6 +76,19 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(value));
 }
 
+function periodValue(period: Pick<Period, "startsAt" | "endsAt">) {
+  return `${period.startsAt}:${period.endsAt}`;
+}
+
+function formatPeriod(period: Pick<Period, "startsAt" | "endsAt">) {
+  const formatter = new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  return `${formatter.format(new Date(`${period.startsAt}T00:00:00`))} – ${formatter.format(new Date(`${period.endsAt}T00:00:00`))}`;
+}
+
 export default function StaffAllowancePage() {
   const { t } = useLanguage();
   const { data: session } = useSession();
@@ -83,7 +97,11 @@ export default function StaffAllowancePage() {
   const [credentialId, setCredentialId] = useState<string | null>(null);
   const [staff, setStaff] = useState<Allowance[]>([]);
   const [search, setSearch] = useState("");
-  const [periodRange, setPeriodRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [periodYear, setPeriodYear] = useState<string | null>(null);
+  const [periods, setPeriods] = useState<PeriodOption[]>([]);
+  const [periodsKey, setPeriodsKey] = useState("");
+  const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
+  const [loadingPeriods, setLoadingPeriods] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [detail, setDetail] = useState<AllowanceDetail | null>(null);
@@ -92,6 +110,8 @@ export default function StaffAllowancePage() {
   const [adjustment, setAdjustment] = useState<number | "">(0);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const staffRequestController = useRef<AbortController | null>(null);
+  const staffRequestSequence = useRef(0);
 
   useEffect(() => {
     void fetch("/api/credentials").then((response) => response.json()).then((data: Credential[]) => {
@@ -100,39 +120,111 @@ export default function StaffAllowancePage() {
     });
   }, []);
 
-  const loadStaff = async (id = credentialId, query = search) => {
-    if (!id) return;
+  const activePeriodsKey = credentialId && periodYear ? `${credentialId}:${periodYear}` : "";
+  const selectedPeriodOption = periodsKey === activePeriodsKey
+    ? periods.find((period) => periodValue(period) === selectedPeriod) ?? null
+    : null;
+  const cancelStaffRequest = () => {
+    staffRequestController.current?.abort();
+    staffRequestSequence.current += 1;
+    setLoading(false);
+  };
+
+  const latestYear = Math.max(new Date().getFullYear(), Number(periodYear) || 0);
+  const yearOptions = Array.from(
+    { length: Math.max(1, latestYear - 2019) },
+    (_, index) => String(latestYear - index),
+  );
+
+  const loadPeriods = async (id: string, year: string | null, signal: AbortSignal) => {
+    cancelStaffRequest();
+    setLoadingPeriods(true);
+    setPeriods([]);
+    setPeriodsKey("");
+    setSelectedPeriod(null);
+    setStaff([]);
+    setMessage("");
+    try {
+      const params = new URLSearchParams({ credentialId: id });
+      if (year) params.set("year", year);
+      const response = await fetch(`/api/pos/allowance/periods?${params}`, { signal });
+      const data = await response.json();
+      if (signal.aborted) return;
+      if (!response.ok) {
+        setMessage(data.error || t.common.error);
+        return;
+      }
+      const resolvedYear = String(data.year);
+      const nextPeriods = data.periods as PeriodOption[];
+      setPeriodYear(resolvedYear);
+      setPeriods(nextPeriods);
+      setPeriodsKey(`${id}:${resolvedYear}`);
+      const defaultPeriod = nextPeriods.find((period) => period.isOngoing) || nextPeriods[0];
+      setSelectedPeriod(defaultPeriod ? periodValue(defaultPeriod) : null);
+    } catch (error) {
+      if (error instanceof Error && error.name !== "AbortError") setMessage(t.common.error);
+    } finally {
+      if (!signal.aborted) setLoadingPeriods(false);
+    }
+  };
+
+  const loadStaff = async (id = credentialId, query = search, period = selectedPeriodOption) => {
+    if (!id || !period) return;
+    staffRequestController.current?.abort();
+    const controller = new AbortController();
+    const requestSequence = staffRequestSequence.current + 1;
+    staffRequestController.current = controller;
+    staffRequestSequence.current = requestSequence;
     setLoading(true);
     setMessage("");
     try {
       const params = new URLSearchParams({ credentialId: id });
       if (query.trim()) params.set("search", query.trim());
-      if (periodRange[0] && periodRange[1]) {
-        params.set("periodStart", dateOnly(periodRange[0]));
-        params.set("periodEnd", dateOnly(periodRange[1]));
-      }
-      const response = await fetch(`/api/pos/allowance/users?${params}`);
+      params.set("periodStart", period.startsAt);
+      params.set("periodEnd", period.endsAt);
+      const response = await fetch(`/api/pos/allowance/users?${params}`, { signal: controller.signal });
       const data = await response.json();
+      if (controller.signal.aborted || requestSequence !== staffRequestSequence.current) return;
       setStaff(response.ok ? data : []);
       if (!response.ok) setMessage(data.error || t.common.error);
+    } catch (error) {
+      if (
+        requestSequence === staffRequestSequence.current &&
+        error instanceof Error &&
+        error.name !== "AbortError"
+      ) {
+        setStaff([]);
+        setMessage(t.common.error);
+      }
     } finally {
-      setLoading(false);
+      if (requestSequence === staffRequestSequence.current && !controller.signal.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (credentialId) void loadStaff(credentialId, "");
+    if (!credentialId || (periodYear && periodsKey === `${credentialId}:${periodYear}`)) return;
+    const controller = new AbortController();
+    void loadPeriods(credentialId, periodYear, controller.signal);
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [credentialId]);
+  }, [credentialId, periodYear]);
+
+  useEffect(() => () => staffRequestController.current?.abort(), []);
+
+  useEffect(() => {
+    if (credentialId && selectedPeriodOption) void loadStaff(credentialId, search, selectedPeriodOption);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [credentialId, selectedPeriod]);
 
   const openDetail = async (entry: Allowance) => {
     if (!credentialId) return;
     setMessage("");
-    const params = new URLSearchParams({ credentialId });
-    if (periodRange[0] && periodRange[1]) {
-      params.set("periodStart", dateOnly(periodRange[0]));
-      params.set("periodEnd", dateOnly(periodRange[1]));
-    }
+    if (!selectedPeriodOption) return;
+    const params = new URLSearchParams({
+      credentialId,
+      periodStart: selectedPeriodOption.startsAt,
+      periodEnd: selectedPeriodOption.endsAt,
+    });
     const response = await fetch(`/api/pos/allowance/users/${encodeURIComponent(entry.staffEmail)}?${params}`);
     const data = await response.json();
     if (!response.ok) return setMessage(data.error || t.common.error);
@@ -213,21 +305,51 @@ export default function StaffAllowancePage() {
     <Stack>
       <Title>{t.dashboard.pos.staffAllowanceTitle}</Title>
       <Paper withBorder p="md">
-        <Group align="end">
+        <Group align="end" wrap="wrap">
           <Select
             label={t.dashboard.pos.credential}
             data={credentials.map((credential) => ({ value: credential.id, label: credential.appKey }))}
             value={credentialId}
-            onChange={setCredentialId}
+            onChange={(value) => {
+              cancelStaffRequest();
+              setCredentialId(value);
+              setPeriodYear(null);
+              setPeriods([]);
+              setPeriodsKey("");
+              setSelectedPeriod(null);
+              setStaff([]);
+            }}
             style={{ flex: 1 }}
           />
-          <DatePickerInput
-            type="range"
+          <Select
+            label={t.dashboard.pos.allowanceYear}
+            data={yearOptions}
+            value={periodYear}
+            onChange={(value) => {
+              if (!value) return;
+              cancelStaffRequest();
+              setStaff([]);
+              setPeriodYear(value);
+            }}
+            allowDeselect={false}
+            w={120}
+          />
+          <Select
             label={t.dashboard.pos.allowancePeriod}
-            value={periodRange}
-            onChange={setPeriodRange}
-            clearable
-            style={{ flex: 1 }}
+            data={periods.map((period) => ({
+              value: periodValue(period),
+              label: `${formatPeriod(period)}${period.isOngoing ? ` (${t.dashboard.pos.allowancePeriodOngoing})` : ""}`,
+            }))}
+            value={selectedPeriod}
+            onChange={(value) => {
+              cancelStaffRequest();
+              setStaff([]);
+              setSelectedPeriod(value);
+            }}
+            placeholder={loadingPeriods ? t.dashboard.pos.allowancePeriodLoading : t.dashboard.pos.allowancePeriodSelect}
+            disabled={loadingPeriods || !periods.length}
+            allowDeselect={false}
+            style={{ flex: 2 }}
           />
           <TextInput
             label={t.dashboard.pos.searchStaff}
@@ -237,7 +359,7 @@ export default function StaffAllowancePage() {
             leftSection={<IconSearch size={16} />}
             style={{ flex: 2 }}
           />
-          <Button onClick={() => void loadStaff()} loading={loading}>{t.dashboard.pos.searchButton}</Button>
+          <Button onClick={() => void loadStaff()} loading={loading} disabled={!selectedPeriodOption}>{t.dashboard.pos.searchButton}</Button>
         </Group>
       </Paper>
       {message && <Alert color="red">{message}</Alert>}

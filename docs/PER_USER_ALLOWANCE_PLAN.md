@@ -11,6 +11,7 @@ The feature provides:
 3. Automatic adjustment reset when the allowance period changes.
 4. An admin-only dashboard for allowance overview, leave management, adjustment management, and allowance-funded sales history.
 5. Automatic enforcement of the adjusted allowance in existing POS checkout and reservation flows.
+6. A year-based historical period selector generated from POS cutoff settings and custom period overrides.
 
 ## Allowance formula
 
@@ -107,6 +108,23 @@ Parameters:
 
 This endpoint remains available to POS operators because checkout and reservation flows need to verify a single scanned staff member's current balance. Existing callers that omit a period receive the active period.
 
+### Allowance period options
+
+`GET /api/pos/allowance/periods`
+
+Role: `admin` only.
+
+Parameters:
+
+- `credentialId` — required UUID
+- `year` — optional year from `2000` through `2100`
+
+The endpoint returns recurring periods generated from the credential's configured `allowanceCutoffDay` together with configured custom period overrides. Periods are grouped by their end year and future periods are excluded. Recurring periods remain available even when they overlap a custom period so historical edge periods are not hidden.
+
+When `year` is omitted, the endpoint resolves the active period with `resolveStaffAllowancePeriod()` and uses that period's end year. This ensures a period such as `23 December 2026 – 22 January 2027` initially opens under year `2027`, including when a custom active period crosses a calendar-year boundary.
+
+Each option includes `startsAt`, `endsAt`, `isCustom`, and `isOngoing`.
+
 ### Staff allowance overview
 
 `GET /api/pos/allowance/users`
@@ -119,7 +137,7 @@ Parameters:
 - `search` — optional email/name search
 - `periodStart` and `periodEnd` — optional paired `YYYY-MM-DD` values
 
-The staff seed contains organization users with role `staff`. Identities found in POS sales or reservations are also included, even if they are not current staff accounts.
+The staff list contains organization users with role `staff` or `admin`. Stored user names are preferred for display, with identities found in POS sales or reservations retained as a fallback for historical records.
 
 The endpoint avoids per-user N+1 queries. It resolves settings and period once, then batches:
 
@@ -199,7 +217,9 @@ The admin dashboard is available at:
 It is linked from the admin Point of Sales navigation and includes:
 
 - credential selection;
-- optional period selection;
+- year selection;
+- canonical past and ongoing period selection based on the POS cutoff setting and custom overrides;
+- automatic selection of the ongoing period, grouped under its end year;
 - staff email/name search;
 - base days, days off, standard allowance, adjustment, total, spent, and remaining columns;
 - per-user remaining allowance KPI and formula breakdown;
@@ -209,6 +229,8 @@ It is linked from the admin Point of Sales navigation and includes:
 - allowance-funded sales history.
 
 Mutation controls are admin-only. Concurrent leave deletions are prevented while another mutation is active.
+
+The dashboard does not accept arbitrary allowance date ranges. It requests canonical options from `/api/pos/allowance/periods` and submits the selected period to list/detail endpoints. Period and staff requests are abortable and guarded against stale responses when the credential, year, period, or search changes.
 
 Localization is provided in:
 
@@ -241,15 +263,11 @@ Implemented unit coverage in `lib/pos.test.ts` includes:
 Validation performed during implementation:
 
 ```sh
-npx tsx --test lib/pos.test.ts
-npx eslint <changed TypeScript files>
-npx prisma validate
+npm test
 git diff --check
 ```
 
-The allowance tests pass `14/14`, focused ESLint passes, and Prisma validation passes.
-
-The repository-wide `npm run type-check` currently remains blocked by an unrelated existing module-resolution error in `app/store/page.tsx` for `qrcode`; no allowance-related TypeScript error was reported after Prisma client generation.
+Repository-wide ESLint and TypeScript validation pass. ESLint reports seven existing Next.js internal-navigation warnings outside the allowance changes, with no errors.
 
 ## Operational notes
 
