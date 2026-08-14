@@ -10,7 +10,7 @@ Exima extends Accurate Online with inventory adjustment import/export, self-chec
 - Organization-owned credential management
 - Self-checkout and kiosk workflows
 - Borrowing, booking, return, and availability management
-- POS catalog, reservations, sales, allowances, and Accurate synchronization
+- POS catalog, reservations, sales, allowances, registered-staff email suggestions, and Accurate synchronization
 - Organization-scoped operational analytics
 - Role-based access for admins, resource managers, cashiers, and staff
 
@@ -113,6 +113,15 @@ Supported CSV/XLSX columns:
 | `referenceNumber` | No | Optional reference |
 
 Validate the file before starting the import.
+
+### POS Cashier Staff Identification
+
+1. Sign in as an administrator or cashier and open `/pos-cashier`.
+2. In the staff email field, type part of a registered staff member's name or email.
+3. Select a suggestion with the mouse or use `↑`/`↓` and `Enter`.
+4. Continue checkout with the registered name and normalized email. Manual email entry remains available when no registered staff suggestion matches.
+
+Suggestions are limited to users with the `staff` role in the selected POS credential's organization. The typeahead requires a non-empty search term and returns at most eight results.
 
 ### Borrowing Returns
 

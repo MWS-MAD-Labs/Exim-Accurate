@@ -94,6 +94,19 @@ Do not run `prisma migrate dev` in production.
 
 ## API
 
+### POS cashier registered-staff lookup
+
+`GET /api/pos/staff`
+
+Roles: `admin`, `cashier`.
+
+Parameters:
+
+- `credentialId` — required UUID for an active POS credential
+- `search` — required non-empty staff name or email fragment
+
+The endpoint returns at most eight registered users with role `staff` from the credential's organization. Matching is case-insensitive across name and email. An empty search returns `{ "staff": [] }`, preventing unfiltered staff enumeration. The cashier typeahead debounces requests, supports keyboard and mouse selection, and preserves the registered name when starting checkout. Manual email identification remains supported for staff who have not been registered in the application.
+
 ### Current-user/single-user allowance
 
 `GET /api/pos/allowance`

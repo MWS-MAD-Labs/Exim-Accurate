@@ -66,6 +66,11 @@ interface Allowance {
   period: { startsAt: string; endsAt: string; isCustom: boolean };
 }
 
+interface StaffSuggestion {
+  email: string;
+  name: string | null;
+}
+
 interface PickupReservation {
   id: string;
   reference: string;
@@ -106,6 +111,10 @@ export default function PosCashierPage() {
   const [buyerType, setBuyerType] = useState<"staff" | "guest" | null>(null);
   const [staffEmail, setStaffEmail] = useState("");
   const [staffName, setStaffName] = useState("");
+  const [staffSuggestions, setStaffSuggestions] = useState<StaffSuggestion[]>([]);
+  const [staffSuggestionsLoading, setStaffSuggestionsLoading] = useState(false);
+  const [highlightedStaffSuggestion, setHighlightedStaffSuggestion] = useState(0);
+  const [staffSuggestionNavigated, setStaffSuggestionNavigated] = useState(false);
   const [allowance, setAllowance] = useState<Allowance | null>(null);
 
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -179,11 +188,15 @@ export default function PosCashierPage() {
   const notify = (opts: Parameters<typeof notifications.show>[0]) =>
     notifications.show(opts, kioskNotificationsStore);
 
-  const identifyStaff = async (email: string) => {
+  const identifyStaff = async (email: string, registeredName?: string | null) => {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed.includes("@") || !credentialId) return;
+    const matchedStaff = staffSuggestions.find(
+      (staff) => staff.email.toLowerCase() === trimmed,
+    );
     setStaffEmail(trimmed);
-    setStaffName(parseStaffInfo(trimmed));
+    setStaffName(registeredName || matchedStaff?.name || parseStaffInfo(trimmed));
+    setStaffSuggestions([]);
     setBuyerType("staff");
     const response = await fetch(
       `/api/pos/allowance?credentialId=${credentialId}&email=${encodeURIComponent(trimmed)}`,
@@ -191,6 +204,46 @@ export default function PosCashierPage() {
     if (response.ok) setAllowance(await response.json());
     setStep("shop");
   };
+
+  useEffect(() => {
+    const query = staffEmail.trim();
+    if (step !== "identify" || !credentialId || query.length < 1) {
+      setStaffSuggestions([]);
+      setStaffSuggestionsLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setStaffSuggestionsLoading(true);
+      try {
+        const params = new URLSearchParams({
+          credentialId,
+          search: query,
+        });
+        const response = await fetch(`/api/pos/staff?${params}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          setStaffSuggestions([]);
+          return;
+        }
+        const data = await response.json();
+        setStaffSuggestions(data.staff || []);
+        setHighlightedStaffSuggestion(0);
+        setStaffSuggestionNavigated(false);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") setStaffSuggestions([]);
+      } finally {
+        if (!controller.signal.aborted) setStaffSuggestionsLoading(false);
+      }
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [credentialId, staffEmail, step]);
 
   const startGuestCheckout = useCallback(() => {
     setBuyerType("guest");
@@ -412,6 +465,10 @@ export default function PosCashierPage() {
     setBuyerType(null);
     setStaffEmail("");
     setStaffName("");
+    setStaffSuggestions([]);
+    setStaffSuggestionsLoading(false);
+    setHighlightedStaffSuggestion(0);
+    setStaffSuggestionNavigated(false);
     setAllowance(null);
     setCart([]);
     setItemLookup("");
@@ -633,19 +690,125 @@ export default function PosCashierPage() {
           <Text ta="center" c="rgba(255,255,255,0.68)" size="lg">
             {t.dashboard.pos.identifyBuyer}
           </Text>
-          <TextInput
-            ref={badgeInputRef}
-            label={t.dashboard.pos.staffEmail}
-            placeholder="staff@company.com"
-            value={staffEmail}
-            onChange={(event) => setStaffEmail(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void identifyStaff(staffEmail);
-            }}
-            leftSection={<IconUser size={16} />}
-            size="lg"
-            styles={inputStyles}
-          />
+          <Box pos="relative">
+            <TextInput
+              ref={badgeInputRef}
+              label={t.dashboard.pos.staffEmail}
+              placeholder="staff@company.com"
+              value={staffEmail}
+              onChange={(event) => {
+                setStaffEmail(event.currentTarget.value);
+                setStaffName("");
+                setStaffSuggestionNavigated(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown" && staffSuggestions.length > 0) {
+                  event.preventDefault();
+                  setStaffSuggestionNavigated(true);
+                  setHighlightedStaffSuggestion(
+                    (current) => (current + 1) % staffSuggestions.length,
+                  );
+                } else if (
+                  event.key === "ArrowUp" &&
+                  staffSuggestions.length > 0
+                ) {
+                  event.preventDefault();
+                  setStaffSuggestionNavigated(true);
+                  setHighlightedStaffSuggestion(
+                    (current) =>
+                      (current - 1 + staffSuggestions.length) %
+                      staffSuggestions.length,
+                  );
+                } else if (event.key === "Enter") {
+                  event.preventDefault();
+                  const selectedStaff = staffSuggestionNavigated
+                    ? staffSuggestions[highlightedStaffSuggestion]
+                    : staffSuggestions.find(
+                        (staff) =>
+                          staff.email.toLowerCase() ===
+                          staffEmail.trim().toLowerCase(),
+                      );
+                  if (selectedStaff) {
+                    void identifyStaff(selectedStaff.email, selectedStaff.name);
+                  } else {
+                    void identifyStaff(staffEmail);
+                  }
+                } else if (event.key === "Escape") {
+                  setStaffSuggestions([]);
+                }
+              }}
+              leftSection={<IconUser size={16} />}
+              rightSection={staffSuggestionsLoading ? <Loader size="xs" /> : null}
+              role="combobox"
+              aria-expanded={staffSuggestions.length > 0}
+              aria-controls="pos-staff-suggestions"
+              aria-activedescendant={
+                staffSuggestions[highlightedStaffSuggestion]
+                  ? `pos-staff-${highlightedStaffSuggestion}`
+                  : undefined
+              }
+              autoComplete="off"
+              size="lg"
+              styles={inputStyles}
+            />
+            {staffSuggestions.length > 0 && (
+              <Card
+                id="pos-staff-suggestions"
+                role="listbox"
+                withBorder
+                p={4}
+                shadow="lg"
+                pos="absolute"
+                top="100%"
+                left={0}
+                right={0}
+                mt={4}
+                style={{ ...glassStyle, zIndex: 20, borderRadius: rem(12) }}
+              >
+                <Stack gap={2}>
+                  {staffSuggestions.map((staff, index) => (
+                    <Box
+                      id={`pos-staff-${index}`}
+                      key={staff.email}
+                      role="option"
+                      aria-selected={index === highlightedStaffSuggestion}
+                      px="sm"
+                      py="xs"
+                      style={{
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        background:
+                          index === highlightedStaffSuggestion
+                            ? "rgba(56, 189, 248, 0.16)"
+                            : "rgba(7, 12, 23, 0.5)",
+                        border:
+                          index === highlightedStaffSuggestion
+                            ? "1px solid rgba(56, 189, 248, 0.3)"
+                            : "1px solid transparent",
+                      }}
+                      onMouseEnter={() => {
+                        setHighlightedStaffSuggestion(index);
+                        setStaffSuggestionNavigated(true);
+                      }}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        void identifyStaff(staff.email, staff.name);
+                      }}
+                    >
+                      <Text size="sm" fw={600} c="white">
+                        {staff.name || staff.email}
+                      </Text>
+                      {staff.name && (
+                        <Text size="xs" c="rgba(255,255,255,0.55)">
+                          {staff.email}
+                        </Text>
+                      )}
+                    </Box>
+                  ))}
+                </Stack>
+              </Card>
+            )}
+          </Box>
           <Group grow>
             <Button
               leftSection={<IconUser size={16} />}
