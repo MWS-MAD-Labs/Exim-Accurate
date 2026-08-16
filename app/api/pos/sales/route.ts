@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { saleRequestSchema, calculateTotals } from "@/lib/pos";
-import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getPosContext, getStaffAllowance, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
+import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getPosContext, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
 import { syncPosSale } from "@/lib/accurate/pos";
 import crypto from "node:crypto";
 import { canOperatePos } from "@/lib/access-control";
@@ -34,12 +34,7 @@ export async function POST(req: NextRequest) {
 
   let allowanceUsed = 0;
   if (paymentMethod === "allowance") {
-    const { revenue } = calculateTotals(items);
-    const allowance = await getStaffAllowance(credentialId, normalizedStaffEmail!);
-    if (revenue > allowance.remaining) {
-      return NextResponse.json({ error: "Insufficient allowance balance. Please use cash or QRIS instead.", allowance }, { status: 409 });
-    }
-    allowanceUsed = revenue;
+    allowanceUsed = calculateTotals(items).revenue;
   }
 
   const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ credentialId, paymentMethod, items, buyerType, staffEmail: normalizedStaffEmail })).digest("hex");

@@ -182,13 +182,14 @@ export default function StorePage() {
   );
   const cartCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
   const cartTotal = cartLines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
-  const allowanceCoversCart = !!allowance && cartTotal > 0 && allowance.remaining >= cartTotal;
-  const amountOverAllowance = Math.max(0, cartTotal - (allowance?.remaining || 0));
+  const allowanceAvailable = !!allowance && cartTotal > 0;
+  const allowanceCoversCart = allowanceAvailable && allowance.remaining >= cartTotal;
+  const amountOverAllowance = Math.max(0, cartTotal - (allowance?.remaining ?? 0));
 
   useEffect(() => {
-    if (allowanceCoversCart) setPaymentMethod("allowance");
+    if (allowanceAvailable) setPaymentMethod((current) => current ?? "allowance");
     else setPaymentMethod((current) => current === "allowance" ? null : current);
-  }, [allowanceCoversCart]);
+  }, [allowanceAvailable]);
 
   const setQuantity = (product: Product, quantity: number) => {
     const safeQuantity = Math.max(0, Math.min(product.stock, Math.floor(quantity || 0)));
@@ -457,9 +458,10 @@ export default function StorePage() {
             <Alert color="green" icon={<IconWallet size={18} />}>This preorder will use your staff allowance at pickup.</Alert>
           ) : (
             <Stack gap="xs">
-              <Alert color="orange" icon={<IconAlertCircle size={18} />}>Your allowance does not cover this preorder. Confirm how you want to pay the full amount at pickup.</Alert>
+              <Alert color="orange" icon={<IconAlertCircle size={18} />}>{allowanceAvailable ? "Your allowance does not cover this preorder. Choosing allowance will create a negative balance to repay at the end of the period." : "Your allowance balance is unavailable. Choose another payment method."}</Alert>
               <Radio.Group value={paymentMethod || ""} onChange={(value) => setPaymentMethod(value as PaymentMethod)} label="Payment method">
                 <Group mt="xs">
+                  {allowanceAvailable && <Radio value="allowance" label={<Group gap="xs"><IconWallet size={16} />Allowance</Group>} />}
                   <Radio value="cash" label={<Group gap="xs"><IconCash size={16} />Cash</Group>} />
                   <Radio value="qris" label={<Group gap="xs"><IconQrcode size={16} />QRIS</Group>} />
                 </Group>

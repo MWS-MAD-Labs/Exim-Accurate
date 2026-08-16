@@ -355,8 +355,8 @@ export default function PosCashierPage() {
   const removeItem = (itemCode: string) =>
     setCart((current) => current.filter((line) => line.itemCode !== itemCode));
 
-  const canPayWithAllowance =
-    buyerType === "staff" && !!allowance && allowance.remaining >= total;
+  const canPayWithAllowance = buyerType === "staff" && !!allowance;
+  const allowanceWillGoNegative = !!allowance && allowance.remaining < total;
 
   const submitSale = async () => {
     if (!credentialId || !paymentMethod || cart.length === 0 || submitting)
@@ -1132,7 +1132,7 @@ export default function PosCashierPage() {
                 onClick={() => setPaymentMethod("allowance")}
               >
                 {t.dashboard.pos.payWithAllowance} (F10)
-                {!canPayWithAllowance &&
+                {allowanceWillGoNegative &&
                   ` (${t.dashboard.pos.insufficientAllowance})`}
               </Button>
             )}

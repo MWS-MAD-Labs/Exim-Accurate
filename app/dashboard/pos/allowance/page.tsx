@@ -377,7 +377,7 @@ export default function StaffAllowancePage() {
               <Table.Td>{entry.baseWorkingDays}</Table.Td><Table.Td>{entry.daysOffCount}</Table.Td>
               <Table.Td>{formatMoney(entry.standardAllowance)}</Table.Td><Table.Td>{formatMoney(entry.manualAdjustment)}</Table.Td>
               <Table.Td>{formatMoney(entry.totalAllowance)}</Table.Td><Table.Td>{formatMoney(entry.allowanceSpent)}</Table.Td>
-              <Table.Td><Text fw={700} c="green">{formatMoney(entry.remainingAllowance)}</Text></Table.Td>
+              <Table.Td><Text fw={700} c={entry.remainingAllowance < 0 ? "red" : "green"}>{formatMoney(entry.remainingAllowance)}</Text></Table.Td>
               <Table.Td><Button size="xs" variant="light" leftSection={<IconEdit size={14} />} onClick={() => void openDetail(entry)}>{t.dashboard.pos.details}</Button></Table.Td>
             </Table.Tr>)}</Table.Tbody>
           </Table>
@@ -388,7 +388,7 @@ export default function StaffAllowancePage() {
       <Modal opened={!!detail} onClose={() => setDetail(null)} title={detail?.staffName || detail?.staffEmail} size="xl">
         {detail && <Stack>
           <Text c="dimmed">{detail.staffEmail} · {formatDate(detail.period.startsAt)} – {formatDate(detail.period.endsAt)}</Text>
-          <Card withBorder><Text c="dimmed">{t.dashboard.pos.allowanceRemaining}</Text><Text size="2rem" fw={800} c="green">{formatMoney(detail.remainingAllowance)}</Text><Text size="sm">{detail.effectiveWorkingDays} × {formatMoney(detail.dailyRate)} + {formatMoney(detail.manualAdjustment)} − {formatMoney(detail.allowanceSpent)}</Text></Card>
+          <Card withBorder><Text c="dimmed">{t.dashboard.pos.allowanceRemaining}</Text><Text size="2rem" fw={800} c={detail.remainingAllowance < 0 ? "red" : "green"}>{formatMoney(detail.remainingAllowance)}</Text><Text size="sm">{detail.effectiveWorkingDays} × {formatMoney(detail.dailyRate)} + {formatMoney(detail.manualAdjustment)} − {formatMoney(detail.allowanceSpent)}</Text></Card>
           <SimpleGrid cols={{ base: 2, sm: 4 }}>
             <Card withBorder><Text size="sm" c="dimmed">{t.dashboard.pos.baseDays}</Text><Text size="xl" fw={700}>{detail.baseWorkingDays}</Text></Card>
             <Card withBorder><Text size="sm" c="dimmed">{t.dashboard.pos.daysOff}</Text><Text size="xl" fw={700}>{detail.daysOffCount}</Text></Card>

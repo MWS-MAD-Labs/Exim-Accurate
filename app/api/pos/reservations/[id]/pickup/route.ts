@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPosContext, getStaffAllowance, withSerializableRetry } from "@/lib/pos-server";
+import { getPosContext, withSerializableRetry } from "@/lib/pos-server";
 import { calculateTotals, paymentMethodSchema } from "@/lib/pos";
 import { syncPosSale } from "@/lib/accurate/pos";
 import { canOperatePos } from "@/lib/access-control";
@@ -31,12 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!reservation.staffEmail?.trim()) {
       return NextResponse.json({ error: "This reservation has no staff email on file; allowance payment is unavailable." }, { status: 409 });
     }
-    const { revenue } = calculateTotals(reservation.items.map((item) => ({ ...item, unitPrice: Number(item.unitPrice), unitCost: Number(item.unitCost) })));
-    const allowance = await getStaffAllowance(reservation.credentialId, reservation.staffEmail);
-    if (revenue > allowance.remaining) {
-      return NextResponse.json({ error: "Insufficient allowance balance. Please use cash or QRIS instead.", allowance }, { status: 409 });
-    }
-    allowanceUsed = revenue;
+    allowanceUsed = calculateTotals(reservation.items.map((item) => ({ ...item, unitPrice: Number(item.unitPrice), unitCost: Number(item.unitCost) }))).revenue;
   }
 
   const sale = await withSerializableRetry(() => prisma.$transaction(async (tx) => {

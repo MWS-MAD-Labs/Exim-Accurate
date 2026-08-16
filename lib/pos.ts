@@ -206,7 +206,7 @@ export function calculateStaffAllowanceBreakdown(
     manualAdjustment,
     totalAllowance,
     allowanceSpent,
-    remainingAllowance: Math.max(0, totalAllowance - allowanceSpent),
+    remainingAllowance: totalAllowance - allowanceSpent,
   };
 }
 
@@ -230,5 +230,5 @@ export function calculateMonthlyAllowance(
 }
 
 export function calculateRemainingAllowance(monthlyTotal: number, usedThisMonth: number) {
-  return Math.max(0, monthlyTotal - usedThisMonth);
+  return monthlyTotal - usedThisMonth;
 }

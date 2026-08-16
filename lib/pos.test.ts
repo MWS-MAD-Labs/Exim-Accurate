@@ -116,7 +116,7 @@ test("clamps a negative period adjustment at zero", () => {
     20,
   );
   assert.equal(breakdown.totalAllowance, 0);
-  assert.equal(breakdown.remainingAllowance, 0);
+  assert.equal(breakdown.remainingAllowance, -20);
 });
 
 test("calculates the monthly staff allowance total from a daily rate", () => {
@@ -129,7 +129,7 @@ test("calculates the monthly staff allowance total from a daily rate", () => {
   assert.equal(total, 20 * 50000);
 });
 
-test("clamps remaining allowance at zero and never goes negative", () => {
+test("allows remaining allowance to go negative for end-of-period repayment", () => {
   assert.equal(calculateRemainingAllowance(100, 40), 60);
-  assert.equal(calculateRemainingAllowance(100, 150), 0);
+  assert.equal(calculateRemainingAllowance(100, 150), -50);
 });

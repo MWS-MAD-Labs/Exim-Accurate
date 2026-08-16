@@ -37,13 +37,13 @@ Total Allowance
   = max(0, Standard Allowance + Period Manual Adjustment)
 
 Remaining Allowance
-  = max(0, Total Allowance - Allowance Spent During Period)
+  = Total Allowance - Allowance Spent During Period
 ```
 
 ### Invariants
 
 - **Period reset:** adjustments are uniquely keyed by credential, staff email, period start, and period end. A period without an adjustment record uses `0`.
-- **Non-negative values:** total and remaining allowance are clamped to zero.
+- **Signed remaining balance:** total allowance is clamped to zero, but remaining allowance may be negative so the excess can be repaid at the end of the period.
 - **No double deductions:** duplicate leave dates, non-working dates, and public holidays do not reduce allowance more than once.
 - **Normalized identity:** staff emails are normalized to lowercase by the API.
 - **Period-neutral leave storage:** historical and future leave dates may be recorded. Calculations count only leave that overlaps the requested allowance period and is an eligible working day.

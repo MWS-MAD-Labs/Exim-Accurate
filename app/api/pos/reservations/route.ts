@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { reservationRequestSchema, makeReservationReference } from "@/lib/pos";
-import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getDefaultPosStore, getPosContext, getStaffAllowance, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
+import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getDefaultPosStore, getPosContext, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
 import crypto from "node:crypto";
 import { isRoleAllowed } from "@/lib/access-control";
 import { getOrganizationIdForUser } from "@/lib/organization";
@@ -70,13 +70,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Some items are not available in the POS catalog" }, { status: 409 });
   }
   const items = canonicalSaleItems(requestedItems, products);
-  const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  if (preferredPaymentMethod === "allowance") {
-    const allowance = await getStaffAllowance(credentialId, session.user.email);
-    if (total > allowance.remaining) {
-      return NextResponse.json({ error: "Insufficient allowance balance. Please choose cash or QRIS.", allowance }, { status: 409 });
-    }
-  }
   const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ credentialId, expiresAt: expiresAt.toISOString(), preferredPaymentMethod, items })).digest("hex");
   const existing = await prisma.posReservation.findUnique({ where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } }, include: { items: true } });
   if (existing) {
