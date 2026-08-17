@@ -79,6 +79,7 @@ model AccurateCredentials {
   posStaffDaysOff                  PosStaffDayOff[]
   posStaffAllowanceAdjustments     PosStaffAllowanceAdjustment[]
   posStaffAllowanceDebtSettlements PosStaffAllowanceDebtSettlement[]
+  posAllowanceNotifications        PosAllowanceNotification[]
 
   @@index([organizationId])
 }
@@ -346,6 +347,27 @@ model PosStaffAllowanceDebtSettlement {
 
   @@index([credentialId, staffEmail, periodStartsAt, periodEndsAt])
   @@index([createdById])
+}
+
+model PosAllowanceNotification {
+  id             String    @id @default(uuid())
+  credentialId   String
+  staffEmail     String
+  periodStartsAt DateTime
+  periodEndsAt   DateTime
+  reminderDay    Int // 1 = day before cutoff, 0 = cutoff day
+  scenario       String // debt, remaining_balance
+  amount         Decimal   @db.Decimal(14, 2)
+  status         String    @default("processing") // processing, sent, failed
+  errorMessage   String?
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@unique([credentialId, staffEmail, periodStartsAt, periodEndsAt, reminderDay])
+  @@index([status, updatedAt])
 }
 
 // Local POS product catalog is the source of truth for stock and pricing.

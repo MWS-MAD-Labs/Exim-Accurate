@@ -24,9 +24,26 @@ ACCURATE_CLIENT_SECRET=...
 ACCURATE_REDIRECT_URI=https://your-domain.example/accurate/callback
 
 CRON_SECRET=replace-with-a-strong-random-secret
+
+# Gmail SMTP (use a Google App Password when 2-Step Verification is enabled)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=notifications@example.com
+SMTP_PASSWORD=replace-with-google-app-password
+SMTP_FROM=Exima Notifications <notifications@example.com>
 ```
 
-Never commit `.env` or expose OAuth secrets, tokens, session values, or database credentials in logs.
+Never commit `.env` or expose OAuth secrets, SMTP passwords, tokens, session values, or database credentials in logs. For Google SMTP, use an App Password rather than the account's normal password whenever possible.
+
+Schedule a daily authenticated request to the allowance notification endpoint. The endpoint only sends on day -1 and day 0 of each active POS store's cutoff date, and its database log prevents duplicate delivery. It returns HTTP 202 immediately while delivery continues in the background:
+
+```sh
+curl -fsS -H 'Authorization: Bearer replace-with-your-cron-secret' \
+  https://your-domain.example/api/cron/pos-allowance-notifications
+```
+
+The HTTP response confirms that the run was accepted, not that every email was delivered. Alert on application log entries containing `[pos-allowance-notifications] Background run completed with failures` or `Fatal background run error`. The completed summary separates `zeroBalance`, `alreadyNotified`, `locked`, `failed`, and `storesFailed`; delivery-level failures are also retained in `PosAllowanceNotification` for retry and investigation.
 
 ## Docker Deployment
 

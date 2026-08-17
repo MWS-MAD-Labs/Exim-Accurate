@@ -10,7 +10,7 @@ Exima extends Accurate Online with inventory adjustment import/export, self-chec
 - Organization-owned credential management
 - Self-checkout and kiosk workflows
 - Borrowing, booking, return, and availability management
-- POS catalog, reservations, sales, allowances, registered-staff email suggestions, and Accurate synchronization
+- POS catalog, reservations, sales, allowances, cutoff email notifications, registered-staff email suggestions, and Accurate synchronization
 - Organization-scoped operational analytics
 - Role-based access for admins, resource managers, cashiers, and staff
 
@@ -55,7 +55,7 @@ npm install
 cp .env.example .env
 ```
 
-Configure `.env`, including the database, NextAuth, Accurate OAuth, and cron values.
+Configure `.env`, including the database, NextAuth, Accurate OAuth, cron, and Google SMTP values. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the required `SMTP_*` variables and daily allowance-notification cron endpoint.
 
 Start PostgreSQL only:
 
@@ -122,6 +122,18 @@ Validate the file before starting the import.
 4. Continue checkout with the registered name and normalized email. Manual email entry remains available when no registered staff suggestion matches.
 
 Suggestions are limited to users with the `staff` role in the selected POS credential's organization. The typeahead requires a non-empty search term and returns at most eight results.
+
+### POS Allowance Email Notifications
+
+Configure the Google SMTP `SMTP_*` variables documented in [`DEPLOYMENT.md`](DEPLOYMENT.md), then schedule a daily authenticated request to `GET /api/cron/pos-allowance-notifications`. The endpoint returns `202` and processes notifications in the background.
+
+On cutoff day -1 and cutoff day 0, allowance holders receive scenario-specific messages:
+
+- Negative balance: the outstanding debt amount and a warning that allowance transactions are blocked next period until payment.
+- Positive balance: the remaining amount and a warning that unused allowance expires after cutoff.
+- Zero balance: no notification.
+
+Delivery attempts are recorded in `PosAllowanceNotification` to prevent duplicates and retry failures safely. Monitor application logs for `[pos-allowance-notifications]` completion or failure messages.
 
 ### Borrowing Returns
 
