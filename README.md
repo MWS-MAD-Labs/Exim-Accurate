@@ -125,7 +125,7 @@ Suggestions are limited to users with the `staff` role in the selected POS crede
 
 ### POS Allowance Email Notifications
 
-Configure the Google SMTP `SMTP_*` variables documented in [`DEPLOYMENT.md`](DEPLOYMENT.md), then schedule a daily authenticated request to `GET /api/cron/pos-allowance-notifications`. The endpoint returns `202` and processes notifications in the background.
+Configure the Google SMTP `SMTP_*` variables and `CRON_SECRET` documented in [`DEPLOYMENT.md`](DEPLOYMENT.md). The Compose stacks automatically start an internal scheduler that calls `GET /api/cron/pos-allowance-notifications` hourly; no external scheduler is required. The endpoint returns `202` and processes notifications in the background.
 
 On cutoff day -1 and cutoff day 0, allowance holders receive scenario-specific messages:
 
