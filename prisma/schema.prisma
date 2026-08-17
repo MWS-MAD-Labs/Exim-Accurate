@@ -31,18 +31,19 @@ model User {
   role           String   @default("staff")
   createdAt      DateTime @default(now())
 
-  organization                   Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  accurateCredentials            AccurateCredentials[]
-  exportJobs                     ExportJob[]
-  importJobs                     ImportJob[]
-  kioskSyncData                  KioskSyncData[]
-  borrowingSessions              BorrowingSession[]
-  borrowingActivities            BorrowingActivity[]
-  posSales                       PosSale[]
-  posReservations                PosReservation[]
-  posSettings                    PosSettings[]
-  posAllocations                 PosStockAllocation[]
-  posAllowanceAdjustmentsCreated PosStaffAllowanceAdjustment[]
+  organization                       Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  accurateCredentials                AccurateCredentials[]
+  exportJobs                         ExportJob[]
+  importJobs                         ImportJob[]
+  kioskSyncData                      KioskSyncData[]
+  borrowingSessions                  BorrowingSession[]
+  borrowingActivities                BorrowingActivity[]
+  posSales                           PosSale[]
+  posReservations                    PosReservation[]
+  posSettings                        PosSettings[]
+  posAllocations                     PosStockAllocation[]
+  posAllowanceAdjustmentsCreated     PosStaffAllowanceAdjustment[]
+  posAllowanceDebtSettlementsCreated PosStaffAllowanceDebtSettlement[]
 
   @@index([organizationId])
 }
@@ -62,21 +63,22 @@ model AccurateCredentials {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  organization                 Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  user                         User?                         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  checkoutSessions             CheckoutSession[]
-  exportJobs                   ExportJob[]
-  importJobs                   ImportJob[]
-  borrowingSessions            BorrowingSession[]
-  borrowingActivities          BorrowingActivity[]
-  posSettings                  PosSettings?
-  posSales                     PosSale[]
-  posReservations              PosReservation[]
-  posAllocations               PosStockAllocation[]
-  posProducts                  PosProduct[]
-  posAllowancePeriodOverrides  PosAllowancePeriodOverride[]
-  posStaffDaysOff              PosStaffDayOff[]
-  posStaffAllowanceAdjustments PosStaffAllowanceAdjustment[]
+  organization                     Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user                             User?                             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  checkoutSessions                 CheckoutSession[]
+  exportJobs                       ExportJob[]
+  importJobs                       ImportJob[]
+  borrowingSessions                BorrowingSession[]
+  borrowingActivities              BorrowingActivity[]
+  posSettings                      PosSettings?
+  posSales                         PosSale[]
+  posReservations                  PosReservation[]
+  posAllocations                   PosStockAllocation[]
+  posProducts                      PosProduct[]
+  posAllowancePeriodOverrides      PosAllowancePeriodOverride[]
+  posStaffDaysOff                  PosStaffDayOff[]
+  posStaffAllowanceAdjustments     PosStaffAllowanceAdjustment[]
+  posStaffAllowanceDebtSettlements PosStaffAllowanceDebtSettlement[]
 
   @@index([organizationId])
 }
@@ -321,9 +323,28 @@ model PosStaffAllowanceAdjustment {
 
   credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
   // Preserve adjustment audit attribution; users referenced by an adjustment must be retained.
-  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy  User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@unique([credentialId, staffEmail, periodStartsAt, periodEndsAt])
+  @@index([createdById])
+}
+
+model PosStaffAllowanceDebtSettlement {
+  id             String   @id @default(uuid())
+  credentialId   String
+  staffEmail     String
+  periodStartsAt DateTime
+  periodEndsAt   DateTime
+  amount         Decimal  @db.Decimal(14, 2)
+  note           String?
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  createdBy  User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([credentialId, staffEmail, periodStartsAt, periodEndsAt])
   @@index([createdById])
 }
 

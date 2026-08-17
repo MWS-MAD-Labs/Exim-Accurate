@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionIcon,
+  Alert,
   Badge,
   Box,
   Button,
@@ -59,11 +60,20 @@ interface CartLine extends CatalogProduct {
   quantity: number;
 }
 
+interface PreviousDebt {
+  blocked: boolean;
+  debt: number;
+  paid: number;
+  outstanding: number;
+  period: { startsAt: string; endsAt: string };
+}
+
 interface Allowance {
   total: number;
   used: number;
   remaining: number;
   period: { startsAt: string; endsAt: string; isCustom: boolean };
+  previousDebt: PreviousDebt;
 }
 
 interface StaffSuggestion {
@@ -73,6 +83,7 @@ interface StaffSuggestion {
 
 interface PickupReservation {
   id: string;
+  credentialId: string;
   reference: string;
   staffEmail: string;
   staffName: string | null;
@@ -91,6 +102,10 @@ interface PickupReservation {
 
 type PaymentMethod = "allowance" | "cash" | "qris";
 type Step = "identify" | "shop" | "pay" | "done";
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
+}
 
 function parseStaffInfo(email: string) {
   const localPart = email.split("@")[0] || "";
@@ -132,6 +147,7 @@ export default function PosCashierPage() {
   const [pickupOpened, setPickupOpened] = useState(false);
   const [pickupReservation, setPickupReservation] = useState<PickupReservation | null>(null);
   const [pickupPaymentMethod, setPickupPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [pickupPreviousDebt, setPickupPreviousDebt] = useState<PreviousDebt | null>(null);
   const [pickupLoading, setPickupLoading] = useState(false);
   const [pickupError, setPickupError] = useState("");
   const [scannerKey, setScannerKey] = useState(0);
@@ -198,6 +214,7 @@ export default function PosCashierPage() {
     setStaffName(registeredName || matchedStaff?.name || parseStaffInfo(trimmed));
     setStaffSuggestions([]);
     setBuyerType("staff");
+    setAllowance(null);
     const response = await fetch(
       `/api/pos/allowance?credentialId=${credentialId}&email=${encodeURIComponent(trimmed)}`,
     );
@@ -355,7 +372,7 @@ export default function PosCashierPage() {
   const removeItem = (itemCode: string) =>
     setCart((current) => current.filter((line) => line.itemCode !== itemCode));
 
-  const canPayWithAllowance = buyerType === "staff" && !!allowance;
+  const canPayWithAllowance = buyerType === "staff" && !!allowance && !allowance.previousDebt.blocked;
   const allowanceWillGoNegative = !!allowance && allowance.remaining < total;
 
   const submitSale = async () => {
@@ -402,6 +419,7 @@ export default function PosCashierPage() {
   const openPickup = () => {
     setPickupReservation(null);
     setPickupPaymentMethod(null);
+    setPickupPreviousDebt(null);
     setPickupError("");
     setScannerKey((current) => current + 1);
     setPickupOpened(true);
@@ -421,10 +439,14 @@ export default function PosCashierPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Reservation not found");
       setPickupReservation(data);
-      setPickupPaymentMethod(data.preferredPaymentMethod || null);
+      const allowanceResponse = await fetch(`/api/pos/allowance?credentialId=${encodeURIComponent(data.credentialId)}&email=${encodeURIComponent(data.staffEmail)}`);
+      const pickupAllowance = allowanceResponse.ok ? await allowanceResponse.json() as Allowance : null;
+      setPickupPreviousDebt(pickupAllowance?.previousDebt ?? null);
+      setPickupPaymentMethod(pickupAllowance?.previousDebt.blocked && data.preferredPaymentMethod === "allowance" ? null : data.preferredPaymentMethod || null);
       if (data.status !== "active") setPickupError(`This preorder is ${String(data.status).replace("_", " ")}.`);
     } catch (error) {
       setPickupReservation(null);
+      setPickupPreviousDebt(null);
       setPickupError(error instanceof Error ? error.message : "Unable to load preorder");
       setScannerKey((current) => current + 1);
     } finally {
@@ -453,6 +475,7 @@ export default function PosCashierPage() {
       setPickupOpened(false);
       setPickupReservation(null);
       setPickupPaymentMethod(null);
+      setPickupPreviousDebt(null);
     } catch (error) {
       setPickupError(error instanceof Error ? error.message : "Unable to confirm pickup");
     } finally {
@@ -664,12 +687,13 @@ export default function PosCashierPage() {
                 <>
                   <Text fw={600}>Payment method <Text span size="xs" c="dimmed">(staff selected {pickupReservation.preferredPaymentMethod === "qris" ? "QRIS" : pickupReservation.preferredPaymentMethod === "allowance" ? "Allowance" : "Cash"})</Text></Text>
                   <SimpleGrid cols={3}>
-                    <Button variant={pickupPaymentMethod === "allowance" ? "filled" : "outline"} onClick={() => setPickupPaymentMethod("allowance")}>Allowance</Button>
+                    <Button variant={pickupPaymentMethod === "allowance" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => setPickupPaymentMethod("allowance")}>Allowance</Button>
                     <Button variant={pickupPaymentMethod === "cash" ? "filled" : "outline"} onClick={() => setPickupPaymentMethod("cash")}>Cash</Button>
                     <Button variant={pickupPaymentMethod === "qris" ? "filled" : "outline"} onClick={() => setPickupPaymentMethod("qris")}>QRIS</Button>
                   </SimpleGrid>
+                  {pickupPreviousDebt?.blocked && <Alert color="red">Previous allowance debt of {formatMoney(pickupPreviousDebt.outstanding)} must be paid before allowance can be used.</Alert>}
                   <Group grow>
-                    <Button variant="subtle" onClick={() => { setPickupReservation(null); setPickupPaymentMethod(null); setPickupError(""); setScannerKey((current) => current + 1); }}>Scan another</Button>
+                    <Button variant="subtle" onClick={() => { setPickupReservation(null); setPickupPaymentMethod(null); setPickupPreviousDebt(null); setPickupError(""); setScannerKey((current) => current + 1); }}>Scan another</Button>
                     <Button loading={pickupLoading} disabled={!pickupPaymentMethod} onClick={() => void confirmPickup()}>Confirm pickup</Button>
                   </Group>
                 </>
@@ -1088,6 +1112,7 @@ export default function PosCashierPage() {
                   </Text>
                   <Text c="white">{allowance.used.toLocaleString()}</Text>
                 </Group>
+                {allowance.previousDebt.blocked && <Alert color="red" mt="md">Previous allowance debt of {formatMoney(allowance.previousDebt.outstanding)} must be paid before allowance can be used in this period.</Alert>}
                 <Text size="xs" c="rgba(255,255,255,0.5)" mt="sm">
                   {t.dashboard.pos.allowancePeriod}:{" "}
                   {allowance.period.startsAt.slice(0, 10)} –{" "}
@@ -1132,8 +1157,11 @@ export default function PosCashierPage() {
                 onClick={() => setPaymentMethod("allowance")}
               >
                 {t.dashboard.pos.payWithAllowance} (F10)
-                {allowanceWillGoNegative &&
-                  ` (${t.dashboard.pos.insufficientAllowance})`}
+                {allowance?.previousDebt.blocked
+                  ? " (previous debt unpaid)"
+                  : allowanceWillGoNegative
+                    ? ` (${t.dashboard.pos.insufficientAllowance})`
+                    : ""}
               </Button>
             )}
             <Button

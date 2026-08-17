@@ -34,7 +34,7 @@ Standard Allowance
   = Effective Working Days × Allowance Per Working Day
 
 Total Allowance
-  = max(0, Standard Allowance + Period Manual Adjustment)
+  = Standard Allowance + Period Manual Adjustment
 
 Remaining Allowance
   = Total Allowance - Allowance Spent During Period
@@ -43,7 +43,9 @@ Remaining Allowance
 ### Invariants
 
 - **Period reset:** adjustments are uniquely keyed by credential, staff email, period start, and period end. A period without an adjustment record uses `0`.
-- **Signed remaining balance:** total allowance is clamped to zero, but remaining allowance may be negative so the excess can be repaid at the end of the period.
+- **Signed balances:** a negative manual adjustment may make total and remaining allowance negative, creating debt to repay at the end of the period.
+- **Next-period lock:** when the immediately preceding allowance period closes with a negative remaining balance, allowance sales, preorders, and pickups are blocked in the ongoing period until recorded debt settlements cover the full debt. Cash and QRIS remain available.
+- **Audited repayment:** administrators record positive partial or full repayments against the exact prior period; each entry retains amount, note, timestamp, and recording user.
 - **No double deductions:** duplicate leave dates, non-working dates, and public holidays do not reduce allowance more than once.
 - **Normalized identity:** staff emails are normalized to lowercase by the API.
 - **Period-neutral leave storage:** historical and future leave dates may be recorded. Calculations count only leave that overlaps the requested allowance period and is an eligible working day.
@@ -270,8 +272,8 @@ Implemented unit coverage in `lib/pos.test.ts` includes:
 - leave deduplication;
 - ignoring weekend, holiday, and out-of-period leave;
 - positive period adjustments;
-- negative adjustment clamping;
-- remaining allowance clamping.
+- negative adjustments creating debt;
+- signed remaining allowance calculations.
 
 Validation performed during implementation:
 

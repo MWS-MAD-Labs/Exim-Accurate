@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { saleRequestSchema, calculateTotals } from "@/lib/pos";
-import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getPosContext, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
+import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getOutstandingPreviousAllowanceDebt, getPosContext, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
 import { syncPosSale } from "@/lib/accurate/pos";
 import crypto from "node:crypto";
 import { canOperatePos } from "@/lib/access-control";
@@ -34,6 +34,11 @@ export async function POST(req: NextRequest) {
 
   let allowanceUsed = 0;
   if (paymentMethod === "allowance") {
+    if (!normalizedStaffEmail) return NextResponse.json({ error: "staffEmail is required for allowance payment" }, { status: 400 });
+    const previousDebt = await getOutstandingPreviousAllowanceDebt(credentialId, normalizedStaffEmail);
+    if (previousDebt.blocked) {
+      return NextResponse.json({ error: "Previous allowance debt must be paid before using allowance in the new period.", previousDebt }, { status: 409 });
+    }
     allowanceUsed = calculateTotals(items).revenue;
   }
 

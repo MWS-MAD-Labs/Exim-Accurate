@@ -27,6 +27,13 @@ import { useLanguage } from "@/lib/language";
 interface Credential { id: string; appKey: string }
 interface Period { startsAt: string; endsAt: string; isCustom: boolean }
 interface PeriodOption extends Period { isOngoing: boolean }
+interface PreviousDebt {
+  blocked: boolean;
+  debt: number;
+  paid: number;
+  outstanding: number;
+  period: { startsAt: string; endsAt: string };
+}
 interface Allowance {
   staffEmail: string;
   staffName: string | null;
@@ -40,6 +47,7 @@ interface Allowance {
   allowanceSpent: number;
   remainingAllowance: number;
   period: Period;
+  previousDebt: PreviousDebt;
 }
 interface DayOff { id: string; date: string; reason: string | null }
 interface Sale {
@@ -58,7 +66,16 @@ interface Adjustment {
   updatedAt: string;
   createdBy: { email: string };
 }
-interface AllowanceDetail extends Allowance { daysOff: DayOff[]; sales: Sale[]; adjustments: Adjustment[] }
+interface DebtSettlement {
+  id: string;
+  periodStartsAt: string;
+  periodEndsAt: string;
+  amount: string;
+  note: string | null;
+  createdAt: string;
+  createdBy: { email: string };
+}
+interface AllowanceDetail extends Allowance { daysOff: DayOff[]; sales: Sale[]; adjustments: Adjustment[]; debtSettlements: DebtSettlement[] }
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
@@ -109,6 +126,8 @@ export default function StaffAllowancePage() {
   const [reason, setReason] = useState("");
   const [adjustment, setAdjustment] = useState<number | "">(0);
   const [note, setNote] = useState("");
+  const [debtPayment, setDebtPayment] = useState<number | "">("");
+  const [debtPaymentNote, setDebtPaymentNote] = useState("");
   const [saving, setSaving] = useState(false);
   const staffRequestController = useRef<AbortController | null>(null);
   const staffRequestSequence = useRef(0);
@@ -232,6 +251,8 @@ export default function StaffAllowancePage() {
     setSelectedDates([]);
     setReason("");
     setAdjustment(data.manualAdjustment);
+    setDebtPayment(data.previousDebt.outstanding || "");
+    setDebtPaymentNote("");
     const current = data.adjustments.find((item: Adjustment) => dateOnly(item.periodStartsAt) === dateOnly(data.period.startsAt) && dateOnly(item.periodEndsAt) === dateOnly(data.period.endsAt));
     setNote(current?.note || "");
   };
@@ -269,6 +290,29 @@ export default function StaffAllowancePage() {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credentialId, date: dateOnly(date) }),
+      });
+      const data = await response.json();
+      if (!response.ok) setMessage(data.error || t.common.error);
+      else await refreshDetail();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const recordDebtPayment = async () => {
+    if (!credentialId || !detail || debtPayment === "" || debtPayment <= 0 || !selectedPeriodOption?.isOngoing) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/pos/allowance/users/${encodeURIComponent(detail.staffEmail)}/debt-settlements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          credentialId,
+          periodStartsAt: dateOnly(detail.previousDebt.period.startsAt),
+          periodEndsAt: dateOnly(detail.previousDebt.period.endsAt),
+          amount: debtPayment,
+          note: debtPaymentNote.trim() || undefined,
+        }),
       });
       const data = await response.json();
       if (!response.ok) setMessage(data.error || t.common.error);
@@ -370,14 +414,15 @@ export default function StaffAllowancePage() {
               <Table.Th>{t.dashboard.pos.staffEmail}</Table.Th><Table.Th>{t.dashboard.pos.baseDays}</Table.Th>
               <Table.Th>{t.dashboard.pos.daysOff}</Table.Th><Table.Th>{t.dashboard.pos.standardAllowance}</Table.Th>
               <Table.Th>{t.dashboard.pos.manualAdjustment}</Table.Th><Table.Th>{t.dashboard.pos.totalAllowance}</Table.Th>
-              <Table.Th>{t.dashboard.pos.allowanceUsed}</Table.Th><Table.Th>{t.dashboard.pos.allowanceRemaining}</Table.Th><Table.Th />
+              <Table.Th>{t.dashboard.pos.allowanceUsed}</Table.Th><Table.Th>{t.dashboard.pos.allowanceRemaining}</Table.Th><Table.Th>{t.dashboard.pos.previousDebt}</Table.Th><Table.Th />
             </Table.Tr></Table.Thead>
             <Table.Tbody>{staff.map((entry) => <Table.Tr key={entry.staffEmail}>
               <Table.Td><Text fw={500}>{entry.staffName || entry.staffEmail}</Text>{entry.staffName && <Text size="xs" c="dimmed">{entry.staffEmail}</Text>}</Table.Td>
               <Table.Td>{entry.baseWorkingDays}</Table.Td><Table.Td>{entry.daysOffCount}</Table.Td>
               <Table.Td>{formatMoney(entry.standardAllowance)}</Table.Td><Table.Td>{formatMoney(entry.manualAdjustment)}</Table.Td>
-              <Table.Td>{formatMoney(entry.totalAllowance)}</Table.Td><Table.Td>{formatMoney(entry.allowanceSpent)}</Table.Td>
+              <Table.Td><Text c={entry.totalAllowance < 0 ? "red" : undefined}>{formatMoney(entry.totalAllowance)}</Text></Table.Td><Table.Td>{formatMoney(entry.allowanceSpent)}</Table.Td>
               <Table.Td><Text fw={700} c={entry.remainingAllowance < 0 ? "red" : "green"}>{formatMoney(entry.remainingAllowance)}</Text></Table.Td>
+              <Table.Td><Text fw={700} c={entry.previousDebt.blocked ? "red" : "green"}>{entry.previousDebt.blocked ? formatMoney(entry.previousDebt.outstanding) : t.dashboard.pos.previousDebtPaidOrNone}</Text></Table.Td>
               <Table.Td><Button size="xs" variant="light" leftSection={<IconEdit size={14} />} onClick={() => void openDetail(entry)}>{t.dashboard.pos.details}</Button></Table.Td>
             </Table.Tr>)}</Table.Tbody>
           </Table>
@@ -389,10 +434,11 @@ export default function StaffAllowancePage() {
         {detail && <Stack>
           <Text c="dimmed">{detail.staffEmail} · {formatDate(detail.period.startsAt)} – {formatDate(detail.period.endsAt)}</Text>
           <Card withBorder><Text c="dimmed">{t.dashboard.pos.allowanceRemaining}</Text><Text size="2rem" fw={800} c={detail.remainingAllowance < 0 ? "red" : "green"}>{formatMoney(detail.remainingAllowance)}</Text><Text size="sm">{detail.effectiveWorkingDays} × {formatMoney(detail.dailyRate)} + {formatMoney(detail.manualAdjustment)} − {formatMoney(detail.allowanceSpent)}</Text></Card>
+          {detail.previousDebt.blocked && <Alert color="red">{t.dashboard.pos.debtBlockedAlert.replace("{amount}", formatMoney(detail.previousDebt.outstanding))}</Alert>}
           <SimpleGrid cols={{ base: 2, sm: 4 }}>
             <Card withBorder><Text size="sm" c="dimmed">{t.dashboard.pos.baseDays}</Text><Text size="xl" fw={700}>{detail.baseWorkingDays}</Text></Card>
             <Card withBorder><Text size="sm" c="dimmed">{t.dashboard.pos.daysOff}</Text><Text size="xl" fw={700}>{detail.daysOffCount}</Text></Card>
-            <Card withBorder><Text size="sm" c="dimmed">{t.dashboard.pos.totalAllowance}</Text><Text size="xl" fw={700}>{formatMoney(detail.totalAllowance)}</Text></Card>
+            <Card withBorder><Text size="sm" c="dimmed">{t.dashboard.pos.totalAllowance}</Text><Text size="xl" fw={700} c={detail.totalAllowance < 0 ? "red" : undefined}>{formatMoney(detail.totalAllowance)}</Text></Card>
             <Card withBorder><Text size="sm" c="dimmed">{t.dashboard.pos.allowanceUsed}</Text><Text size="xl" fw={700}>{formatMoney(detail.allowanceSpent)}</Text></Card>
           </SimpleGrid>
 
@@ -408,6 +454,22 @@ export default function StaffAllowancePage() {
           <NumberInput label={t.dashboard.pos.manualAdjustmentRp} value={adjustment} onChange={(value) => setAdjustment(typeof value === "number" ? value : "")} thousandSeparator="," disabled={!isAdmin} />
           <TextInput label={t.dashboard.pos.adjustmentNote} value={note} onChange={(event) => setNote(event.currentTarget.value)} disabled={!isAdmin} />
           {isAdmin && <Button onClick={() => void saveAdjustment()} loading={saving}>{t.common.save}</Button>}
+
+          <Title order={3}>{t.dashboard.pos.previousPeriodDebt}</Title>
+          <Card withBorder>
+            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+              <div><Text size="sm" c="dimmed">{t.dashboard.pos.originalDebt}</Text><Text fw={700}>{formatMoney(detail.previousDebt.debt)}</Text></div>
+              <div><Text size="sm" c="dimmed">{t.dashboard.pos.debtPaid}</Text><Text fw={700}>{formatMoney(detail.previousDebt.paid)}</Text></div>
+              <div><Text size="sm" c="dimmed">{t.dashboard.pos.debtOutstanding}</Text><Text fw={700} c={detail.previousDebt.blocked ? "red" : "green"}>{formatMoney(detail.previousDebt.outstanding)}</Text></div>
+            </SimpleGrid>
+            <Text size="xs" c="dimmed" mt="sm">{formatDate(detail.previousDebt.period.startsAt)} – {formatDate(detail.previousDebt.period.endsAt)}</Text>
+          </Card>
+          {isAdmin && selectedPeriodOption?.isOngoing && detail.previousDebt.blocked && <Grid>
+            <Grid.Col span={{ base: 12, md: 4 }}><NumberInput label={t.dashboard.pos.debtPaymentAmount} value={debtPayment} onChange={(value) => setDebtPayment(typeof value === "number" ? value : "")} min={1} max={detail.previousDebt.outstanding} thousandSeparator="," /></Grid.Col>
+            <Grid.Col span={{ base: 12, md: 5 }}><TextInput label={t.dashboard.pos.debtPaymentNote} value={debtPaymentNote} onChange={(event) => setDebtPaymentNote(event.currentTarget.value)} /></Grid.Col>
+            <Grid.Col span={{ base: 12, md: 3 }}><Button mt={25} fullWidth onClick={() => void recordDebtPayment()} loading={saving} disabled={debtPayment === "" || debtPayment <= 0 || debtPayment > detail.previousDebt.outstanding}>{t.dashboard.pos.recordDebtPayment}</Button></Grid.Col>
+          </Grid>}
+          {!!detail.debtSettlements.length && <Table withTableBorder><Table.Thead><Table.Tr><Table.Th>{t.dashboard.pos.date}</Table.Th><Table.Th>{t.dashboard.pos.amount}</Table.Th><Table.Th>{t.dashboard.pos.adjustmentNote}</Table.Th><Table.Th>{t.dashboard.pos.recordedBy}</Table.Th></Table.Tr></Table.Thead><Table.Tbody>{detail.debtSettlements.map((settlement) => <Table.Tr key={settlement.id}><Table.Td>{formatDate(settlement.createdAt)}</Table.Td><Table.Td>{formatMoney(Number(settlement.amount))}</Table.Td><Table.Td>{settlement.note || "–"}</Table.Td><Table.Td>{settlement.createdBy.email}</Table.Td></Table.Tr>)}</Table.Tbody></Table>}
 
           <Title order={3}>{t.dashboard.pos.salesHistory}</Title>
           <Table withTableBorder><Table.Thead><Table.Tr><Table.Th>{t.dashboard.pos.date}</Table.Th><Table.Th>{t.dashboard.pos.item}</Table.Th><Table.Th>{t.dashboard.pos.allowanceUsed}</Table.Th></Table.Tr></Table.Thead><Table.Tbody>{detail.sales.map((sale) => <Table.Tr key={sale.id}><Table.Td>{formatDate(sale.createdAt)}</Table.Td><Table.Td>{sale.items.map((item) => `${item.itemName} × ${item.quantity}`).join(", ")}</Table.Td><Table.Td>{formatMoney(Number(sale.allowanceUsed))}</Table.Td></Table.Tr>)}</Table.Tbody></Table>

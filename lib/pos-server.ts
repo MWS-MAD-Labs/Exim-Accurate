@@ -145,6 +145,64 @@ export async function getStaffAllowance(
   };
 }
 
+export function buildPreviousAllowanceDebt(
+  previousRemaining: number,
+  paidSum: number,
+  period: AllowancePeriod,
+) {
+  const debt = Math.max(0, -previousRemaining);
+  const paid = Math.max(0, paidSum);
+  const outstanding = Math.max(0, debt - paid);
+  return {
+    blocked: outstanding > 0,
+    debt,
+    paid,
+    outstanding,
+    period: {
+      startsAt: period.startsAt.toISOString(),
+      endsAt: period.endsAt.toISOString(),
+    },
+  };
+}
+
+export async function getOutstandingPreviousAllowanceDebt(
+  credentialId: string,
+  staffEmail: string,
+  now = new Date(),
+  currentPeriod?: AllowancePeriod,
+) {
+  const normalizedEmail = staffEmail.toLowerCase().trim();
+  const settings = await prisma.posSettings.findUnique({
+    where: { credentialId },
+    select: { allowanceCutoffDay: true },
+  });
+  const resolvedCurrent = currentPeriod
+    ? { period: { startsAt: startOfDate(currentPeriod.startsAt), endsAt: startOfDate(currentPeriod.endsAt) } }
+    : await resolveStaffAllowancePeriod(credentialId, settings?.allowanceCutoffDay ?? 22, now);
+  const previousPeriodAnchor = new Date(resolvedCurrent.period.startsAt);
+  previousPeriodAnchor.setDate(previousPeriodAnchor.getDate() - 1);
+  const { period: previousPeriod } = await resolveStaffAllowancePeriod(
+    credentialId,
+    settings?.allowanceCutoffDay ?? 22,
+    previousPeriodAnchor,
+  );
+  const previousAllowance = await getStaffAllowance(credentialId, normalizedEmail, previousPeriodAnchor, previousPeriod);
+  const settlements = await prisma.posStaffAllowanceDebtSettlement.aggregate({
+    where: {
+      credentialId,
+      staffEmail: normalizedEmail,
+      periodStartsAt: previousPeriod.startsAt,
+      periodEndsAt: previousPeriod.endsAt,
+    },
+    _sum: { amount: true },
+  });
+  return buildPreviousAllowanceDebt(
+    previousAllowance.remaining,
+    Number(settlements._sum.amount ?? 0),
+    previousPeriod,
+  );
+}
+
 export function canonicalizeRequestedItems(items: Array<{ itemCode: string; quantity: number }>) {
   const quantities = new Map<string, number>();
   for (const item of items) quantities.set(item.itemCode, (quantities.get(item.itemCode) || 0) + item.quantity);

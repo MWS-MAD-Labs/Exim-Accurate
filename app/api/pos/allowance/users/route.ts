@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { prisma } from "@/lib/prisma";
 import { calculateStaffAllowanceBreakdown, dateOnlySchema, parseDateOnly } from "@/lib/pos";
-import { isAdmin, resolveStaffAllowancePeriod } from "@/lib/pos-server";
+import { buildPreviousAllowanceDebt, isAdmin, resolveStaffAllowancePeriod } from "@/lib/pos-server";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -77,7 +77,16 @@ export async function GET(req: NextRequest) {
   const staffEmails = matchingStaff.map(([staffEmail]) => staffEmail);
   const periodEndExclusive = new Date(period.endsAt);
   periodEndExclusive.setDate(periodEndExclusive.getDate() + 1);
-  const [daysOff, adjustments, spentByStaff] = await Promise.all([
+  const previousPeriodAnchor = new Date(period.startsAt);
+  previousPeriodAnchor.setDate(previousPeriodAnchor.getDate() - 1);
+  const { period: previousPeriod } = await resolveStaffAllowancePeriod(
+    credentialId,
+    settings?.allowanceCutoffDay ?? 22,
+    previousPeriodAnchor,
+  );
+  const previousPeriodEndExclusive = new Date(previousPeriod.endsAt);
+  previousPeriodEndExclusive.setDate(previousPeriodEndExclusive.getDate() + 1);
+  const [daysOff, adjustments, spentByStaff, previousDaysOff, previousAdjustments, previousSpentByStaff, settlementsByStaff] = await Promise.all([
     prisma.posStaffDayOff.findMany({
       where: {
         credentialId,
@@ -106,6 +115,44 @@ export async function GET(req: NextRequest) {
       },
       _sum: { allowanceUsed: true },
     }),
+    prisma.posStaffDayOff.findMany({
+      where: {
+        credentialId,
+        staffEmail: { in: staffEmails },
+        date: { gte: previousPeriod.startsAt, lt: previousPeriodEndExclusive },
+      },
+      select: { staffEmail: true, date: true },
+    }),
+    prisma.posStaffAllowanceAdjustment.findMany({
+      where: {
+        credentialId,
+        staffEmail: { in: staffEmails },
+        periodStartsAt: previousPeriod.startsAt,
+        periodEndsAt: previousPeriod.endsAt,
+      },
+      select: { staffEmail: true, amount: true },
+    }),
+    prisma.posSale.groupBy({
+      by: ["staffEmail"],
+      where: {
+        credentialId,
+        staffEmail: { in: staffEmails },
+        paymentMethod: "allowance",
+        status: { not: "sync_error" },
+        createdAt: { gte: previousPeriod.startsAt, lt: previousPeriodEndExclusive },
+      },
+      _sum: { allowanceUsed: true },
+    }),
+    prisma.posStaffAllowanceDebtSettlement.groupBy({
+      by: ["staffEmail"],
+      where: {
+        credentialId,
+        staffEmail: { in: staffEmails },
+        periodStartsAt: previousPeriod.startsAt,
+        periodEndsAt: previousPeriod.endsAt,
+      },
+      _sum: { amount: true },
+    }),
   ]);
 
   const daysOffByStaff = new Map<string, Date[]>();
@@ -118,11 +165,22 @@ export async function GET(req: NextRequest) {
   const spentMap = new Map(spentByStaff.flatMap((entry) => entry.staffEmail
     ? [[entry.staffEmail, Number(entry._sum.allowanceUsed ?? 0)] as const]
     : []));
+  const previousDaysOffByStaff = new Map<string, Date[]>();
+  for (const entry of previousDaysOff) {
+    const current = previousDaysOffByStaff.get(entry.staffEmail) ?? [];
+    current.push(entry.date);
+    previousDaysOffByStaff.set(entry.staffEmail, current);
+  }
+  const previousAdjustmentByStaff = new Map(previousAdjustments.map((entry) => [entry.staffEmail, Number(entry.amount)]));
+  const previousSpentMap = new Map(previousSpentByStaff.flatMap((entry) => entry.staffEmail
+    ? [[entry.staffEmail, Number(entry._sum.allowanceUsed ?? 0)] as const]
+    : []));
+  const settlementMap = new Map(settlementsByStaff.map((entry) => [entry.staffEmail, Number(entry._sum.amount ?? 0)]));
   const dailyRate = Number(settings?.allowancePerWorkingDay ?? 0);
   const workingDays = settings?.workingDays ?? [1, 2, 3, 4, 5];
   const holidayDates = settings?.holidayDates ?? [];
 
-  return NextResponse.json(matchingStaff.map(([staffEmail, staffName]) => {
+  const results = matchingStaff.map(([staffEmail, staffName]) => {
     const breakdown = calculateStaffAllowanceBreakdown(
       dailyRate,
       workingDays,
@@ -132,6 +190,20 @@ export async function GET(req: NextRequest) {
       adjustmentByStaff.get(staffEmail) ?? 0,
       spentMap.get(staffEmail) ?? 0,
     );
+    const previousBreakdown = calculateStaffAllowanceBreakdown(
+      dailyRate,
+      workingDays,
+      previousPeriod,
+      holidayDates,
+      previousDaysOffByStaff.get(staffEmail) ?? [],
+      previousAdjustmentByStaff.get(staffEmail) ?? 0,
+      previousSpentMap.get(staffEmail) ?? 0,
+    );
+    const previousDebt = buildPreviousAllowanceDebt(
+      previousBreakdown.remainingAllowance,
+      settlementMap.get(staffEmail) ?? 0,
+      previousPeriod,
+    );
     return {
       staffEmail,
       staffName,
@@ -140,6 +212,8 @@ export async function GET(req: NextRequest) {
       used: breakdown.allowanceSpent,
       remaining: breakdown.remainingAllowance,
       period: { startsAt: period.startsAt.toISOString(), endsAt: period.endsAt.toISOString(), isCustom },
+      previousDebt,
     };
-  }));
+  });
+  return NextResponse.json(results);
 }

@@ -195,7 +195,7 @@ export function calculateStaffAllowanceBreakdown(
   const daysOffCount = countEffectiveDaysOffInPeriod(daysOff, period, workingDays, holidayDates);
   const effectiveWorkingDays = Math.max(0, baseWorkingDays - daysOffCount);
   const standardAllowance = effectiveWorkingDays * allowancePerWorkingDay;
-  const totalAllowance = Math.max(0, standardAllowance + manualAdjustment);
+  const totalAllowance = standardAllowance + manualAdjustment;
 
   return {
     baseWorkingDays,

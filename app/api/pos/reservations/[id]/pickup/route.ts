@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPosContext, withSerializableRetry } from "@/lib/pos-server";
+import { getOutstandingPreviousAllowanceDebt, getPosContext, withSerializableRetry } from "@/lib/pos-server";
 import { calculateTotals, paymentMethodSchema } from "@/lib/pos";
 import { syncPosSale } from "@/lib/accurate/pos";
 import { canOperatePos } from "@/lib/access-control";
@@ -30,6 +30,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (payment.data === "allowance") {
     if (!reservation.staffEmail?.trim()) {
       return NextResponse.json({ error: "This reservation has no staff email on file; allowance payment is unavailable." }, { status: 409 });
+    }
+    const previousDebt = await getOutstandingPreviousAllowanceDebt(reservation.credentialId, reservation.staffEmail);
+    if (previousDebt.blocked) {
+      return NextResponse.json({ error: "Previous allowance debt must be paid before using allowance in the new period.", previousDebt }, { status: 409 });
     }
     allowanceUsed = calculateTotals(reservation.items.map((item) => ({ ...item, unitPrice: Number(item.unitPrice), unitCost: Number(item.unitCost) }))).revenue;
   }

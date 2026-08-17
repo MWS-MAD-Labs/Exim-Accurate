@@ -57,6 +57,10 @@ interface Allowance {
   used: number;
   remaining: number;
   period: { startsAt: string; endsAt: string; isCustom: boolean };
+  previousDebt: {
+    blocked: boolean;
+    outstanding: number;
+  };
 }
 
 type PaymentMethod = "allowance" | "cash" | "qris";
@@ -182,7 +186,7 @@ export default function StorePage() {
   );
   const cartCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
   const cartTotal = cartLines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
-  const allowanceAvailable = !!allowance && cartTotal > 0;
+  const allowanceAvailable = !!allowance && !allowance.previousDebt.blocked && cartTotal > 0;
   const allowanceCoversCart = allowanceAvailable && allowance.remaining >= cartTotal;
   const amountOverAllowance = Math.max(0, cartTotal - (allowance?.remaining ?? 0));
 
@@ -430,6 +434,7 @@ export default function StorePage() {
           </ScrollArea>
           <Divider />
           <Group justify="space-between"><Text fw={600}>Total</Text><Text fw={800} size="xl">{formatMoney(cartTotal)}</Text></Group>
+          {allowance?.previousDebt.blocked && <Alert color="red" icon={<IconAlertCircle size={18} />}>Previous allowance debt of {formatMoney(allowance.previousDebt.outstanding)} must be paid before allowance can be used in this period.</Alert>}
           <Paper withBorder p="md" radius="md">
             <Group justify="space-between" align="flex-start">
               <Group gap="sm">

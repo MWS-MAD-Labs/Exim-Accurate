@@ -105,7 +105,7 @@ test("calculates per-user allowance with days off and a positive adjustment", ()
   assert.equal(breakdown.remainingAllowance, breakdown.totalAllowance - 120000);
 });
 
-test("clamps a negative period adjustment at zero", () => {
+test("allows a negative period adjustment to create debt", () => {
   const breakdown = calculateStaffAllowanceBreakdown(
     100,
     [1, 2, 3, 4, 5],
@@ -115,8 +115,8 @@ test("clamps a negative period adjustment at zero", () => {
     -500,
     20,
   );
-  assert.equal(breakdown.totalAllowance, 0);
-  assert.equal(breakdown.remainingAllowance, -20);
+  assert.equal(breakdown.totalAllowance, -400);
+  assert.equal(breakdown.remainingAllowance, -420);
 });
 
 test("calculates the monthly staff allowance total from a daily rate", () => {

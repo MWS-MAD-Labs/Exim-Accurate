@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getStaffAllowance } from "@/lib/pos-server";
+import { getOutstandingPreviousAllowanceDebt, getStaffAllowance } from "@/lib/pos-server";
 import { canOperatePos } from "@/lib/access-control";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { dateOnlySchema, parseDateOnly } from "@/lib/pos";
@@ -28,6 +28,10 @@ export async function GET(req: NextRequest) {
   const requestedPeriod = periodStart && periodEnd
     ? { startsAt: parseDateOnly(periodStart), endsAt: parseDateOnly(periodEnd) }
     : undefined;
-  const allowance = await getStaffAllowance(credentialId, email, new Date(), requestedPeriod);
-  return NextResponse.json(allowance);
+  const now = new Date();
+  const [allowance, previousDebt] = await Promise.all([
+    getStaffAllowance(credentialId, email, now, requestedPeriod),
+    getOutstandingPreviousAllowanceDebt(credentialId, email, now, requestedPeriod),
+  ]);
+  return NextResponse.json({ ...allowance, previousDebt });
 }

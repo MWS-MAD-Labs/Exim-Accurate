@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getDefaultPosStore, getPosContext, getStaffAllowance, resolveLocalPosProducts } from "@/lib/pos-server";
+import { getDefaultPosStore, getOutstandingPreviousAllowanceDebt, getPosContext, getStaffAllowance, resolveLocalPosProducts } from "@/lib/pos-server";
 import { canBrowsePosCatalog } from "@/lib/access-control";
 
 export async function GET(req: NextRequest) {
@@ -25,15 +25,19 @@ export async function GET(req: NextRequest) {
     undefined,
     params.get("q") || "",
   );
-  const allowance = session.user.email
-    ? await getStaffAllowance(credentialId, session.user.email)
-    : null;
+  const now = new Date();
+  const [allowance, previousDebt] = session.user.email
+    ? await Promise.all([
+        getStaffAllowance(credentialId, session.user.email, now),
+        getOutstandingPreviousAllowanceDebt(credentialId, session.user.email, now),
+      ])
+    : [null, null];
   return NextResponse.json({
     store: {
       warehouseName: context.settings.warehouseName,
       holdHours: context.settings.preorderHoldHours,
     },
-    allowance,
+    allowance: allowance ? { ...allowance, previousDebt } : null,
     products,
   });
 }
