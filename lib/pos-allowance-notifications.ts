@@ -50,31 +50,106 @@ function buildNotificationMessage(input: {
   const cutoffDate = dateFormatter.format(input.cutoffDate);
   const timing = input.reminderDay === 1 ? "besok" : "hari ini";
   const escapedGreeting = escapeHtml(greeting);
+  const escapedAmount = escapeHtml(amount);
+  const escapedCutoffDate = escapeHtml(cutoffDate);
+  const isDebt = input.scenario === "debt";
+  const subject = isDebt
+    ? `Tindakan diperlukan: tagihan allowance ${amount}`
+    : `Pengingat: sisa allowance ${amount}`;
+  const title = isDebt ? "Tagihan allowance perlu diselesaikan" : "Allowance Anda masih tersedia";
+  const amountLabel = isDebt ? "Jumlah tagihan" : "Sisa allowance";
+  const summary = isDebt
+    ? `Saat ini Anda memiliki tagihan allowance sebesar ${amount}.`
+    : `Anda masih memiliki sisa allowance sebesar ${amount}.`;
+  const action = isDebt
+    ? "Mohon lunasi tagihan tersebut. Jika pembayaran belum dilakukan sampai periode berakhir, Anda tidak dapat menggunakan allowance untuk transaksi pada periode berikutnya sampai tagihan dilunasi."
+    : "Sisa allowance yang tidak digunakan akan hangus dan tidak dibawa ke periode berikutnya.";
+  const accentColor = isDebt ? "#F76707" : "#228BE6";
+  const alertBackground = isDebt ? "#FFF4E6" : "#E7F5FF";
+  const alertBorder = isDebt ? "#FFD8A8" : "#A5D8FF";
+  const alertTitle = isDebt ? "Tindakan diperlukan" : "Perlu diketahui";
+  const preheader = isDebt
+    ? `Tagihan allowance ${amount} perlu dibayar sebelum periode berikutnya.`
+    : `Sisa allowance ${amount} akan berakhir ${timing}.`;
 
-  if (input.scenario === "debt") {
-    const subject = `Tindakan diperlukan: tagihan allowance ${amount}`;
-    const text = [
-      `Halo ${greeting},`,
-      "",
-      `Periode allowance berakhir ${timing}, ${cutoffDate}. Saat ini Anda memiliki tagihan sebesar ${amount}.`,
-      "Mohon lunasi tagihan tersebut. Jika pembayaran belum dilakukan sampai periode berakhir, Anda tidak dapat menggunakan allowance untuk transaksi pada periode berikutnya sampai tagihan dilunasi.",
-      "",
-      "Terima kasih.",
-    ].join("\n");
-    const html = `<p>Halo ${escapedGreeting},</p><p>Periode allowance berakhir <strong>${timing}, ${escapeHtml(cutoffDate)}</strong>. Saat ini Anda memiliki tagihan sebesar <strong>${escapeHtml(amount)}</strong>.</p><p>Mohon lunasi tagihan tersebut. Jika pembayaran belum dilakukan sampai periode berakhir, Anda tidak dapat menggunakan allowance untuk transaksi pada periode berikutnya sampai tagihan dilunasi.</p><p>Terima kasih.</p>`;
-    return { subject, text, html };
-  }
-
-  const subject = `Pengingat: sisa allowance ${amount}`;
   const text = [
     `Halo ${greeting},`,
     "",
-    `Periode allowance berakhir ${timing}, ${cutoffDate}. Anda masih memiliki sisa allowance sebesar ${amount}.`,
-    "Sisa allowance yang tidak digunakan akan hangus dan tidak dibawa ke periode berikutnya.",
+    `Periode allowance berakhir ${timing}, ${cutoffDate}. ${summary}`,
+    action,
     "",
     "Terima kasih.",
   ].join("\n");
-  const html = `<p>Halo ${escapedGreeting},</p><p>Periode allowance berakhir <strong>${timing}, ${escapeHtml(cutoffDate)}</strong>. Anda masih memiliki sisa allowance sebesar <strong>${escapeHtml(amount)}</strong>.</p><p>Sisa allowance yang tidak digunakan akan hangus dan tidak dibawa ke periode berikutnya.</p><p>Terima kasih.</p>`;
+
+  const html = `<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F4F7FB;color:#212529;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader)}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background-color:#F4F7FB;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background-color:#FFFFFF;border:1px solid #E9ECEF;border-radius:16px;box-shadow:0 10px 30px rgba(33,37,41,0.08);overflow:hidden;">
+          <tr>
+            <td style="padding:28px 32px;background-color:#228BE6;background-image:linear-gradient(135deg,#228BE6 0%,#1C7ED6 100%);">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td width="48" height="48" align="center" valign="middle" style="width:48px;height:48px;border-radius:12px;background-color:rgba(255,255,255,0.2);color:#FFFFFF;font-size:24px;font-weight:800;line-height:48px;">E</td>
+                  <td style="padding-left:14px;color:#FFFFFF;">
+                    <div style="font-size:22px;font-weight:800;line-height:1.2;letter-spacing:-0.4px;">Exima</div>
+                    <div style="padding-top:4px;font-size:13px;line-height:1.4;color:#D0EBFF;">POS Allowance Notification</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:36px 32px 32px;">
+              <div style="display:inline-block;padding:7px 12px;border-radius:999px;background-color:${alertBackground};color:${accentColor};font-size:12px;font-weight:700;line-height:1;letter-spacing:0.3px;text-transform:uppercase;">Cutoff ${timing}</div>
+              <h1 style="margin:18px 0 12px;color:#212529;font-size:26px;font-weight:800;line-height:1.3;letter-spacing:-0.5px;">${title}</h1>
+              <p style="margin:0 0 24px;color:#495057;font-size:16px;line-height:1.7;">Halo <strong style="color:#212529;">${escapedGreeting}</strong>, periode allowance Anda berakhir <strong style="color:#212529;">${timing}, ${escapedCutoffDate}</strong>.</p>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;margin:0 0 24px;border-collapse:separate;background-color:#F8F9FA;border:1px solid #E9ECEF;border-radius:12px;">
+                <tr>
+                  <td style="padding:22px 24px;">
+                    <div style="margin-bottom:7px;color:#868E96;font-size:13px;font-weight:600;line-height:1.3;text-transform:uppercase;letter-spacing:0.5px;">${amountLabel}</div>
+                    <div style="color:${accentColor};font-size:32px;font-weight:800;line-height:1.2;letter-spacing:-0.8px;">${escapedAmount}</div>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:separate;background-color:${alertBackground};border:1px solid ${alertBorder};border-radius:12px;">
+                <tr>
+                  <td width="5" style="width:5px;background-color:${accentColor};border-radius:12px 0 0 12px;"></td>
+                  <td style="padding:20px 20px 20px 18px;">
+                    <div style="margin-bottom:7px;color:${accentColor};font-size:14px;font-weight:800;line-height:1.3;">${alertTitle}</div>
+                    <div style="color:#343A40;font-size:15px;line-height:1.65;">${escapeHtml(action)}</div>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:28px 0 0;color:#495057;font-size:15px;line-height:1.7;">Terima kasih,<br><strong style="color:#212529;">Tim Exima</strong></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px;background-color:#F8F9FA;border-top:1px solid #E9ECEF;text-align:center;">
+              <p style="margin:0;color:#868E96;font-size:12px;line-height:1.6;">Email ini dikirim otomatis oleh sistem Exima berdasarkan saldo allowance Anda.</p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:18px 0 0;color:#ADB5BD;font-size:11px;line-height:1.5;">Exima · Accurate Online Operations</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
   return { subject, text, html };
 }
 
