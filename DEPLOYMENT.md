@@ -36,7 +36,7 @@ SMTP_FROM=Exima Notifications <notifications@example.com>
 
 Never commit `.env` or expose OAuth secrets, SMTP passwords, tokens, session values, or database credentials in logs. For Google SMTP, use an App Password rather than the account's normal password whenever possible.
 
-Both Compose stacks include an `allowance-notification-scheduler` service. After the app becomes healthy, this sidecar calls the protected endpoint hourly over the internal Docker network. The endpoint only processes day -1 and day 0 of each active POS store's cutoff date, and `PosAllowanceNotification` prevents duplicate delivery, so hourly checks are safe. No external scheduler is required for the standard Compose deployment.
+Automatic allowance notification scheduling is currently disabled. Neither Compose stack starts a scheduler service. The protected endpoint remains available for an explicitly approved manual run after production allowance data has been verified.
 
 The endpoint returns HTTP 202 immediately while delivery continues in the app container's background lifecycle. To trigger a manual run from outside Docker:
 
@@ -57,7 +57,7 @@ cp .env.example .env
 docker compose -f compose.local.yaml up -d --build
 ```
 
-The application is exposed on port `5758`. PostgreSQL data is persisted in the `postgres_data` volume. The allowance notification scheduler starts automatically and reads `CRON_SECRET` from the same `.env` file.
+The application is exposed on port `5758`. PostgreSQL data is persisted in the `postgres_data` volume. Allowance notification scheduling is disabled; do not add an external schedule until production allowance data has been verified.
 
 Use `compose.prebuilt.yaml` when deploying the prebuilt GHCR image. The app service sets `pull_policy: always`, so every Compose deployment refreshes the mutable `latest` tag before evaluating container replacement:
 
