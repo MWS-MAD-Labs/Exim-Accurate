@@ -443,20 +443,24 @@ model PosReservationItem {
 }
 
 model PosSale {
-  id                 String    @id @default(uuid())
-  userId             String
-  credentialId       String
-  reservationId      String?   @unique
-  idempotencyKey     String
-  requestFingerprint String
-  warehouseId        Int
-  warehouseName      String
-  paymentMethod      String
-  status             String    @default("pending_sync") // pending_sync, synced (confirmed inventory adjustment), sync_error
-  accurateId         Int? // Accurate inventory adjustment ID
-  syncError          String?
-  createdAt          DateTime  @default(now())
-  syncedAt           DateTime?
+  id                      String    @id @default(uuid())
+  userId                  String
+  credentialId            String
+  reservationId           String?   @unique
+  idempotencyKey          String
+  requestFingerprint      String
+  warehouseId             Int
+  warehouseName           String
+  paymentMethod           String
+  status                  String    @default("pending_sync") // pending_sync, synced (confirmed inventory adjustment), sync_error
+  accurateId              Int? // Accurate inventory adjustment ID
+  syncError               String?
+  receiptEmailStatus      String    @default("pending") // disabled, pending, processing, sent, failed
+  receiptEmailAttemptedAt DateTime?
+  receiptEmailSentAt      DateTime?
+  receiptEmailError       String?
+  createdAt               DateTime  @default(now())
+  syncedAt                DateTime?
 
   // Buyer identification (staff QR badge scan) and allowance payment usage
   buyerType     String  @default("guest") // staff, guest
@@ -472,6 +476,7 @@ model PosSale {
   @@unique([userId, idempotencyKey])
   @@index([credentialId, createdAt])
   @@index([credentialId, status])
+  @@index([receiptEmailStatus, receiptEmailAttemptedAt])
   @@index([credentialId, staffEmail, createdAt])
 }
 

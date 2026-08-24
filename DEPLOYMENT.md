@@ -144,6 +144,7 @@ Run:
 
 ```sh
 npm ci
+npm run test:unit
 npm run lint
 npm run type-check
 npm run build

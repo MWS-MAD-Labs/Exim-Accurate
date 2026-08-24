@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +8,7 @@ import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, get
 import { syncPosSale } from "@/lib/accurate/pos";
 import crypto from "node:crypto";
 import { canOperatePos } from "@/lib/access-control";
+import { sendPosSaleReceipt } from "@/lib/pos-sale-receipt";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
     if (existing.status !== "synced") {
       return NextResponse.json({ sale: existing, error: "This sale has no confirmed Accurate adjustment ID. Manual reconciliation is required before retrying." }, { status: 409 });
     }
+    after(() => sendPosSaleReceipt(existing.id));
     return NextResponse.json(existing);
   }
   const created = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
@@ -78,7 +80,10 @@ export async function POST(req: NextRequest) {
   }));
   if (!created) return NextResponse.json({ error: "Insufficient available stock" }, { status: 409 });
   if (!created.created) {
-    if (created.sale.status === "synced") return NextResponse.json(created.sale);
+    if (created.sale.status === "synced") {
+      after(() => sendPosSaleReceipt(created.sale.id));
+      return NextResponse.json(created.sale);
+    }
     return NextResponse.json({ sale: created.sale, error: "This sale is already being processed or requires manual reconciliation." }, { status: 409 });
   }
   const sale = created.sale;
@@ -97,6 +102,7 @@ export async function POST(req: NextRequest) {
       data: { status: "synced", accurateId: adjustment.id, syncedAt: new Date(), syncError: null },
       include: { items: true },
     });
+    after(() => sendPosSaleReceipt(completed.id));
     return NextResponse.json({ sale: completed, totals: calculateTotals(items), adjustmentNumber: adjustment.number }, { status: 201 });
   } catch {
     const failed = await prisma.posSale.update({

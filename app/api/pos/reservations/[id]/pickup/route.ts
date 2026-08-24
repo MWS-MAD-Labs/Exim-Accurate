@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,6 +7,7 @@ import { calculateTotals, paymentMethodSchema } from "@/lib/pos";
 import { syncPosSale } from "@/lib/accurate/pos";
 import { canOperatePos } from "@/lib/access-control";
 import { getOperationalPosCredential } from "@/lib/credential-access";
+import { sendPosSaleReceipt } from "@/lib/pos-sale-receipt";
 
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -19,7 +20,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!payment.success) return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
   const reservation = await prisma.posReservation.findUnique({ where: { id }, include: { items: true, sale: true } });
   if (!reservation) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
-  if (reservation.sale) return NextResponse.json(reservation.sale);
+  if (reservation.sale) {
+    if (reservation.sale.status === "synced") after(() => sendPosSaleReceipt(reservation.sale!.id));
+    return NextResponse.json(reservation.sale);
+  }
   if (!await getOperationalPosCredential(session.user.id, session.user.role, reservation.credentialId)) {
     return NextResponse.json({ error: "Reservation is not available to this POS operator" }, { status: 403 });
   }
@@ -67,6 +71,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       data: { status: "synced", accurateId: adjustment.id, syncedAt: new Date(), syncError: null },
       include: { items: true },
     });
+    after(() => sendPosSaleReceipt(completed.id));
     return NextResponse.json({ sale: completed, adjustmentNumber: adjustment.number }, { status: 201 });
   } catch {
     const failed = await prisma.posSale.update({

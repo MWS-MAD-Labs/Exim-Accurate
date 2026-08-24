@@ -10,7 +10,7 @@ Exima extends Accurate Online with inventory adjustment import/export, self-chec
 - Organization-owned credential management
 - Self-checkout and kiosk workflows
 - Borrowing, booking, return, and availability management
-- POS catalog, reservations, sales, allowances, cutoff email notifications, registered-staff email suggestions, and Accurate synchronization
+- POS catalog, reservations, sales, allowances, checkout receipt emails, cutoff email notifications, registered-staff email suggestions, and Accurate synchronization
 - Organization-scoped operational analytics
 - Role-based access for admins, resource managers, cashiers, and staff
 
@@ -123,6 +123,12 @@ Validate the file before starting the import.
 
 Suggestions are limited to users with the `staff` role in the selected POS credential's organization. The typeahead requires a non-empty search term and returns at most eight results.
 
+### POS Checkout Receipt Emails
+
+After a staff cashier sale or preorder pickup is confirmed in Accurate, Exima sends a branded Millennia Mart receipt only when the recorded email belongs to a registered `staff` user in the POS organization. The receipt includes purchased items, payment method, total payment, and the current remaining allowance balance. Delivery runs after the HTTP response and cannot fail the checkout; sale-level status fields prevent duplicate receipts.
+
+Administrators can inspect failed or stale deliveries with `GET /api/pos/sales/receipts?credentialId=...` and trigger a bounded background retry with `POST /api/pos/sales/receipts` using `{ "credentialId": "...", "limit": 50 }`.
+
 ### POS Allowance Email Notifications
 
 Configure the Google SMTP `SMTP_*` variables and `CRON_SECRET` documented in [`DEPLOYMENT.md`](DEPLOYMENT.md). Automatic scheduling is currently disabled while production allowance data is being prepared. The protected `GET /api/cron/pos-allowance-notifications` endpoint must only be triggered manually after the data has been verified; it returns `202` and processes notifications in the background.
@@ -147,7 +153,8 @@ If synchronization cannot complete, the kiosk shows a reconciliation warning. Re
 npm run dev          # Start Next.js development server
 npm run lint         # Run ESLint
 npm run type-check   # Generate Prisma client and run TypeScript checks
-npm test             # Run lint and type checks
+npm run test:unit    # Run Node.js unit tests through tsx
+npm test             # Run unit tests, lint, and type checks
 npm run build        # Create production build
 npm run start        # Start production server
 
