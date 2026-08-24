@@ -83,6 +83,16 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Kredensial tidak ditemukan" }, { status: 404 });
         }
 
+        const resourceSettings = await prisma.resourceSettings.findUnique({
+            where: { organizationId: credential.organizationId },
+        });
+        if (!resourceSettings) {
+            return NextResponse.json(
+                { error: "Gudang Resource Management belum dikonfigurasi" },
+                { status: 409 },
+            );
+        }
+
         // Parse staff info from email
         const { name: staffName, department: staffDept } = parseStaffInfo(staffEmail);
 
@@ -177,6 +187,7 @@ export async function POST(req: NextRequest) {
                 itemNo: item.itemCode,
                 quantity: item.quantity,
                 itemAdjustmentType: "ADJUSTMENT_OUT" as const,
+                warehouseName: resourceSettings.warehouseName,
             })),
         };
 
