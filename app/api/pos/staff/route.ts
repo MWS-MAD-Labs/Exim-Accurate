@@ -45,7 +45,6 @@ export async function GET(req: NextRequest) {
   const staff = await prisma.user.findMany({
     where: {
       organizationId: credential.organizationId,
-      role: "staff",
       OR: [
         { email: { contains: search, mode: "insensitive" } },
         { name: { contains: search, mode: "insensitive" } },
