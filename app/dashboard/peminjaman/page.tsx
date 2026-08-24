@@ -38,6 +38,7 @@ import {
     IconUser,
     IconCalendar,
     IconCalendarEvent,
+    IconBuildingWarehouse,
 } from "@tabler/icons-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { ActivityTimeline, ActivityItem } from "@/components/ui/ActivityTimeline";
@@ -47,6 +48,16 @@ interface Credential {
     id: string;
     appKey: string;
     host: string | null;
+}
+
+interface Warehouse {
+    id: number;
+    name: string;
+}
+
+interface ResourceSettings {
+    warehouseId: number;
+    warehouseName: string;
 }
 
 interface BorrowableItem {
@@ -144,6 +155,11 @@ export default function PeminjamanDashboardPage() {
         string | null
     >(null);
     const [loading, setLoading] = useState(true);
+    const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+    const [resourceSettings, setResourceSettings] = useState<ResourceSettings | null>(null);
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
+    const [warehouseLoading, setWarehouseLoading] = useState(false);
+    const [warehouseSaving, setWarehouseSaving] = useState(false);
 
     // Items tab
     const [items, setItems] = useState<BorrowableItem[]>([]);
@@ -190,6 +206,94 @@ export default function PeminjamanDashboardPage() {
         };
         fetchCreds();
     }, []);
+
+    useEffect(() => {
+        if (!selectedCredentialId) {
+            setWarehouses([]);
+            setSelectedWarehouseId(null);
+            return;
+        }
+
+        const fetchWarehouseSettings = async () => {
+            setWarehouseLoading(true);
+            try {
+                const [settingsRes, warehousesRes] = await Promise.all([
+                    fetch("/api/peminjaman/settings"),
+                    fetch(`/api/peminjaman/settings/warehouses?credentialId=${selectedCredentialId}`),
+                ]);
+
+                if (!warehousesRes.ok) {
+                    const error = await warehousesRes.json().catch(() => null);
+                    throw new Error(error?.error || "Failed to load warehouses");
+                }
+
+                const warehouseData = (await warehousesRes.json()) as Warehouse[];
+                const settingsData = settingsRes.ok
+                    ? ((await settingsRes.json()) as ResourceSettings | null)
+                    : null;
+
+                setWarehouses(warehouseData);
+                setResourceSettings(settingsData);
+                setSelectedWarehouseId(
+                    settingsData && warehouseData.some((warehouse) => warehouse.id === settingsData.warehouseId)
+                        ? String(settingsData.warehouseId)
+                        : null,
+                );
+            } catch (error) {
+                console.error("Failed to load Resource Management warehouse settings", error);
+                setWarehouses([]);
+                setSelectedWarehouseId(null);
+                notifications.show({
+                    title: language === "id" ? "Gagal memuat gudang" : "Failed to load warehouses",
+                    message: error instanceof Error ? error.message : "Unknown error",
+                    color: "red",
+                });
+            } finally {
+                setWarehouseLoading(false);
+            }
+        };
+
+        fetchWarehouseSettings();
+    }, [language, selectedCredentialId]);
+
+    const handleSaveWarehouse = async () => {
+        if (!selectedCredentialId || !selectedWarehouseId) return;
+        const warehouse = warehouses.find((candidate) => String(candidate.id) === selectedWarehouseId);
+        if (!warehouse) return;
+
+        setWarehouseSaving(true);
+        try {
+            const res = await fetch("/api/peminjaman/settings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    credentialId: selectedCredentialId,
+                    warehouseId: warehouse.id,
+                    warehouseName: warehouse.name,
+                }),
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.error || "Failed to save warehouse");
+
+            setResourceSettings({ warehouseId: warehouse.id, warehouseName: warehouse.name });
+            notifications.show({
+                title: language === "id" ? "Gudang tersimpan" : "Warehouse saved",
+                message:
+                    language === "id"
+                        ? `Resource Management sekarang menggunakan ${warehouse.name}.`
+                        : `Resource Management now uses ${warehouse.name}.`,
+                color: "green",
+            });
+        } catch (error) {
+            notifications.show({
+                title: language === "id" ? "Gagal menyimpan gudang" : "Failed to save warehouse",
+                message: error instanceof Error ? error.message : "Unknown error",
+                color: "red",
+            });
+        } finally {
+            setWarehouseSaving(false);
+        }
+    };
 
     // Fetch borrowable items
     const fetchItems = useCallback(async () => {
@@ -606,6 +710,60 @@ export default function PeminjamanDashboardPage() {
                         />
                     )}
                 </Group>
+
+                <Card withBorder radius="md" p="md">
+                    <Group justify="space-between" align="flex-end" wrap="wrap">
+                        <Stack gap={4} style={{ flex: 1 }}>
+                            <Group gap="xs">
+                                <IconBuildingWarehouse size={20} />
+                                <Text fw={600}>
+                                    {language === "id"
+                                        ? "Gudang Resource Management"
+                                        : "Resource Management Warehouse"}
+                                </Text>
+                            </Group>
+                            <Text c="dimmed" size="sm">
+                                {language === "id"
+                                    ? "Gudang ini hanya digunakan untuk stok peminjaman dan pengembalian di Accurate. Pengaturan gudang POS tidak berubah."
+                                    : "This warehouse is used only for borrowing and return stock movements in Accurate. POS warehouse settings are unchanged."}
+                            </Text>
+                            {resourceSettings && (
+                                <Text size="xs" c="dimmed">
+                                    {language === "id" ? "Saat ini" : "Current"}: {resourceSettings.warehouseName}
+                                </Text>
+                            )}
+                        </Stack>
+                        <Group gap="sm" align="flex-end">
+                            <Select
+                                label={language === "id" ? "Pilih Gudang" : "Select Warehouse"}
+                                placeholder={
+                                    warehouseLoading
+                                        ? language === "id" ? "Memuat..." : "Loading..."
+                                        : language === "id" ? "Pilih gudang Accurate" : "Choose Accurate warehouse"
+                                }
+                                value={selectedWarehouseId}
+                                onChange={setSelectedWarehouseId}
+                                data={warehouses.map((warehouse) => ({
+                                    value: String(warehouse.id),
+                                    label: warehouse.name,
+                                }))}
+                                searchable
+                                disabled={warehouseLoading || !selectedCredentialId}
+                                w={280}
+                            />
+                            <Button
+                                onClick={handleSaveWarehouse}
+                                loading={warehouseSaving}
+                                disabled={
+                                    !selectedWarehouseId ||
+                                    (resourceSettings?.warehouseId === Number(selectedWarehouseId))
+                                }
+                            >
+                                {language === "id" ? "Simpan Gudang" : "Save Warehouse"}
+                            </Button>
+                        </Group>
+                    </Group>
+                </Card>
 
                 <Tabs defaultValue="items">
                     <Tabs.List>

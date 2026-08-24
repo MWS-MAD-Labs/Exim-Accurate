@@ -19,6 +19,7 @@ model Organization {
   users               User[]
   accurateCredentials AccurateCredentials[]
   posSettings         PosSettings[]
+  resourceSettings    ResourceSettings?
   borrowableItems     BorrowableItem[]
 }
 
@@ -252,6 +253,17 @@ model BorrowingActivity {
 
   @@index([credentialId, occurredAt])
   @@index([credentialId, itemCode, occurredAt])
+}
+
+model ResourceSettings {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  warehouseId    Int
+  warehouseName  String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 model PosSettings {

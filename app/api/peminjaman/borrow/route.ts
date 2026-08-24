@@ -240,6 +240,12 @@ export async function POST(req: NextRequest) {
         if (type === "borrow") {
             try {
                 const credential = await ensureCredentialSession(session.user.id, credentialId, session.user.role);
+                const resourceSettings = await prisma.resourceSettings.findUnique({
+                    where: { organizationId: credential.organizationId },
+                });
+                if (!resourceSettings) {
+                    throw new Error("Resource Management warehouse is not configured.");
+                }
 
                 const description = `Peminjaman by ${borrowerName || borrowerEmail}${borrowerDept ? ` | Dept: ${borrowerDept}` : ""} | Email: ${borrowerEmail}`;
 
@@ -250,6 +256,7 @@ export async function POST(req: NextRequest) {
                         itemNo: item.itemCode,
                         quantity: item.quantity,
                         itemAdjustmentType: "ADJUSTMENT_OUT" as const,
+                        warehouseName: resourceSettings.warehouseName,
                     })),
                 };
 

@@ -166,6 +166,7 @@ Also verify:
 - Test inventory export preview and download.
 - Validate and run a sample import.
 - Configure the POS warehouse and confirm each organization can activate its own store.
+- Configure the separate Resource Management warehouse and confirm borrowing/return adjustments use it without changing the POS warehouse.
 - Test borrowing, booking, availability, return, and historical-loan return flows.
 - Confirm an Accurate sync failure reports `pending_reconciliation` without losing the local return.
 - Verify cross-organization IDs cannot access credentials, products, analytics, reservations, or borrowing PII.

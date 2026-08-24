@@ -243,32 +243,39 @@ export async function POST(req: NextRequest) {
                         message: "Return saved locally, but the organization has no active Accurate credential.",
                     };
                 } else {
+                    const resourceSettings = await prisma.resourceSettings.findUnique({
+                        where: { organizationId },
+                    });
+                    if (!resourceSettings) {
+                        throw new Error("Resource Management warehouse is not configured.");
+                    }
 
-                const description = `Pengembalian Peminjaman | ${dayjs().format("DD/MM/YYYY")}`;
+                    const description = `Pengembalian Peminjaman | ${dayjs().format("DD/MM/YYYY")}`;
 
-                const adjustmentData = {
-                    transDate: dayjs().format("YYYY-MM-DD"),
-                    description,
-                    detailItem: itemsToAdjust.map((item) => ({
-                        itemNo: item.itemCode,
-                        quantity: item.quantity,
-                        itemAdjustmentType: "ADJUSTMENT_IN" as const,
-                    })),
-                };
+                    const adjustmentData = {
+                        transDate: dayjs().format("YYYY-MM-DD"),
+                        description,
+                        detailItem: itemsToAdjust.map((item) => ({
+                            itemNo: item.itemCode,
+                            quantity: item.quantity,
+                            itemAdjustmentType: "ADJUSTMENT_IN" as const,
+                            warehouseName: resourceSettings.warehouseName,
+                        })),
+                    };
 
-                console.log(
-                    `[peminjaman/return] Creating ADJUSTMENT_IN with ${adjustmentData.detailItem.length} item lines`,
-                );
+                    console.log(
+                        `[peminjaman/return] Creating ADJUSTMENT_IN with ${adjustmentData.detailItem.length} item lines`,
+                    );
 
-                const result = await saveInventoryAdjustment(
-                    {
-                        apiToken: credential.apiToken,
-                        signatureSecret: credential.signatureSecret,
-                        host: credential.host!,
-                        session: credential.session!,
-                    },
-                    adjustmentData
-                );
+                    const result = await saveInventoryAdjustment(
+                        {
+                            apiToken: credential.apiToken,
+                            signatureSecret: credential.signatureSecret,
+                            host: credential.host!,
+                            session: credential.session!,
+                        },
+                        adjustmentData
+                    );
 
                     for (const sessionId of sessionIds) {
                         await prisma.borrowingSession.update({
