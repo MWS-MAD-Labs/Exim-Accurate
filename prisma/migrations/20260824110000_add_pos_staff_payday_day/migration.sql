@@ -1,0 +1,2 @@
+ALTER TABLE "PosSettings"
+ADD COLUMN "staffPaydayDay" INTEGER NOT NULL DEFAULT 28;

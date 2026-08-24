@@ -70,11 +70,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Some items are not available in the POS catalog" }, { status: 409 });
   }
   const items = canonicalSaleItems(requestedItems, products);
-  if (preferredPaymentMethod === "allowance") {
-    const previousDebt = await getOutstandingPreviousAllowanceDebt(credentialId, session.user.email);
-    if (previousDebt.blocked) {
-      return NextResponse.json({ error: "Previous allowance debt must be paid before using allowance in the new period.", previousDebt }, { status: 409 });
-    }
+  const previousDebt = await getOutstandingPreviousAllowanceDebt(credentialId, session.user.email);
+  if (previousDebt.blocked) {
+    return NextResponse.json({ error: "Previous-period negative balance must be paid before another transaction can be completed.", previousDebt }, { status: 409 });
   }
   const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ credentialId, expiresAt: expiresAt.toISOString(), preferredPaymentMethod, items })).digest("hex");
   const existing = await prisma.posReservation.findUnique({ where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } }, include: { items: true } });

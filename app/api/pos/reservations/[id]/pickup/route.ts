@@ -30,15 +30,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const context = await getPosContext(session.user.id, reservation.credentialId);
   if (!context?.settings) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
 
+  if (!reservation.staffEmail?.trim()) {
+    return NextResponse.json({ error: "This reservation has no staff email on file." }, { status: 409 });
+  }
+  const previousDebt = await getOutstandingPreviousAllowanceDebt(reservation.credentialId, reservation.staffEmail);
+  if (previousDebt.blocked) {
+    return NextResponse.json({ error: "Previous-period negative balance must be paid before another transaction can be completed.", previousDebt }, { status: 409 });
+  }
+
   let allowanceUsed = 0;
   if (payment.data === "allowance") {
-    if (!reservation.staffEmail?.trim()) {
-      return NextResponse.json({ error: "This reservation has no staff email on file; allowance payment is unavailable." }, { status: 409 });
-    }
-    const previousDebt = await getOutstandingPreviousAllowanceDebt(reservation.credentialId, reservation.staffEmail);
-    if (previousDebt.blocked) {
-      return NextResponse.json({ error: "Previous allowance debt must be paid before using allowance in the new period.", previousDebt }, { status: 409 });
-    }
     allowanceUsed = calculateTotals(reservation.items.map((item) => ({ ...item, unitPrice: Number(item.unitPrice), unitCost: Number(item.unitCost) }))).revenue;
   }
 

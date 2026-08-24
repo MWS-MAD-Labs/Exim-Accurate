@@ -282,6 +282,7 @@ model PosSettings {
   workingDays            Int[]    @default([1, 2, 3, 4, 5]) // 0=Sunday .. 6=Saturday
   holidayDates           String[] @default([]) // Date-only values in YYYY-MM-DD format
   allowanceCutoffDay     Int      @default(22) // Normal cycle ends on this day; the next starts the day after
+  staffPaydayDay         Int      @default(28) // Monthly salary payday; previous-period debt is due by this date
   preorderHoldHours      Int      @default(4) // Hours that staff preorder stock remains locked
 
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)

@@ -28,10 +28,13 @@ interface Credential { id: string; appKey: string }
 interface Period { startsAt: string; endsAt: string; isCustom: boolean }
 interface PeriodOption extends Period { isOngoing: boolean }
 interface PreviousDebt {
+  hasOutstanding: boolean;
   blocked: boolean;
+  overdue: boolean;
   debt: number;
   paid: number;
   outstanding: number;
+  payday: string | null;
   period: { startsAt: string; endsAt: string };
 }
 interface Allowance {
@@ -422,7 +425,7 @@ export default function StaffAllowancePage() {
               <Table.Td>{formatMoney(entry.standardAllowance)}</Table.Td><Table.Td>{formatMoney(entry.manualAdjustment)}</Table.Td>
               <Table.Td><Text c={entry.totalAllowance < 0 ? "red" : undefined}>{formatMoney(entry.totalAllowance)}</Text></Table.Td><Table.Td>{formatMoney(entry.allowanceSpent)}</Table.Td>
               <Table.Td><Text fw={700} c={entry.remainingAllowance < 0 ? "red" : "green"}>{formatMoney(entry.remainingAllowance)}</Text></Table.Td>
-              <Table.Td><Text fw={700} c={entry.previousDebt.blocked ? "red" : "green"}>{entry.previousDebt.blocked ? formatMoney(entry.previousDebt.outstanding) : t.dashboard.pos.previousDebtPaidOrNone}</Text></Table.Td>
+              <Table.Td><Text fw={700} c={entry.previousDebt.blocked ? "red" : entry.previousDebt.hasOutstanding ? "orange" : "green"}>{entry.previousDebt.hasOutstanding ? formatMoney(entry.previousDebt.outstanding) : t.dashboard.pos.previousDebtPaidOrNone}</Text></Table.Td>
               <Table.Td><Button size="xs" variant="light" leftSection={<IconEdit size={14} />} onClick={() => void openDetail(entry)}>{t.dashboard.pos.details}</Button></Table.Td>
             </Table.Tr>)}</Table.Tbody>
           </Table>
@@ -434,7 +437,15 @@ export default function StaffAllowancePage() {
         {detail && <Stack>
           <Text c="dimmed">{detail.staffEmail} · {formatDate(detail.period.startsAt)} – {formatDate(detail.period.endsAt)}</Text>
           <Card withBorder><Text c="dimmed">{t.dashboard.pos.allowanceRemaining}</Text><Text size="2rem" fw={800} c={detail.remainingAllowance < 0 ? "red" : "green"}>{formatMoney(detail.remainingAllowance)}</Text><Text size="sm">{detail.effectiveWorkingDays} × {formatMoney(detail.dailyRate)} + {formatMoney(detail.manualAdjustment)} − {formatMoney(detail.allowanceSpent)}</Text></Card>
-          {detail.previousDebt.blocked && <Alert color="red">{t.dashboard.pos.debtBlockedAlert.replace("{amount}", formatMoney(detail.previousDebt.outstanding))}</Alert>}
+          {detail.previousDebt.hasOutstanding && (
+            <Alert color={detail.previousDebt.blocked ? "red" : "orange"}>
+              {detail.previousDebt.blocked
+                ? t.dashboard.pos.debtBlockedAlert.replace("{amount}", formatMoney(detail.previousDebt.outstanding))
+                : t.dashboard.pos.debtDueByPaydayAlert
+                    .replace("{amount}", formatMoney(detail.previousDebt.outstanding))
+                    .replace("{payday}", detail.previousDebt.payday ? formatDate(detail.previousDebt.payday) : t.dashboard.pos.notConfigured)}
+            </Alert>
+          )}
           <SimpleGrid cols={{ base: 2, sm: 4 }}>
             <Card withBorder><Text size="sm" c="dimmed">{t.dashboard.pos.baseDays}</Text><Text size="xl" fw={700}>{detail.baseWorkingDays}</Text></Card>
             <Card withBorder><Text size="sm" c="dimmed">{t.dashboard.pos.daysOff}</Text><Text size="xl" fw={700}>{detail.daysOffCount}</Text></Card>
@@ -460,11 +471,11 @@ export default function StaffAllowancePage() {
             <SimpleGrid cols={{ base: 1, sm: 3 }}>
               <div><Text size="sm" c="dimmed">{t.dashboard.pos.originalDebt}</Text><Text fw={700}>{formatMoney(detail.previousDebt.debt)}</Text></div>
               <div><Text size="sm" c="dimmed">{t.dashboard.pos.debtPaid}</Text><Text fw={700}>{formatMoney(detail.previousDebt.paid)}</Text></div>
-              <div><Text size="sm" c="dimmed">{t.dashboard.pos.debtOutstanding}</Text><Text fw={700} c={detail.previousDebt.blocked ? "red" : "green"}>{formatMoney(detail.previousDebt.outstanding)}</Text></div>
+              <div><Text size="sm" c="dimmed">{t.dashboard.pos.debtOutstanding}</Text><Text fw={700} c={detail.previousDebt.blocked ? "red" : detail.previousDebt.hasOutstanding ? "orange" : "green"}>{formatMoney(detail.previousDebt.outstanding)}</Text></div>
             </SimpleGrid>
             <Text size="xs" c="dimmed" mt="sm">{formatDate(detail.previousDebt.period.startsAt)} – {formatDate(detail.previousDebt.period.endsAt)}</Text>
           </Card>
-          {isAdmin && selectedPeriodOption?.isOngoing && detail.previousDebt.blocked && <Grid>
+          {isAdmin && selectedPeriodOption?.isOngoing && detail.previousDebt.hasOutstanding && <Grid>
             <Grid.Col span={{ base: 12, md: 4 }}><NumberInput label={t.dashboard.pos.debtPaymentAmount} value={debtPayment} onChange={(value) => setDebtPayment(typeof value === "number" ? value : "")} min={1} max={detail.previousDebt.outstanding} thousandSeparator="," /></Grid.Col>
             <Grid.Col span={{ base: 12, md: 5 }}><TextInput label={t.dashboard.pos.debtPaymentNote} value={debtPaymentNote} onChange={(event) => setDebtPaymentNote(event.currentTarget.value)} /></Grid.Col>
             <Grid.Col span={{ base: 12, md: 3 }}><Button mt={25} fullWidth onClick={() => void recordDebtPayment()} loading={saving} disabled={debtPayment === "" || debtPayment <= 0 || debtPayment > detail.previousDebt.outstanding}>{t.dashboard.pos.recordDebtPayment}</Button></Grid.Col>

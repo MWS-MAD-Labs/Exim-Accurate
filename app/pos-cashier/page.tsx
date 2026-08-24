@@ -61,10 +61,13 @@ interface CartLine extends CatalogProduct {
 }
 
 interface PreviousDebt {
+  hasOutstanding: boolean;
   blocked: boolean;
+  overdue: boolean;
   debt: number;
   paid: number;
   outstanding: number;
+  payday: string | null;
   period: { startsAt: string; endsAt: string };
 }
 
@@ -131,6 +134,8 @@ export default function PosCashierPage() {
   const [highlightedStaffSuggestion, setHighlightedStaffSuggestion] = useState(0);
   const [staffSuggestionNavigated, setStaffSuggestionNavigated] = useState(false);
   const [allowance, setAllowance] = useState<Allowance | null>(null);
+  const [blockedStaffDebt, setBlockedStaffDebt] = useState<PreviousDebt | null>(null);
+  const [confirmingDebtPayment, setConfirmingDebtPayment] = useState(false);
 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [itemLookup, setItemLookup] = useState("");
@@ -218,7 +223,16 @@ export default function PosCashierPage() {
     const response = await fetch(
       `/api/pos/allowance?credentialId=${credentialId}&email=${encodeURIComponent(trimmed)}`,
     );
-    if (response.ok) setAllowance(await response.json());
+    if (!response.ok) {
+      notify({ title: t.common.error, message: t.dashboard.pos.unableCheckStaffBalance, color: "red" });
+      return;
+    }
+    const staffAllowance = await response.json() as Allowance;
+    setAllowance(staffAllowance);
+    if (staffAllowance.previousDebt.blocked) {
+      setBlockedStaffDebt(staffAllowance.previousDebt);
+      return;
+    }
     setStep("shop");
   };
 
@@ -261,6 +275,44 @@ export default function PosCashierPage() {
       controller.abort();
     };
   }, [credentialId, staffEmail, step]);
+
+  const confirmDebtPaymentReceived = async () => {
+    if (!credentialId || !blockedStaffDebt || !staffEmail || confirmingDebtPayment) return;
+    setConfirmingDebtPayment(true);
+    try {
+      const response = await fetch(`/api/pos/allowance/users/${encodeURIComponent(staffEmail)}/debt-settlements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          credentialId,
+          periodStartsAt: blockedStaffDebt.period.startsAt.slice(0, 10),
+          periodEndsAt: blockedStaffDebt.period.endsAt.slice(0, 10),
+          amount: blockedStaffDebt.outstanding,
+          note: t.dashboard.pos.debtSettlementNoteAtCashier,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to record payment");
+      setAllowance((current) => current ? { ...current, previousDebt: data.previousDebt } : current);
+      setBlockedStaffDebt(null);
+      setStep("shop");
+      notify({
+        title: t.dashboard.pos.paymentReceived,
+        message: t.dashboard.pos.debtPaymentRecorded
+          .replace("{amount}", formatMoney(blockedStaffDebt.outstanding))
+          .replace("{staff}", staffName || staffEmail),
+        color: "green",
+      });
+    } catch (error) {
+      notify({
+        title: t.common.error,
+        message: error instanceof Error ? error.message : t.dashboard.pos.unableRecordDebtPayment,
+        color: "red",
+      });
+    } finally {
+      setConfirmingDebtPayment(false);
+    }
+  };
 
   const startGuestCheckout = useCallback(() => {
     setBuyerType("guest");
@@ -442,7 +494,7 @@ export default function PosCashierPage() {
       const allowanceResponse = await fetch(`/api/pos/allowance?credentialId=${encodeURIComponent(data.credentialId)}&email=${encodeURIComponent(data.staffEmail)}`);
       const pickupAllowance = allowanceResponse.ok ? await allowanceResponse.json() as Allowance : null;
       setPickupPreviousDebt(pickupAllowance?.previousDebt ?? null);
-      setPickupPaymentMethod(pickupAllowance?.previousDebt.blocked && data.preferredPaymentMethod === "allowance" ? null : data.preferredPaymentMethod || null);
+      setPickupPaymentMethod(pickupAllowance?.previousDebt.blocked ? null : data.preferredPaymentMethod || null);
       if (data.status !== "active") setPickupError(`This preorder is ${String(data.status).replace("_", " ")}.`);
     } catch (error) {
       setPickupReservation(null);
@@ -493,6 +545,7 @@ export default function PosCashierPage() {
     setHighlightedStaffSuggestion(0);
     setStaffSuggestionNavigated(false);
     setAllowance(null);
+    setBlockedStaffDebt(null);
     setCart([]);
     setItemLookup("");
     setSuggestions([]);
@@ -639,6 +692,35 @@ export default function PosCashierPage() {
       </Group>
 
       <Modal
+        opened={!!blockedStaffDebt}
+        onClose={() => undefined}
+        title={t.dashboard.pos.debtPaymentRequired}
+        centered
+        closeOnClickOutside={false}
+        closeOnEscape={false}
+        withCloseButton={false}
+      >
+        {blockedStaffDebt && (
+          <Stack>
+            <Alert color="red" title={t.dashboard.pos.previousBalanceOverdue}>
+              {t.dashboard.pos.debtOverdueCashierAlert.replace("{amount}", formatMoney(blockedStaffDebt.outstanding))}
+            </Alert>
+            <Text size="sm">
+              {t.dashboard.pos.staffSalaryPayday}: {blockedStaffDebt.payday ? new Date(blockedStaffDebt.payday).toLocaleDateString() : t.dashboard.pos.notConfigured}
+            </Text>
+            <Group grow>
+              <Button variant="default" disabled={confirmingDebtPayment} onClick={() => { setBlockedStaffDebt(null); setBuyerType(null); setAllowance(null); setStaffEmail(""); setStaffName(""); requestAnimationFrame(() => badgeInputRef.current?.focus()); }}>
+                {t.dashboard.pos.selectAnotherUser}
+              </Button>
+              <Button color="green" loading={confirmingDebtPayment} onClick={() => void confirmDebtPaymentReceived()}>
+                {t.dashboard.pos.confirmPaymentReceived}
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
+
+      <Modal
         opened={pickupOpened}
         onClose={() => setPickupOpened(false)}
         title="Preorder pickup"
@@ -688,10 +770,10 @@ export default function PosCashierPage() {
                   <Text fw={600}>Payment method <Text span size="xs" c="dimmed">(staff selected {pickupReservation.preferredPaymentMethod === "qris" ? "QRIS" : pickupReservation.preferredPaymentMethod === "allowance" ? "Allowance" : "Cash"})</Text></Text>
                   <SimpleGrid cols={3}>
                     <Button variant={pickupPaymentMethod === "allowance" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => setPickupPaymentMethod("allowance")}>Allowance</Button>
-                    <Button variant={pickupPaymentMethod === "cash" ? "filled" : "outline"} onClick={() => setPickupPaymentMethod("cash")}>Cash</Button>
-                    <Button variant={pickupPaymentMethod === "qris" ? "filled" : "outline"} onClick={() => setPickupPaymentMethod("qris")}>QRIS</Button>
+                    <Button variant={pickupPaymentMethod === "cash" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => setPickupPaymentMethod("cash")}>Cash</Button>
+                    <Button variant={pickupPaymentMethod === "qris" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => setPickupPaymentMethod("qris")}>QRIS</Button>
                   </SimpleGrid>
-                  {pickupPreviousDebt?.blocked && <Alert color="red">Previous allowance debt of {formatMoney(pickupPreviousDebt.outstanding)} must be paid before allowance can be used.</Alert>}
+                  {pickupPreviousDebt?.blocked && <Alert color="red">{t.dashboard.pos.pickupDebtOverdueAlert.replace("{amount}", formatMoney(pickupPreviousDebt.outstanding))}</Alert>}
                   <Group grow>
                     <Button variant="subtle" onClick={() => { setPickupReservation(null); setPickupPaymentMethod(null); setPickupPreviousDebt(null); setPickupError(""); setScannerKey((current) => current + 1); }}>Scan another</Button>
                     <Button loading={pickupLoading} disabled={!pickupPaymentMethod} onClick={() => void confirmPickup()}>Confirm pickup</Button>
@@ -1112,7 +1194,13 @@ export default function PosCashierPage() {
                   </Text>
                   <Text c="white">{allowance.used.toLocaleString()}</Text>
                 </Group>
-                {allowance.previousDebt.blocked && <Alert color="red" mt="md">Previous allowance debt of {formatMoney(allowance.previousDebt.outstanding)} must be paid before allowance can be used in this period.</Alert>}
+                {allowance.previousDebt.hasOutstanding && (
+                  <Alert color={allowance.previousDebt.blocked ? "red" : "orange"} mt="md">
+                    {t.dashboard.pos.previousNegativeBalance}: {formatMoney(allowance.previousDebt.outstanding)}. {allowance.previousDebt.blocked
+                      ? t.dashboard.pos.debtPaymentRequiredShort
+                      : t.dashboard.pos.debtDueByStaffPayday.replace("{payday}", allowance.previousDebt.payday ? new Date(allowance.previousDebt.payday).toLocaleDateString() : t.dashboard.pos.notConfigured)}
+                  </Alert>
+                )}
                 <Text size="xs" c="rgba(255,255,255,0.5)" mt="sm">
                   {t.dashboard.pos.allowancePeriod}:{" "}
                   {allowance.period.startsAt.slice(0, 10)} –{" "}
@@ -1158,7 +1246,7 @@ export default function PosCashierPage() {
               >
                 {t.dashboard.pos.payWithAllowance} (F10)
                 {allowance?.previousDebt.blocked
-                  ? " (previous debt unpaid)"
+                  ? ` (${t.dashboard.pos.paymentRequiredShort})`
                   : allowanceWillGoNegative
                     ? ` (${t.dashboard.pos.insufficientAllowance})`
                     : ""}

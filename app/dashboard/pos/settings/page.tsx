@@ -36,6 +36,7 @@ interface Settings {
   workingDays: number[];
   holidayDates: string[];
   allowanceCutoffDay: number;
+  staffPaydayDay: number;
   preorderHoldHours: number;
   allowancePeriodOverrides: Array<{ id: string; startsAt: string; endsAt: string }>;
 }
@@ -56,6 +57,7 @@ export default function PosSettingsPage() {
   const [workingDays, setWorkingDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [holidayDates, setHolidayDates] = useState<string[]>([]);
   const [allowanceCutoffDay, setAllowanceCutoffDay] = useState<number | "">(22);
+  const [staffPaydayDay, setStaffPaydayDay] = useState<number | "">(28);
   const [preorderHoldHours, setPreorderHoldHours] = useState<number | "">(4);
   const [allowancePeriodOverrides, setAllowancePeriodOverrides] = useState<AllowancePeriodOverride[]>([]);
   const [message, setMessage] = useState("");
@@ -79,6 +81,7 @@ export default function PosSettingsPage() {
         setWorkingDays(existing.workingDays);
         setHolidayDates(existing.holidayDates);
         setAllowanceCutoffDay(existing.allowanceCutoffDay);
+        setStaffPaydayDay(existing.staffPaydayDay);
         setPreorderHoldHours(existing.preorderHoldHours);
         setAllowancePeriodOverrides(existing.allowancePeriodOverrides.map(({ startsAt, endsAt }) => ({
           startsAt: startsAt.slice(0, 10),
@@ -91,6 +94,7 @@ export default function PosSettingsPage() {
         setWorkingDays([1, 2, 3, 4, 5]);
         setHolidayDates([]);
         setAllowanceCutoffDay(22);
+        setStaffPaydayDay(28);
         setPreorderHoldHours(4);
         setAllowancePeriodOverrides([]);
       }
@@ -144,6 +148,7 @@ export default function PosSettingsPage() {
           workingDays,
           holidayDates,
           allowanceCutoffDay: allowanceCutoffDay || 22,
+          staffPaydayDay: staffPaydayDay || 28,
           preorderHoldHours: preorderHoldHours || 4,
           allowancePeriodOverrides,
         }),
@@ -203,6 +208,15 @@ export default function PosSettingsPage() {
             description={t.dashboard.pos.allowanceCutoffDayDescription}
             value={allowanceCutoffDay}
             onChange={(value) => setAllowanceCutoffDay(typeof value === "number" ? value : "")}
+            min={1}
+            max={28}
+            disabled={!credentialId}
+          />
+          <NumberInput
+            label={t.dashboard.pos.staffSalaryPayday}
+            description={t.dashboard.pos.staffSalaryPaydayDescription}
+            value={staffPaydayDay}
+            onChange={(value) => setStaffPaydayDay(typeof value === "number" ? value : "")}
             min={1}
             max={28}
             disabled={!credentialId}

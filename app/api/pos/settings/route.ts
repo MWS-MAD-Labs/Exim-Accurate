@@ -17,6 +17,7 @@ const schema = z.object({
   workingDays: z.array(z.number().int().min(0).max(6)).min(1).max(7).default([1, 2, 3, 4, 5]),
   holidayDates: z.array(dateOnlySchema).default([]),
   allowanceCutoffDay: z.number().int().min(1).max(28).default(22),
+  staffPaydayDay: z.number().int().min(1).max(28).default(28),
   preorderHoldHours: z.number().int().min(1).max(168).default(4),
   allowancePeriodOverrides: z.array(z.object({
     startsAt: dateOnlySchema,
@@ -41,7 +42,7 @@ export async function GET() {
     where: { organizationId },
     select: {
       id: true, credentialId: true, warehouseId: true, warehouseName: true, isActive: true, allowancePerWorkingDay: true, workingDays: true,
-      holidayDates: true, allowanceCutoffDay: true, preorderHoldHours: true, updatedAt: true,
+      holidayDates: true, allowanceCutoffDay: true, staffPaydayDay: true, preorderHoldHours: true, updatedAt: true,
     },
   });
   const overrides = await prisma.posAllowancePeriodOverride.findMany({
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
   if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
-  const { credentialId, warehouseId, warehouseName, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, preorderHoldHours, allowancePeriodOverrides } = parsed.data;
+  const { credentialId, warehouseId, warehouseName, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, staffPaydayDay, preorderHoldHours, allowancePeriodOverrides } = parsed.data;
   const organizationId = await getOrganizationIdForUser(session.user.id);
   if (!organizationId) return NextResponse.json({ error: "Organization not found" }, { status: 403 });
   const credential = await prisma.accurateCredentials.findFirst({ where: { id: credentialId, organizationId, disconnectedAt: null } });
@@ -84,8 +85,8 @@ export async function POST(req: NextRequest) {
       });
       const saved = await tx.posSettings.upsert({
         where: { credentialId },
-        update: { warehouseId, warehouseName, isActive: true, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, preorderHoldHours },
-        create: { organizationId, userId: session.user.id, credentialId, warehouseId, warehouseName, isActive: true, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, preorderHoldHours },
+        update: { warehouseId, warehouseName, isActive: true, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, staffPaydayDay, preorderHoldHours },
+        create: { organizationId, userId: session.user.id, credentialId, warehouseId, warehouseName, isActive: true, allowancePerWorkingDay, workingDays, holidayDates, allowanceCutoffDay, staffPaydayDay, preorderHoldHours },
       });
       await tx.posAllowancePeriodOverride.deleteMany({ where: { credentialId } });
       if (allowancePeriodOverrides.length) {

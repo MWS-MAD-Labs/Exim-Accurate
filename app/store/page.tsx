@@ -46,6 +46,7 @@ import {
 import { signOut, useSession } from "next-auth/react";
 import { createIdempotencyKey } from "@/lib/browser-id";
 import { createReservationQrPayload } from "@/lib/reservation-qr";
+import { useLanguage } from "@/lib/language";
 
 interface StoreInfo {
   warehouseName: string;
@@ -58,8 +59,11 @@ interface Allowance {
   remaining: number;
   period: { startsAt: string; endsAt: string; isCustom: boolean };
   previousDebt: {
+    hasOutstanding: boolean;
     blocked: boolean;
+    overdue: boolean;
     outstanding: number;
+    payday: string;
   };
 }
 
@@ -127,6 +131,7 @@ function statusMeta(status: Reservation["status"]) {
 
 export default function StorePage() {
   const { data: session } = useSession();
+  const { t } = useLanguage();
   const [cartOpened, cartHandlers] = useDisclosure(false);
   const [store, setStore] = useState<StoreInfo | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -434,7 +439,15 @@ export default function StorePage() {
           </ScrollArea>
           <Divider />
           <Group justify="space-between"><Text fw={600}>Total</Text><Text fw={800} size="xl">{formatMoney(cartTotal)}</Text></Group>
-          {allowance?.previousDebt.blocked && <Alert color="red" icon={<IconAlertCircle size={18} />}>Previous allowance debt of {formatMoney(allowance.previousDebt.outstanding)} must be paid before allowance can be used in this period.</Alert>}
+          {allowance?.previousDebt.hasOutstanding && (
+            <Alert color={allowance.previousDebt.blocked ? "red" : "orange"} icon={<IconAlertCircle size={18} />}>
+              {allowance.previousDebt.blocked
+                ? t.dashboard.pos.debtBlockedAlert.replace("{amount}", formatMoney(allowance.previousDebt.outstanding))
+                : t.dashboard.pos.debtDueByPaydayAlert
+                    .replace("{amount}", formatMoney(allowance.previousDebt.outstanding))
+                    .replace("{payday}", new Date(allowance.previousDebt.payday).toLocaleDateString())}
+            </Alert>
+          )}
           <Paper withBorder p="md" radius="md">
             <Group justify="space-between" align="flex-start">
               <Group gap="sm">

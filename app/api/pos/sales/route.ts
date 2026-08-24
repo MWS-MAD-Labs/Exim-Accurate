@@ -34,14 +34,14 @@ export async function POST(req: NextRequest) {
   const normalizedStaffEmail = staffEmail?.toLowerCase().trim();
 
   let allowanceUsed = 0;
-  if (paymentMethod === "allowance") {
-    if (!normalizedStaffEmail) return NextResponse.json({ error: "staffEmail is required for allowance payment" }, { status: 400 });
+  if (buyerType === "staff") {
+    if (!normalizedStaffEmail) return NextResponse.json({ error: "staffEmail is required for staff transactions" }, { status: 400 });
     const previousDebt = await getOutstandingPreviousAllowanceDebt(credentialId, normalizedStaffEmail);
     if (previousDebt.blocked) {
-      return NextResponse.json({ error: "Previous allowance debt must be paid before using allowance in the new period.", previousDebt }, { status: 409 });
+      return NextResponse.json({ error: "Previous-period negative balance must be paid before another transaction can be completed.", previousDebt }, { status: 409 });
     }
-    allowanceUsed = calculateTotals(items).revenue;
   }
+  if (paymentMethod === "allowance") allowanceUsed = calculateTotals(items).revenue;
 
   const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ credentialId, paymentMethod, items, buyerType, staffEmail: normalizedStaffEmail })).digest("hex");
   const existing = await prisma.posSale.findUnique({ where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } }, include: { items: true } });

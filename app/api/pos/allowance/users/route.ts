@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { prisma } from "@/lib/prisma";
 import { calculateStaffAllowanceBreakdown, dateOnlySchema, parseDateOnly } from "@/lib/pos";
-import { buildPreviousAllowanceDebt, isAdmin, resolveStaffAllowancePeriod } from "@/lib/pos-server";
+import { buildPreviousAllowanceDebt, getStaffPaydayForPeriod, isAdmin, resolveStaffAllowancePeriod } from "@/lib/pos-server";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -203,6 +203,8 @@ export async function GET(req: NextRequest) {
       previousBreakdown.remainingAllowance,
       settlementMap.get(staffEmail) ?? 0,
       previousPeriod,
+      getStaffPaydayForPeriod(period, settings?.staffPaydayDay ?? 28),
+      new Date(),
     );
     return {
       staffEmail,

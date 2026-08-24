@@ -5,7 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { dateOnlySchema, parseDateOnly } from "@/lib/pos";
 import { prisma } from "@/lib/prisma";
-import { getOutstandingPreviousAllowanceDebt, isAdmin, withSerializableRetry } from "@/lib/pos-server";
+import { getOutstandingPreviousAllowanceDebt, withSerializableRetry } from "@/lib/pos-server";
+import { canOperatePos } from "@/lib/access-control";
 
 const schema = z.object({
   credentialId: z.string().uuid(),
@@ -21,7 +22,7 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!canOperatePos(session.user.role)) return NextResponse.json({ error: "POS operator access required" }, { status: 403 });
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid debt payment" }, { status: 400 });
@@ -40,7 +41,7 @@ export async function POST(
   ) {
     return NextResponse.json({ error: "Debt period is no longer the previous allowance period", previousDebt: debtStatus }, { status: 409 });
   }
-  if (!debtStatus.blocked) return NextResponse.json({ error: "There is no outstanding previous-period debt", previousDebt: debtStatus }, { status: 409 });
+  if (!debtStatus.hasOutstanding) return NextResponse.json({ error: "There is no outstanding previous-period debt", previousDebt: debtStatus }, { status: 409 });
 
   const settlement = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
     const settlements = await tx.posStaffAllowanceDebtSettlement.aggregate({

@@ -145,19 +145,34 @@ export async function getStaffAllowance(
   };
 }
 
+export function getStaffPaydayForPeriod(currentPeriod: AllowancePeriod, paydayDay: number) {
+  const periodStart = startOfDate(currentPeriod.startsAt);
+  const safePaydayDay = Math.min(28, Math.max(1, Math.trunc(paydayDay)));
+  const payday = new Date(periodStart.getFullYear(), periodStart.getMonth(), safePaydayDay);
+  if (payday < periodStart) payday.setMonth(payday.getMonth() + 1);
+  return startOfDate(payday);
+}
+
 export function buildPreviousAllowanceDebt(
   previousRemaining: number,
   paidSum: number,
   period: AllowancePeriod,
+  payday: Date,
+  now = new Date(),
 ) {
   const debt = Math.max(0, -previousRemaining);
   const paid = Math.max(0, paidSum);
   const outstanding = Math.max(0, debt - paid);
+  const normalizedPayday = startOfDate(payday);
+  const overdue = outstanding > 0 && startOfDate(now) > normalizedPayday;
   return {
-    blocked: outstanding > 0,
+    hasOutstanding: outstanding > 0,
+    blocked: overdue,
+    overdue,
     debt,
     paid,
     outstanding,
+    payday: normalizedPayday.toISOString(),
     period: {
       startsAt: period.startsAt.toISOString(),
       endsAt: period.endsAt.toISOString(),
@@ -174,7 +189,7 @@ export async function getOutstandingPreviousAllowanceDebt(
   const normalizedEmail = staffEmail.toLowerCase().trim();
   const settings = await prisma.posSettings.findUnique({
     where: { credentialId },
-    select: { allowanceCutoffDay: true },
+    select: { allowanceCutoffDay: true, staffPaydayDay: true },
   });
   const resolvedCurrent = currentPeriod
     ? { period: { startsAt: startOfDate(currentPeriod.startsAt), endsAt: startOfDate(currentPeriod.endsAt) } }
@@ -200,6 +215,8 @@ export async function getOutstandingPreviousAllowanceDebt(
     previousAllowance.remaining,
     Number(settlements._sum.amount ?? 0),
     previousPeriod,
+    getStaffPaydayForPeriod(resolvedCurrent.period, settings?.staffPaydayDay ?? 28),
+    now,
   );
 }
 
