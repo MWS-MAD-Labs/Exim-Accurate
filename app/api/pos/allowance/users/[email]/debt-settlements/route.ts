@@ -39,9 +39,9 @@ export async function POST(
     requestedStartsAt.getTime() !== new Date(debtStatus.period.startsAt).getTime() ||
     requestedEndsAt.getTime() !== new Date(debtStatus.period.endsAt).getTime()
   ) {
-    return NextResponse.json({ error: "Debt period is no longer the previous allowance period", previousDebt: debtStatus }, { status: 409 });
+    return NextResponse.json({ code: "DEBT_PERIOD_CHANGED", error: "Debt period is no longer the previous allowance period", previousDebt: debtStatus }, { status: 409 });
   }
-  if (!debtStatus.hasOutstanding) return NextResponse.json({ error: "There is no outstanding previous-period debt", previousDebt: debtStatus }, { status: 409 });
+  if (!debtStatus.hasOutstanding) return NextResponse.json({ code: "DEBT_ALREADY_PAID", error: "There is no outstanding previous-period debt", previousDebt: debtStatus }, { status: 409 });
 
   const settlement = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
     const settlements = await tx.posStaffAllowanceDebtSettlement.aggregate({
@@ -71,8 +71,14 @@ export async function POST(
     if (error instanceof Error && ["DEBT_ALREADY_PAID", "PAYMENT_EXCEEDS_DEBT"].includes(error.message)) return error.message;
     throw error;
   });
-  if (settlement === "DEBT_ALREADY_PAID") return NextResponse.json({ error: "There is no outstanding previous-period debt" }, { status: 409 });
-  if (settlement === "PAYMENT_EXCEEDS_DEBT") return NextResponse.json({ error: "Payment exceeds the outstanding debt" }, { status: 400 });
+  if (settlement === "DEBT_ALREADY_PAID") {
+    const previousDebt = await getOutstandingPreviousAllowanceDebt(parsed.data.credentialId, staffEmail);
+    return NextResponse.json({ code: "DEBT_ALREADY_PAID", error: "There is no outstanding previous-period debt", previousDebt }, { status: 409 });
+  }
+  if (settlement === "PAYMENT_EXCEEDS_DEBT") {
+    const previousDebt = await getOutstandingPreviousAllowanceDebt(parsed.data.credentialId, staffEmail);
+    return NextResponse.json({ code: "PAYMENT_EXCEEDS_DEBT", error: "Payment exceeds the outstanding debt", previousDebt }, { status: 400 });
+  }
   const previousDebt = await getOutstandingPreviousAllowanceDebt(parsed.data.credentialId, staffEmail);
   return NextResponse.json({ settlement, previousDebt }, { status: 201 });
 }

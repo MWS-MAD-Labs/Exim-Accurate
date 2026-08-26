@@ -134,7 +134,7 @@ export default function PosCashierPage() {
   const [highlightedStaffSuggestion, setHighlightedStaffSuggestion] = useState(0);
   const [staffSuggestionNavigated, setStaffSuggestionNavigated] = useState(false);
   const [allowance, setAllowance] = useState<Allowance | null>(null);
-  const [blockedStaffDebt, setBlockedStaffDebt] = useState<PreviousDebt | null>(null);
+  const [staffDebtPrompt, setStaffDebtPrompt] = useState<PreviousDebt | null>(null);
   const [confirmingDebtPayment, setConfirmingDebtPayment] = useState(false);
 
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -229,8 +229,8 @@ export default function PosCashierPage() {
     }
     const staffAllowance = await response.json() as Allowance;
     setAllowance(staffAllowance);
-    if (staffAllowance.previousDebt.blocked) {
-      setBlockedStaffDebt(staffAllowance.previousDebt);
+    if (staffAllowance.previousDebt.hasOutstanding) {
+      setStaffDebtPrompt(staffAllowance.previousDebt);
       return;
     }
     setStep("shop");
@@ -277,7 +277,8 @@ export default function PosCashierPage() {
   }, [credentialId, staffEmail, step]);
 
   const confirmDebtPaymentReceived = async () => {
-    if (!credentialId || !blockedStaffDebt || !staffEmail || confirmingDebtPayment) return;
+    if (!credentialId || !staffDebtPrompt || !staffEmail || confirmingDebtPayment) return;
+    const paymentAmount = staffDebtPrompt.outstanding;
     setConfirmingDebtPayment(true);
     try {
       const response = await fetch(`/api/pos/allowance/users/${encodeURIComponent(staffEmail)}/debt-settlements`, {
@@ -285,23 +286,53 @@ export default function PosCashierPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           credentialId,
-          periodStartsAt: blockedStaffDebt.period.startsAt.slice(0, 10),
-          periodEndsAt: blockedStaffDebt.period.endsAt.slice(0, 10),
-          amount: blockedStaffDebt.outstanding,
+          periodStartsAt: staffDebtPrompt.period.startsAt.slice(0, 10),
+          periodEndsAt: staffDebtPrompt.period.endsAt.slice(0, 10),
+          amount: paymentAmount,
           note: t.dashboard.pos.debtSettlementNoteAtCashier,
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to record payment");
-      setAllowance((current) => current ? { ...current, previousDebt: data.previousDebt } : current);
-      setBlockedStaffDebt(null);
+      const alreadyPaid = data.code === "DEBT_ALREADY_PAID";
+      const periodChanged = data.code === "DEBT_PERIOD_CHANGED";
+      const paymentExceedsDebt = data.code === "PAYMENT_EXCEEDS_DEBT";
+      const paidConcurrently = paymentExceedsDebt && data.previousDebt && !data.previousDebt.hasOutstanding;
+      const debtCleared = alreadyPaid || paidConcurrently;
+      const outstandingChanged = paymentExceedsDebt && data.previousDebt?.hasOutstanding;
+
+      if (outstandingChanged || (periodChanged && data.previousDebt?.hasOutstanding)) {
+        setAllowance((current) => current ? { ...current, previousDebt: data.previousDebt } : current);
+        setStaffDebtPrompt(data.previousDebt);
+        notify({
+          title: periodChanged ? t.dashboard.pos.debtPeriodChanged : t.dashboard.pos.debtAmountUpdated,
+          message: periodChanged
+            ? t.dashboard.pos.debtPeriodChangedOutstandingMessage.replace("{amount}", formatMoney(data.previousDebt.outstanding))
+            : t.dashboard.pos.debtAmountUpdatedMessage.replace("{amount}", formatMoney(data.previousDebt.outstanding)),
+          color: "orange",
+        });
+        return;
+      }
+      if (!response.ok && !debtCleared && !periodChanged) {
+        throw new Error(data.error || t.dashboard.pos.unableRecordDebtPayment);
+      }
+
+      if (data.previousDebt) setAllowance((current) => current ? { ...current, previousDebt: data.previousDebt } : current);
+      setStaffDebtPrompt(null);
       setStep("shop");
       notify({
-        title: t.dashboard.pos.paymentReceived,
-        message: t.dashboard.pos.debtPaymentRecorded
-          .replace("{amount}", formatMoney(blockedStaffDebt.outstanding))
-          .replace("{staff}", staffName || staffEmail),
-        color: "green",
+        title: debtCleared
+          ? t.dashboard.pos.debtAlreadyPaid
+          : periodChanged
+            ? t.dashboard.pos.debtPeriodChanged
+            : t.dashboard.pos.paymentReceived,
+        message: debtCleared
+          ? t.dashboard.pos.debtAlreadyPaidMessage.replace("{staff}", staffName || staffEmail)
+          : periodChanged
+            ? t.dashboard.pos.debtPeriodChangedMessage
+            : t.dashboard.pos.debtPaymentRecorded
+                .replace("{amount}", formatMoney(paymentAmount))
+                .replace("{staff}", staffName || staffEmail),
+        color: periodChanged ? "blue" : "green",
       });
     } catch (error) {
       notify({
@@ -545,7 +576,7 @@ export default function PosCashierPage() {
     setHighlightedStaffSuggestion(0);
     setStaffSuggestionNavigated(false);
     setAllowance(null);
-    setBlockedStaffDebt(null);
+    setStaffDebtPrompt(null);
     setCart([]);
     setItemLookup("");
     setSuggestions([]);
@@ -692,26 +723,38 @@ export default function PosCashierPage() {
       </Group>
 
       <Modal
-        opened={!!blockedStaffDebt}
+        opened={!!staffDebtPrompt}
         onClose={() => undefined}
-        title={t.dashboard.pos.debtPaymentRequired}
+        title={staffDebtPrompt?.blocked ? t.dashboard.pos.debtPaymentRequired : t.dashboard.pos.previousPeriodDebt}
         centered
         closeOnClickOutside={false}
         closeOnEscape={false}
         withCloseButton={false}
       >
-        {blockedStaffDebt && (
+        {staffDebtPrompt && (
           <Stack>
-            <Alert color="red" title={t.dashboard.pos.previousBalanceOverdue}>
-              {t.dashboard.pos.debtOverdueCashierAlert.replace("{amount}", formatMoney(blockedStaffDebt.outstanding))}
+            <Alert
+              color={staffDebtPrompt.blocked ? "red" : "orange"}
+              title={staffDebtPrompt.blocked ? t.dashboard.pos.previousBalanceOverdue : t.dashboard.pos.previousDebtPaymentAvailable}
+            >
+              {staffDebtPrompt.blocked
+                ? t.dashboard.pos.debtOverdueCashierAlert.replace("{amount}", formatMoney(staffDebtPrompt.outstanding))
+                : t.dashboard.pos.debtPaymentAvailableCashierAlert
+                    .replace("{amount}", formatMoney(staffDebtPrompt.outstanding))
+                    .replace("{payday}", staffDebtPrompt.payday ? new Date(staffDebtPrompt.payday).toLocaleDateString() : t.dashboard.pos.notConfigured)}
             </Alert>
             <Text size="sm">
-              {t.dashboard.pos.staffSalaryPayday}: {blockedStaffDebt.payday ? new Date(blockedStaffDebt.payday).toLocaleDateString() : t.dashboard.pos.notConfigured}
+              {t.dashboard.pos.staffSalaryPayday}: {staffDebtPrompt.payday ? new Date(staffDebtPrompt.payday).toLocaleDateString() : t.dashboard.pos.notConfigured}
             </Text>
             <Group grow>
-              <Button variant="default" disabled={confirmingDebtPayment} onClick={() => { setBlockedStaffDebt(null); setBuyerType(null); setAllowance(null); setStaffEmail(""); setStaffName(""); requestAnimationFrame(() => badgeInputRef.current?.focus()); }}>
+              <Button variant="default" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setBuyerType(null); setAllowance(null); setStaffEmail(""); setStaffName(""); requestAnimationFrame(() => badgeInputRef.current?.focus()); }}>
                 {t.dashboard.pos.selectAnotherUser}
               </Button>
+              {!staffDebtPrompt.blocked && (
+                <Button variant="light" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setStep("shop"); }}>
+                  {t.dashboard.pos.payLaterBeforePayday}
+                </Button>
+              )}
               <Button color="green" loading={confirmingDebtPayment} onClick={() => void confirmDebtPaymentReceived()}>
                 {t.dashboard.pos.confirmPaymentReceived}
               </Button>

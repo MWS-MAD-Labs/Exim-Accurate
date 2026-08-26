@@ -123,6 +123,16 @@ Validate the file before starting the import.
 
 Suggestions are limited to users with the `staff` role in the selected POS credential's organization. The typeahead requires a non-empty search term and returns at most eight results.
 
+### POS Cashier Previous-Period Debt Payments
+
+When a new allowance period starts, identifying a staff member with an outstanding negative balance from the previous period opens a debt-payment prompt in POS Cashier immediately, even before the configured staff salary payday.
+
+- Before and through payday, the cashier can confirm that the full payment was received, let the staff member continue and pay later, or select another user.
+- After payday, the outstanding debt blocks staff POS transactions until the cashier confirms payment.
+- Confirmed payments are recorded as allowance debt settlements for the previous period and immediately clear the block when fully paid.
+- If another cashier or administrator records a payment while the prompt is open, POS Cashier refreshes the current debt status. A concurrent full payment continues checkout as already paid, while a partial payment updates the amount still due.
+- If the allowance period changes while the prompt is open, POS Cashier refreshes the applicable previous-period debt before allowing checkout or accepting payment.
+
 ### POS Checkout Receipt Emails
 
 After a staff cashier sale or preorder pickup is confirmed in Accurate, Exima sends a branded Millennia Mart receipt only when the recorded email belongs to a registered `staff` user in the POS organization. The receipt includes purchased items, payment method, total payment, and the current remaining allowance balance. Delivery runs after the HTTP response and cannot fail the checkout; sale-level status fields prevent duplicate receipts.
