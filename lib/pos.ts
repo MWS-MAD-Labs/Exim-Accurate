@@ -3,6 +3,26 @@ import { z } from "zod";
 
 export const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
+export const DAY_MS = 24 * 60 * 60 * 1000;
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+export function dateOnlyOrdinal(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return Date.UTC(year, month - 1, day);
+}
+
+export function addDateOnly(value: string, days: number) {
+  return new Date(dateOnlyOrdinal(value) + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+export function jakartaDateStart(value: string) {
+  return new Date(dateOnlyOrdinal(value) - JAKARTA_OFFSET_MS);
+}
+
+export function jakartaDateKey(value: Date) {
+  return new Date(value.getTime() + JAKARTA_OFFSET_MS).toISOString().slice(0, 10);
+}
+
 export function parseDateOnly(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);

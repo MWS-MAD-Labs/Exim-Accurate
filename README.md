@@ -10,7 +10,7 @@ Exima extends Accurate Online with inventory adjustment import/export, self-chec
 - Organization-owned credential management
 - Self-checkout and kiosk workflows
 - Borrowing, booking, return, and availability management
-- POS catalog, reservations, sales, allowances, checkout receipt emails, cutoff email notifications, registered-staff email suggestions, and Accurate synchronization
+- POS catalog, reservations, sales, sales journal, allowances, checkout receipt emails, cutoff email notifications, registered-staff email suggestions, and Accurate synchronization
 - Organization-scoped operational analytics
 - Role-based access for admins, resource managers, cashiers, and staff
 
@@ -113,6 +113,20 @@ Supported CSV/XLSX columns:
 | `referenceNumber` | No | Optional reference |
 
 Validate the file before starting the import.
+
+### POS Sales Log
+
+Administrators can open **Point of Sales → Sales Log** at `/dashboard/pos/sales-log` to review an organization-scoped sales journal.
+
+- The default date range is today and the default period grouping is daily.
+- Quick date presets are available for today, the last 7 days, and the last 30 days.
+- Sales can be filtered by buyer or cashier, item, payment method, Accurate credential/store, and date range.
+- Summary cards show total sales, transaction count, units sold, and average sale for the filtered period.
+- Period totals can be grouped daily, weekly, or monthly. Weekly periods start on Monday and all report boundaries use Jakarta time.
+- Transaction rows include the buyer, cashier, sold items, payment method, synchronization status, warehouse, and total.
+- The journal displays the latest 500 matching transactions. Summary cards and grouped totals still include every matching transaction.
+
+The supporting `GET /api/pos/sales/log` endpoint requires an administrator session, scopes every query through the administrator's organization, validates a maximum date range of 366 days, and rejects malformed filter values.
 
 ### POS Cashier Staff Identification
 

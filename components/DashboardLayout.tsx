@@ -40,6 +40,7 @@ import {
   IconUsers,
   IconClock,
   IconWallet,
+  IconReceipt,
 } from "@tabler/icons-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
@@ -209,6 +210,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           label: "POS Cashier",
           icon: <IconShoppingCart size={16} />,
           href: "/pos-cashier",
+        },
+        {
+          label: "Sales Log",
+          icon: <IconReceipt size={16} />,
+          href: "/dashboard/pos/sales-log",
         },
         {
           label: "Stock Management",

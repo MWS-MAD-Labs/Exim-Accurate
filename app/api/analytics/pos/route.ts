@@ -6,12 +6,17 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { getOrganizationIdForUser } from "@/lib/organization";
-import { dateOnlySchema } from "@/lib/pos";
+import {
+  DAY_MS,
+  addDateOnly,
+  dateOnlyOrdinal,
+  dateOnlySchema,
+  jakartaDateKey,
+  jakartaDateStart,
+} from "@/lib/pos";
 import { isAdmin } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
 const MAX_RANGE_DAYS = 366;
 
 const querySchema = z.object({
@@ -29,22 +34,6 @@ interface ItemAggregate {
   cost: Prisma.Decimal;
 }
 
-function dateOnlyOrdinal(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  return Date.UTC(year, month - 1, day);
-}
-
-function addDateOnly(value: string, days: number) {
-  return new Date(dateOnlyOrdinal(value) + days * DAY_MS).toISOString().slice(0, 10);
-}
-
-function jakartaDateStart(value: string) {
-  return new Date(dateOnlyOrdinal(value) - JAKARTA_OFFSET_MS);
-}
-
-function jakartaDateKey(value: Date) {
-  return new Date(value.getTime() + JAKARTA_OFFSET_MS).toISOString().slice(0, 10);
-}
 
 function percentageChange(current: Prisma.Decimal, previous: Prisma.Decimal) {
   if (previous.isZero()) return current.isZero() ? 0 : null;
