@@ -107,7 +107,7 @@ Parameters:
 - `credentialId` — required UUID for an active POS credential
 - `search` — required non-empty staff name or email fragment
 
-The endpoint returns at most eight registered users with role `staff` from the credential's organization. Matching is case-insensitive across name and email. An empty search returns `{ "staff": [] }`, preventing unfiltered staff enumeration. The cashier typeahead debounces requests, supports keyboard and mouse selection, and preserves the registered name when starting checkout. Manual email identification remains supported for staff who have not been registered in the application.
+The endpoint returns at most eight registered users from the credential's organization, regardless of application role, because any registered user may be identified for a POS allowance transaction. Matching is case-insensitive across name and email. An empty search returns `{ "staff": [] }`, preventing unfiltered user enumeration. Responses use `Cache-Control: private, no-store`, and the cashier typeahead also sends uncached requests so newly registered users are available immediately once their name or email is entered. The typeahead debounces requests, refreshes an existing query when refocused, supports keyboard and mouse selection, and preserves the registered name when starting checkout. Manual email identification remains supported for people who have not been registered in the application.
 
 ### Current-user/single-user allowance
 

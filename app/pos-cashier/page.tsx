@@ -131,6 +131,8 @@ export default function PosCashierPage() {
   const [staffName, setStaffName] = useState("");
   const [staffSuggestions, setStaffSuggestions] = useState<StaffSuggestion[]>([]);
   const [staffSuggestionsLoading, setStaffSuggestionsLoading] = useState(false);
+  const [staffSuggestionsOpen, setStaffSuggestionsOpen] = useState(false);
+  const [staffSuggestionsRefresh, setStaffSuggestionsRefresh] = useState(0);
   const [highlightedStaffSuggestion, setHighlightedStaffSuggestion] = useState(0);
   const [staffSuggestionNavigated, setStaffSuggestionNavigated] = useState(false);
   const [allowance, setAllowance] = useState<Allowance | null>(null);
@@ -217,6 +219,7 @@ export default function PosCashierPage() {
     );
     setStaffEmail(trimmed);
     setStaffName(registeredName || matchedStaff?.name || parseStaffInfo(trimmed));
+    setStaffSuggestionsOpen(false);
     setStaffSuggestions([]);
     setBuyerType("staff");
     setAllowance(null);
@@ -238,7 +241,12 @@ export default function PosCashierPage() {
 
   useEffect(() => {
     const query = staffEmail.trim();
-    if (step !== "identify" || !credentialId || query.length < 1) {
+    if (
+      step !== "identify" ||
+      !credentialId ||
+      !staffSuggestionsOpen ||
+      query.length < 1
+    ) {
       setStaffSuggestions([]);
       setStaffSuggestionsLoading(false);
       return;
@@ -253,6 +261,7 @@ export default function PosCashierPage() {
           search: query,
         });
         const response = await fetch(`/api/pos/staff?${params}`, {
+          cache: "no-store",
           signal: controller.signal,
         });
         if (!response.ok) {
@@ -274,7 +283,7 @@ export default function PosCashierPage() {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [credentialId, staffEmail, step]);
+  }, [credentialId, staffEmail, staffSuggestionsOpen, staffSuggestionsRefresh, step]);
 
   const confirmDebtPaymentReceived = async () => {
     if (!credentialId || !staffDebtPrompt || !staffEmail || confirmingDebtPayment) return;
@@ -573,6 +582,7 @@ export default function PosCashierPage() {
     setStaffName("");
     setStaffSuggestions([]);
     setStaffSuggestionsLoading(false);
+    setStaffSuggestionsOpen(false);
     setHighlightedStaffSuggestion(0);
     setStaffSuggestionNavigated(false);
     setAllowance(null);
@@ -848,8 +858,14 @@ export default function PosCashierPage() {
               onChange={(event) => {
                 setStaffEmail(event.currentTarget.value);
                 setStaffName("");
+                setStaffSuggestionsOpen(true);
                 setStaffSuggestionNavigated(false);
               }}
+              onFocus={() => {
+                setStaffSuggestionsOpen(true);
+                setStaffSuggestionsRefresh((current) => current + 1);
+              }}
+              onBlur={() => setStaffSuggestionsOpen(false)}
               onKeyDown={(event) => {
                 if (event.key === "ArrowDown" && staffSuggestions.length > 0) {
                   event.preventDefault();
@@ -883,13 +899,14 @@ export default function PosCashierPage() {
                     void identifyStaff(staffEmail);
                   }
                 } else if (event.key === "Escape") {
+                  setStaffSuggestionsOpen(false);
                   setStaffSuggestions([]);
                 }
               }}
               leftSection={<IconUser size={16} />}
               rightSection={staffSuggestionsLoading ? <Loader size="xs" /> : null}
               role="combobox"
-              aria-expanded={staffSuggestions.length > 0}
+              aria-expanded={staffSuggestionsOpen && staffSuggestions.length > 0}
               aria-controls="pos-staff-suggestions"
               aria-activedescendant={
                 staffSuggestions[highlightedStaffSuggestion]
@@ -900,7 +917,7 @@ export default function PosCashierPage() {
               size="lg"
               styles={inputStyles}
             />
-            {staffSuggestions.length > 0 && (
+            {staffSuggestionsOpen && staffSuggestions.length > 0 && (
               <Card
                 id="pos-staff-suggestions"
                 role="listbox"

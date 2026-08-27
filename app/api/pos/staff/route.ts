@@ -40,7 +40,12 @@ export async function GET(req: NextRequest) {
   }
 
   const search = parsed.data.search;
-  if (!search) return NextResponse.json({ staff: [] });
+  if (!search) {
+    return NextResponse.json(
+      { staff: [] },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
 
   const staff = await prisma.user.findMany({
     where: {
@@ -55,5 +60,8 @@ export async function GET(req: NextRequest) {
     take: 8,
   });
 
-  return NextResponse.json({ staff });
+  return NextResponse.json(
+    { staff },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }
