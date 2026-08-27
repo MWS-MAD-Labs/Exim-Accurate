@@ -149,9 +149,9 @@ When a new allowance period starts, identifying a staff member with an outstandi
 
 ### POS Checkout Receipt Emails
 
-After a staff cashier sale or preorder pickup is confirmed in Accurate, Exima sends a branded Millennia Mart receipt only when the recorded email belongs to a registered `staff` user in the POS organization. The receipt includes purchased items, payment method, total payment, and the current remaining allowance balance. Delivery runs after the HTTP response and cannot fail the checkout; sale-level status fields prevent duplicate receipts.
+After a staff cashier sale or preorder pickup is confirmed in Accurate, Exima sends a branded Millennia Mart receipt when the recorded email belongs to any registered user in the POS organization. Receipt eligibility intentionally matches the cashier lookup and allowance flow, regardless of application role. The receipt includes purchased items, payment method, total payment, and the current remaining allowance balance. Delivery runs after the HTTP response and cannot fail the checkout; sale-level status fields provide at-least-once delivery and minimize duplicate attempts across retries.
 
-Administrators can inspect failed or stale deliveries with `GET /api/pos/sales/receipts?credentialId=...` and trigger a bounded background retry with `POST /api/pos/sales/receipts` using `{ "credentialId": "...", "limit": 50 }`.
+Administrators can inspect failed or stale deliveries with `GET /api/pos/sales/receipts?credentialId=...` and trigger a bounded background retry with `POST /api/pos/sales/receipts` using `{ "credentialId": "...", "limit": 50 }`. The retry also recovers deliveries disabled by the former staff-role-only eligibility rule while leaving genuinely unregistered recipients disabled.
 
 ### POS Allowance Email Notifications
 

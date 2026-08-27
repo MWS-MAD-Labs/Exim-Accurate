@@ -1,8 +1,13 @@
 import { sendEmail } from "@/lib/email";
 import { getStaffAllowance } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 const CLAIM_TIMEOUT_MS = 15 * 60 * 1000;
+const LEGACY_ROLE_RESTRICTION_ERROR =
+  "Receipt recipient is not a registered staff user in this organization";
+const UNREGISTERED_RECIPIENT_ERROR =
+  "Receipt recipient is not a registered user in this organization";
 const moneyFormatter = new Intl.NumberFormat("id-ID", {
   style: "currency",
   currency: "IDR",
@@ -90,6 +95,10 @@ export async function sendPosSaleReceipt(saleId: string) {
         staffEmail: { not: null },
         OR: [
           { receiptEmailStatus: { in: ["pending", "failed"] } },
+          {
+            receiptEmailStatus: "disabled",
+            receiptEmailError: LEGACY_ROLE_RESTRICTION_ERROR,
+          },
           { receiptEmailStatus: "processing", receiptEmailAttemptedAt: { lt: staleBefore } },
         ],
       },
@@ -116,7 +125,6 @@ export async function sendPosSaleReceipt(saleId: string) {
       where: {
         organizationId: sale.credential.organizationId,
         email: normalizedEmail,
-        role: "staff",
       },
       select: { id: true, name: true },
     });
@@ -125,7 +133,7 @@ export async function sendPosSaleReceipt(saleId: string) {
         where: { id: sale.id },
         data: {
           receiptEmailStatus: "disabled",
-          receiptEmailError: "Receipt recipient is not a registered staff user in this organization",
+          receiptEmailError: UNREGISTERED_RECIPIENT_ERROR,
         },
       });
       return { status: "disabled" as const };
@@ -170,6 +178,12 @@ export async function sendPosSaleReceipt(saleId: string) {
   }
 }
 
+export const POS_SALE_RECEIPT_RETRY_ORDER_BY: Prisma.PosSaleOrderByWithRelationInput[] = [
+  { receiptEmailAttemptedAt: { sort: "asc", nulls: "first" } },
+  { createdAt: "asc" },
+];
+
+// Retries stale `processing` sales using an at-least-once delivery pattern with a 15-minute claim timeout.
 export async function retryPosSaleReceipts(input: { credentialId?: string; limit?: number } = {}) {
   const staleBefore = new Date(Date.now() - CLAIM_TIMEOUT_MS);
   const sales = await prisma.posSale.findMany({
@@ -180,11 +194,15 @@ export async function retryPosSaleReceipts(input: { credentialId?: string; limit
       staffEmail: { not: null },
       OR: [
         { receiptEmailStatus: { in: ["pending", "failed"] } },
+        {
+          receiptEmailStatus: "disabled",
+          receiptEmailError: LEGACY_ROLE_RESTRICTION_ERROR,
+        },
         { receiptEmailStatus: "processing", receiptEmailAttemptedAt: { lt: staleBefore } },
       ],
     },
     select: { id: true },
-    orderBy: [{ receiptEmailAttemptedAt: "asc" }, { createdAt: "asc" }],
+    orderBy: POS_SALE_RECEIPT_RETRY_ORDER_BY,
     take: Math.min(Math.max(input.limit ?? 50, 1), 100),
   });
   const summary = { attempted: sales.length, sent: 0, failed: 0, disabled: 0, skipped: 0 };

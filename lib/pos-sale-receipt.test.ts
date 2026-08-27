@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildReceiptMessage } from "./pos-sale-receipt";
+import { buildReceiptMessage, POS_SALE_RECEIPT_RETRY_ORDER_BY } from "./pos-sale-receipt";
 
 const baseInput = {
   saleId: "sale-123",
@@ -43,4 +43,11 @@ test("buildReceiptMessage uses warning styling for a negative balance", () => {
   assert.match(message.text.replaceAll("\u00a0", ""), /-Rp5\.000|Rp-5\.000/);
   assert.match(message.html, /#fff5f5/);
   assert.match(message.html, /#e03131/);
+});
+
+test("retryPosSaleReceipts query order prioritizes never-attempted pending rows before failed rows", () => {
+  assert.deepEqual(POS_SALE_RECEIPT_RETRY_ORDER_BY, [
+    { receiptEmailAttemptedAt: { sort: "asc", nulls: "first" } },
+    { createdAt: "asc" },
+  ]);
 });

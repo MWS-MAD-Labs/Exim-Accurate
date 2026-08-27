@@ -39,6 +39,11 @@ services:
             --retry 3 --retry-delay 10 \
             -H "Authorization: Bearer $${CRON_SECRET}" \
             http://app:5758/api/cron/pos-allowance-notifications || true
+          curl --fail --silent --show-error \
+            --connect-timeout 10 --max-time 30 \
+            --retry 3 --retry-delay 10 \
+            -H "Authorization: Bearer $${CRON_SECRET}" \
+            http://app:5758/api/cron/pos-sale-receipts || true
           sleep 3600
         done
 
