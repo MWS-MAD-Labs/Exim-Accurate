@@ -562,6 +562,7 @@ export default function KioskCheckoutPage() {
               border: "1px solid var(--kiosk-stroke)",
               boxShadow: "0 10px 25px rgba(3, 6, 14, 0.5)",
             }}
+            aria-label={t.common.home}
           >
             <IconHome size={22} />
           </ActionIcon>
