@@ -112,6 +112,9 @@ export const en = {
     },
   },
   kiosk: {
+    increaseQuantity: "Increase Quantity",
+    decreaseQuantity: "Decrease Quantity",
+    removeFromCart: "Remove from Cart",
     backToHome: "Back to Home",
     fullscreen: "Full Screen",
     exitFullscreen: "Exit Full Screen",

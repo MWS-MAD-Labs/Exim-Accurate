@@ -286,6 +286,7 @@ export default function KioskHomePage() {
                   : "Back to station selection"
               }
               onClick={() => setSelectedCredential(null)}
+              aria-label={t.kiosk.backToHome}
               style={{ color: "rgba(255,255,255,0.7)" }}
             >
               <IconArrowLeft size={20} />
@@ -301,6 +302,7 @@ export default function KioskHomePage() {
                 isFullscreen ? t.kiosk.exitFullscreen : t.kiosk.fullscreen
               }
               onClick={toggleFullscreen}
+              aria-label={isFullscreen ? t.kiosk.exitFullscreen : t.kiosk.fullscreen}
               style={{
                 background: "rgba(12, 18, 32, 0.85)",
                 border: "1px solid rgba(148, 163, 184, 0.15)",

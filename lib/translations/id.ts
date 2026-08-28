@@ -112,6 +112,9 @@ export const id = {
     },
   },
   kiosk: {
+    increaseQuantity: "Tambah Jumlah",
+    decreaseQuantity: "Kurangi Jumlah",
+    removeFromCart: "Hapus dari Keranjang",
     backToHome: "Kembali ke Beranda",
     fullscreen: "Layar Penuh",
     exitFullscreen: "Keluar Layar Penuh",
