@@ -26,6 +26,7 @@ import {
     Divider,
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { notifications } from "@mantine/notifications";
 import {
     IconClipboardList,
@@ -164,6 +165,7 @@ export default function PeminjamanDashboardPage() {
     // Items tab
     const [items, setItems] = useState<BorrowableItem[]>([]);
     const [itemsLoading, setItemsLoading] = useState(false);
+    const [deletingItemIds, setDeletingItemIds] = useState<string[]>([]);
     const [newItemCode, setNewItemCode] = useState("");
     const [newItemStock, setNewItemStock] = useState<number>(1);
     const [lookingUp, setLookingUp] = useState(false);
@@ -510,6 +512,7 @@ export default function PeminjamanDashboardPage() {
 
     // Delete borrowable item
     const handleDeleteItem = async (id: string) => {
+        setDeletingItemIds((prev) => [...prev, id]);
         try {
             const res = await fetch(`/api/peminjaman/items?id=${id}&credentialId=${selectedCredentialId}`, {
                 method: "DELETE",
@@ -527,6 +530,8 @@ export default function PeminjamanDashboardPage() {
                 message: language === "id" ? "Gagal menghapus" : "Failed to delete",
                 color: "red",
             });
+        } finally {
+            setDeletingItemIds((prev) => prev.filter((itemId) => itemId !== id));
         }
     };
 
@@ -851,20 +856,13 @@ export default function PeminjamanDashboardPage() {
                                     <Loader />
                                 </Center>
                             ) : items.length === 0 ? (
-                                <Card withBorder radius="md" p="xl">
-                                    <Center>
-                                        <Stack align="center" gap="sm">
-                                            <IconPackage
-                                                size={48}
-                                                style={{ opacity: 0.3 }}
-                                            />
-                                            <Text c="dimmed" size="sm">
-                                                {language === "id"
-                                                    ? "Belum ada barang. Tambahkan barang dari Accurate untuk memulai."
-                                                    : "No items yet. Add items from Accurate to get started."}
-                                            </Text>
-                                        </Stack>
-                                    </Center>
+                                <Card withBorder radius="md" p={0}>
+                                    <EmptyState
+                                        variant="custom"
+                                        icon={<IconPackage size={48} stroke={1.5} />}
+                                        title={language === "id" ? "Belum ada barang" : "No items"}
+                                        description={language === "id" ? "Tambahkan barang dari Accurate untuk memulai." : "Add items from Accurate to get started."}
+                                    />
                                 </Card>
                             ) : (
                                 <Card withBorder radius="md" p={0}>
@@ -955,6 +953,8 @@ export default function PeminjamanDashboardPage() {
                                                                     onClick={() =>
                                                                         handleDeleteItem(item.id)
                                                                     }
+                                                                    aria-label={language === "id" ? "Hapus" : "Delete"}
+                                                                    loading={deletingItemIds.includes(item.id)}
                                                                 >
                                                                     <IconTrash size={16} />
                                                                 </ActionIcon>
@@ -1007,20 +1007,13 @@ export default function PeminjamanDashboardPage() {
                                 </Center>
                             ) : sessions.filter((s) => s.status !== "returned").length ===
                                 0 ? (
-                                <Card withBorder radius="md" p="xl">
-                                    <Center>
-                                        <Stack align="center" gap="sm">
-                                            <IconClipboardList
-                                                size={48}
-                                                style={{ opacity: 0.3 }}
-                                            />
-                                            <Text c="dimmed" size="sm">
-                                                {language === "id"
-                                                    ? "Tidak ada pinjaman aktif"
-                                                    : "No active loans"}
-                                            </Text>
-                                        </Stack>
-                                    </Center>
+                                <Card withBorder radius="md" p={0}>
+                                    <EmptyState
+                                        variant="custom"
+                                        icon={<IconClipboardList size={48} stroke={1.5} />}
+                                        title={language === "id" ? "Tidak ada pinjaman aktif" : "No active loans"}
+                                        description={language === "id" ? "Sesi peminjaman aktif akan muncul di sini." : "Active borrowing sessions will appear here."}
+                                    />
                                 </Card>
                             ) : (
                                 <Stack gap="sm">
@@ -1153,17 +1146,13 @@ export default function PeminjamanDashboardPage() {
                                     <Loader />
                                 </Center>
                             ) : sessions.length === 0 ? (
-                                <Card withBorder radius="md" p="xl">
-                                    <Center>
-                                        <Stack align="center" gap="sm">
-                                            <IconHistory size={48} style={{ opacity: 0.3 }} />
-                                            <Text c="dimmed" size="sm">
-                                                {language === "id"
-                                                    ? "Belum ada riwayat peminjaman"
-                                                    : "No borrowing history yet"}
-                                            </Text>
-                                        </Stack>
-                                    </Center>
+                                <Card withBorder radius="md" p={0}>
+                                    <EmptyState
+                                        variant="custom"
+                                        icon={<IconHistory size={48} stroke={1.5} />}
+                                        title={language === "id" ? "Belum ada riwayat" : "No history yet"}
+                                        description={language === "id" ? "Belum ada riwayat peminjaman yang selesai." : "No completed borrowing history yet."}
+                                    />
                                 </Card>
                             ) : (
                                 <Card withBorder radius="md" p={0}>
