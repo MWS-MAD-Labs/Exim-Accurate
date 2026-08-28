@@ -25,6 +25,7 @@ import {
     Modal,
     Divider,
 } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { DatePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
 import {
@@ -149,7 +150,7 @@ function formatHumanDateRange(
 }
 
 export default function PeminjamanDashboardPage() {
-    const { language } = useLanguage();
+    const { language, t } = useLanguage();
     const [credentials, setCredentials] = useState<Credential[]>([]);
     const [selectedCredentialId, setSelectedCredentialId] = useState<
         string | null
@@ -953,7 +954,17 @@ export default function PeminjamanDashboardPage() {
                                                                     color="red"
                                                                     variant="subtle"
                                                                     onClick={() =>
-                                                                        handleDeleteItem(item.id)
+                                                                        modals.openConfirmModal({
+                                                                            title: language === "id" ? "Hapus Barang" : "Delete Item",
+                                                                            children: (
+                                                                                <Text size="sm">
+                                                                                    {language === "id" ? "Apakah Anda yakin ingin menghapus barang ini?" : "Are you sure you want to delete this item?"}
+                                                                                </Text>
+                                                                            ),
+                                                                            labels: { confirm: t.common.delete, cancel: t.common.cancel },
+                                                                            confirmProps: { color: 'red' },
+                                                                            onConfirm: () => handleDeleteItem(item.id),
+                                                                        })
                                                                     }
                                                                 >
                                                                     <IconTrash size={16} />
