@@ -286,6 +286,7 @@ export default function KioskHomePage() {
                   : "Back to station selection"
               }
               onClick={() => setSelectedCredential(null)}
+              aria-label={language === "id" ? "Kembali ke pilihan profil" : "Back to profile selection"}
               style={{ color: "rgba(255,255,255,0.7)" }}
             >
               <IconArrowLeft size={20} />
@@ -301,6 +302,7 @@ export default function KioskHomePage() {
                 isFullscreen ? t.kiosk.exitFullscreen : t.kiosk.fullscreen
               }
               onClick={toggleFullscreen}
+              aria-label={isFullscreen ? (language === "id" ? "Keluar layar penuh" : "Exit fullscreen") : (language === "id" ? "Layar penuh" : "Fullscreen")}
               style={{
                 background: "rgba(12, 18, 32, 0.85)",
                 border: "1px solid rgba(148, 163, 184, 0.15)",

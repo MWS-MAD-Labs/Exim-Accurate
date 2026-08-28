@@ -646,6 +646,7 @@ export default function PeminjamanKioskPage() {
                             }
                         }
                     }}
+                    aria-label={language === "id" ? "Kembali" : "Back"}
                     style={{ color: "rgba(255,255,255,0.7)" }}
                 >
                     <IconArrowLeft size={20} />
@@ -1133,6 +1134,7 @@ export default function PeminjamanKioskPage() {
                                                                                 .filter((i) => i.quantity > 0)
                                                                         )
                                                                     }
+                                                                    aria-label={language === "id" ? "Kurangi jumlah" : "Decrease quantity"}
                                                                     style={{ color: "rgba(255,255,255,0.6)" }}
                                                                 >
                                                                     <IconMinus size={14} />
@@ -1155,6 +1157,7 @@ export default function PeminjamanKioskPage() {
                                                                             )
                                                                         )
                                                                     }
+                                                                    aria-label={language === "id" ? "Tambah jumlah" : "Increase quantity"}
                                                                     style={{ color: "rgba(255,255,255,0.6)" }}
                                                                 >
                                                                     <IconPlus size={14} />
@@ -1170,6 +1173,7 @@ export default function PeminjamanKioskPage() {
                                                                             )
                                                                         )
                                                                     }
+                                                                    aria-label={language === "id" ? "Hapus dari keranjang" : "Remove from cart"}
                                                                 >
                                                                     <IconTrash size={14} />
                                                                 </ActionIcon>
