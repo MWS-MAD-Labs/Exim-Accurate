@@ -123,6 +123,9 @@ export const en = {
     selectDatabaseSubtitle:
       "Select an Accurate database to start the kiosk session",
     noDatabases: "No databases found",
+    decreaseQuantity: "Decrease quantity",
+    increaseQuantity: "Increase quantity",
+    removeFromCart: "Remove from cart",
   },
   dashboard: {
     welcome: "Welcome back 👋",
