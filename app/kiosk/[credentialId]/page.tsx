@@ -562,6 +562,7 @@ export default function KioskCheckoutPage() {
               border: "1px solid var(--kiosk-stroke)",
               boxShadow: "0 10px 25px rgba(3, 6, 14, 0.5)",
             }}
+            aria-label={t.kiosk.backToHome}
           >
             <IconHome size={22} />
           </ActionIcon>
@@ -978,6 +979,7 @@ export default function KioskCheckoutPage() {
                                   background: "rgba(12, 18, 32, 0.85)",
                                   border: "1px solid var(--kiosk-stroke)",
                                 }}
+                                aria-label={language === "id" ? "Kurangi jumlah" : "Decrease quantity"}
                               >
                                 <IconMinus size={14} />
                               </ActionIcon>
@@ -1013,6 +1015,7 @@ export default function KioskCheckoutPage() {
                                   background: "rgba(12, 18, 32, 0.85)",
                                   border: "1px solid var(--kiosk-stroke)",
                                 }}
+                                aria-label={language === "id" ? "Tambah jumlah" : "Increase quantity"}
                               >
                                 <IconPlus size={14} />
                               </ActionIcon>
@@ -1025,6 +1028,7 @@ export default function KioskCheckoutPage() {
                                   background: "rgba(239, 68, 68, 0.1)",
                                   border: "1px solid rgba(239, 68, 68, 0.3)",
                                 }}
+                                aria-label={t.common.delete}
                               >
                                 <IconTrash size={16} />
                               </ActionIcon>
