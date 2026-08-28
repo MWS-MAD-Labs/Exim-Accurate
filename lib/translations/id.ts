@@ -1,6 +1,8 @@
 export const id = {
   common: {
     home: "Beranda",
+    increaseQuantity: "Tambah kuantitas",
+    decreaseQuantity: "Kurangi kuantitas",
     login: "Masuk",
     logout: "Keluar",
     settings: "Pengaturan",

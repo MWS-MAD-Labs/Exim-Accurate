@@ -1,6 +1,8 @@
 export const en = {
   common: {
     home: "Home",
+    increaseQuantity: "Increase quantity",
+    decreaseQuantity: "Decrease quantity",
     login: "Login",
     logout: "Logout",
     settings: "Settings",
