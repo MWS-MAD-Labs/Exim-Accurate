@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { PosProduct, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isAdmin } from "@/lib/pos-server";
+import { isAdmin, withSerializableRetry } from "@/lib/pos-server";
 import { getOrganizationIdForUser } from "@/lib/organization";
 import { z } from "zod";
 
@@ -52,11 +53,34 @@ export async function POST(req: NextRequest) {
   if (!organizationId) return NextResponse.json({ error: "Organization not found" }, { status: 403 });
   const credential = await prisma.accurateCredentials.findFirst({ where: { id: credentialId, organizationId } });
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
-  const product = await prisma.posProduct.upsert({
-    where: { credentialId_itemCode: { credentialId, itemCode } },
-    update: { itemName, unit, stock, buyPrice, sellPrice, isActive, syncStatus: "pending", syncError: null },
-    create: { credentialId, itemCode, itemName, unit, stock, buyPrice, sellPrice, isActive },
-  });
+  const product = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
+    const existing = await tx.posProduct.findUnique({
+      where: { credentialId_itemCode: { credentialId, itemCode } },
+    });
+    const saved = await tx.posProduct.upsert({
+      where: { credentialId_itemCode: { credentialId, itemCode } },
+      update: { itemName, unit, stock, buyPrice, sellPrice, isActive, syncStatus: "pending", syncError: null },
+      create: { credentialId, itemCode, itemName, unit, stock, buyPrice, sellPrice, isActive },
+    });
+    const previousStock = existing?.stock ?? 0;
+    if (!existing || previousStock !== stock) {
+      await tx.posStockChange.create({
+        data: {
+          credentialId,
+          productId: saved.id,
+          userId: session.user.id,
+          itemCode,
+          itemName,
+          previousStock,
+          newStock: stock,
+          quantityChange: stock - previousStock,
+          source: "manual",
+          note: existing ? "Stock updated from stock management" : "Initial stock when product was added",
+        },
+      });
+    }
+    return saved;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
   return NextResponse.json(product, { status: 201 });
 }
 
@@ -69,23 +93,62 @@ export async function PATCH(req: NextRequest) {
   const { id, ...updates } = parsed.data;
   const organizationId = await getOrganizationIdForUser(session.user.id);
   if (!organizationId) return NextResponse.json({ error: "Organization not found" }, { status: 403 });
-  const product = await prisma.posProduct.findFirst({
-    where: { id, credential: { organizationId } },
-  });
-  if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
-  if (updates.stock !== undefined) {
-    const settings = await prisma.posSettings.findUnique({ where: { credentialId: product.credentialId } });
-    if (settings) {
-      const allocation = await prisma.posStockAllocation.findUnique({
-        where: { credentialId_warehouseId_itemCode: { credentialId: product.credentialId, warehouseId: settings.warehouseId, itemCode: product.itemCode } },
-      });
-      if (updates.stock < (allocation?.heldQuantity ?? 0)) {
-        return NextResponse.json({ error: "Stock cannot be lower than the quantity held by active reservations" }, { status: 409 });
+  const result = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
+    const current = await tx.posProduct.findFirst({
+      where: { id, credential: { organizationId } },
+    });
+    if (!current) return { status: "not_found" as const };
+
+    if (updates.stock !== undefined) {
+      const settings = await tx.posSettings.findUnique({ where: { credentialId: current.credentialId } });
+      if (settings) {
+        const allocation = await tx.posStockAllocation.findUnique({
+          where: { credentialId_warehouseId_itemCode: { credentialId: current.credentialId, warehouseId: settings.warehouseId, itemCode: current.itemCode } },
+        });
+        if (updates.stock < (allocation?.heldQuantity ?? 0)) {
+          return { status: "held_stock_conflict" as const };
+        }
       }
     }
+
+    let saved: PosProduct;
+    if (updates.stock !== undefined) {
+      const changed = await tx.posProduct.updateMany({
+        where: { id, stock: current.stock },
+        data: { ...updates, syncStatus: "pending", syncError: null },
+      });
+      if (changed.count !== 1) return { status: "stock_changed" as const };
+      saved = await tx.posProduct.findUniqueOrThrow({ where: { id } });
+    } else {
+      saved = await tx.posProduct.update({ where: { id }, data: { ...updates, syncStatus: "pending", syncError: null } });
+    }
+    if (updates.stock !== undefined && updates.stock !== current.stock) {
+      await tx.posStockChange.create({
+        data: {
+          credentialId: current.credentialId,
+          productId: current.id,
+          userId: session.user.id,
+          itemCode: current.itemCode,
+          itemName: saved.itemName,
+          previousStock: current.stock,
+          newStock: updates.stock,
+          quantityChange: updates.stock - current.stock,
+          source: "manual",
+          note: "Stock updated from stock management",
+        },
+      });
+    }
+    return { status: "updated" as const, product: saved };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+
+  if (result.status === "not_found") return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  if (result.status === "held_stock_conflict") {
+    return NextResponse.json({ error: "Stock cannot be lower than the quantity held by active reservations" }, { status: 409 });
   }
-  const updated = await prisma.posProduct.update({ where: { id }, data: { ...updates, syncStatus: "pending", syncError: null } });
-  return NextResponse.json(updated);
+  if (result.status === "stock_changed") {
+    return NextResponse.json({ error: "Stock changed while this update was being saved. Reload the product and try again." }, { status: 409 });
+  }
+  return NextResponse.json(result.product);
 }
 
 export async function DELETE(req: NextRequest) {

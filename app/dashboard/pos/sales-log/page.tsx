@@ -28,6 +28,14 @@ import {
   IconRefresh,
   IconShoppingCart,
 } from "@tabler/icons-react";
+import {
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip as ChartTooltip,
+} from "recharts";
 
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatsCard } from "@/components/ui/StatsCard";
@@ -55,6 +63,11 @@ interface SalesLogData {
     period: string;
     sales: number;
     units: number;
+    total: string;
+  }>;
+  paymentBreakdown: Array<{
+    paymentMethod: string;
+    transactions: number;
     total: string;
   }>;
   transactions: Array<{
@@ -141,6 +154,8 @@ export default function PosSalesLogPage() {
     averageSale: "Rata-rata penjualan",
     selectedPeriod: "Dalam periode terpilih",
     periodTotals: "Jumlah penjualan per periode",
+    paymentMix: "Komposisi metode pembayaran",
+    paymentMixDescription: "Nilai penjualan berdasarkan tunjangan, tunai, dan QRIS dalam periode terpilih.",
     period: "Periode",
     sales: "Penjualan",
     salesLog: "Jurnal transaksi",
@@ -182,6 +197,8 @@ export default function PosSalesLogPage() {
     averageSale: "Average sale",
     selectedPeriod: "In the selected period",
     periodTotals: "Sales sum per period",
+    paymentMix: "Payment method mix",
+    paymentMixDescription: "Sales value split between allowance, cash, and QRIS for the selected period.",
     period: "Period",
     sales: "Sales",
     salesLog: "Transaction journal",
@@ -265,9 +282,9 @@ export default function PosSalesLogPage() {
     setDateRange([start, today]);
   };
 
-  const formatPayment = (value: string) => value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const formatPayment = (value: string) => value === "qris"
+    ? "QRIS"
+    : value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
   const formatPeriod = (value: string) => {
     if (/^\d{4}-\d{2}$/.test(value)) {
@@ -302,6 +319,19 @@ export default function PosSalesLogPage() {
     { value: "all", label: labels.allPaymentMethods },
     ...(data?.facets.paymentMethods ?? []).map((value) => ({ value, label: formatPayment(value) })),
   ];
+  const paymentChartData = (data?.paymentBreakdown ?? [])
+    .map((row) => ({
+      name: formatPayment(row.paymentMethod),
+      paymentMethod: row.paymentMethod,
+      value: Number(row.total),
+      transactions: row.transactions,
+    }))
+    .filter((row) => row.value > 0);
+  const paymentColors: Record<string, string> = {
+    allowance: "var(--mantine-color-violet-6)",
+    cash: "var(--mantine-color-green-6)",
+    qris: "var(--mantine-color-blue-6)",
+  };
 
   return (
     <Stack gap="lg">
@@ -407,6 +437,35 @@ export default function PosSalesLogPage() {
           {data.truncated ? (
             <Alert color="orange" icon={<IconAlertCircle size={18} />}>{labels.truncated}</Alert>
           ) : null}
+
+          <Paper p="md" radius="lg" withBorder>
+            <Title order={3}>{labels.paymentMix}</Title>
+            <Text size="sm" c="dimmed" mb="md">{labels.paymentMixDescription}</Text>
+            {paymentChartData.length === 0 ? (
+              <Text c="dimmed" ta="center" py="xl">{labels.noSalesDescription}</Text>
+            ) : (
+              <Box h={340}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <PieChart>
+                    <Pie
+                      data={paymentChartData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={70}
+                      outerRadius={115}
+                      paddingAngle={3}
+                    >
+                      {paymentChartData.map((entry) => (
+                        <Cell key={entry.paymentMethod} fill={paymentColors[entry.paymentMethod] || "var(--mantine-color-gray-6)"} />
+                      ))}
+                    </Pie>
+                    <ChartTooltip formatter={(value) => money.format(Number(value))} />
+                    <Legend formatter={(value) => String(value)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Paper>
 
           <Paper p="md" radius="lg" withBorder>
             <Title order={3} mb="md">{labels.periodTotals}</Title>

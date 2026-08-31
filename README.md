@@ -10,7 +10,7 @@ Exima extends Accurate Online with inventory adjustment import/export, self-chec
 - Organization-owned credential management
 - Self-checkout and kiosk workflows
 - Borrowing, booking, return, and availability management
-- POS catalog, reservations, sales, sales journal, allowances, checkout receipt emails, cutoff email notifications, registered-staff email suggestions, and Accurate synchronization
+- POS catalog, stock management with barcode scanning and per-product stock history, reservations, sales, sales journal with payment-method breakdown, allowances, checkout receipt emails, cutoff email notifications, registered-staff email suggestions, and Accurate synchronization
 - Organization-scoped operational analytics
 - Role-based access for admins, resource managers, cashiers, and staff
 
@@ -125,8 +125,19 @@ Administrators can open **Point of Sales → Sales Log** at `/dashboard/pos/sale
 - Period totals can be grouped daily, weekly, or monthly. Weekly periods start on Monday and all report boundaries use Jakarta time.
 - Transaction rows include the buyer, cashier, sold items, payment method, synchronization status, warehouse, and total.
 - The journal displays the latest 500 matching transactions. Summary cards and grouped totals still include every matching transaction.
+- A payment method mix chart splits the filtered sales value across allowance, cash, and QRIS, with per-method transaction counts.
 
 The supporting `GET /api/pos/sales/log` endpoint requires an administrator session, scopes every query through the administrator's organization, validates a maximum date range of 366 days, and rejects malformed filter values.
+
+### POS Stock Management
+
+Administrators can open **Point of Sales → Stock Management** at `/dashboard/pos` to manage the local POS catalog.
+
+- The **Scan product** action accepts USB/Bluetooth scanner input, a typed code, or the device camera. A known code opens a quick stock update dialog; an unknown code offers to create the product with that barcode.
+- Every product row links to a stock history modal showing the latest 200 recorded changes with the source (manual change or sale with payment method), before/change/after quantities, and the acting user.
+- Stock changes are written in the same transaction as the stock mutation for manual edits, POS sales, and preorder pickups.
+
+The supporting `GET /api/pos/products/manage/history` endpoint requires an administrator session and scopes products through the administrator's organization.
 
 ### POS Cashier Staff Identification
 
@@ -198,7 +209,7 @@ npm run db:seed -- admin@example.com password123 admin
 - `BorrowableItem`: organization-scoped borrowing catalog
 - `BorrowingSession` and `BorrowingActivity`: historical borrowing records linked to their original credential
 - `CheckoutSession`: self-checkout history
-- `PosReservation`, `PosSale`, and `PosProduct`: POS operations
+- `PosReservation`, `PosSale`, `PosProduct`, and `PosStockChange`: POS operations and the stock change audit log
 - `ExportJob` and `ImportJob`: import/export audit records
 
 Refer to `prisma/schema.prisma` and migration files for the authoritative schema.

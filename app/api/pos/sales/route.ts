@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(existing);
   }
   const created = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
+    const sale = await tx.posSale.create({ data: { userId: session.user.id, credentialId, idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, paymentMethod, buyerType, staffEmail: normalizedStaffEmail, staffName, allowanceUsed, items: { create: items } }, include: { items: true } });
     for (const item of items) {
       const product = await tx.posProduct.findUnique({ where: { credentialId_itemCode: { credentialId, itemCode: item.itemCode } } });
       if (!product?.isActive) throw new Error("INSUFFICIENT_STOCK");
@@ -67,10 +68,24 @@ export async function POST(req: NextRequest) {
       if (allocation) {
         await tx.posStockAllocation.update({ where: { id: allocation.id }, data: { stockSnapshot: product.stock - item.quantity, soldQuantity: { increment: item.quantity } } });
       }
+      await tx.posStockChange.create({
+        data: {
+          credentialId,
+          productId: product.id,
+          saleId: sale.id,
+          userId: session.user.id,
+          itemCode: product.itemCode,
+          itemName: product.itemName,
+          previousStock: product.stock,
+          newStock: product.stock - item.quantity,
+          quantityChange: -item.quantity,
+          source: "sale",
+          note: `POS sale (${paymentMethod})`,
+        },
+      });
     }
-    const sale = await tx.posSale.create({ data: { userId: session.user.id, credentialId, idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, paymentMethod, buyerType, staffEmail: normalizedStaffEmail, staffName, allowanceUsed, items: { create: items } }, include: { items: true } });
     return { sale, created: true };
-  }).catch(async (error: unknown) => {
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch(async (error: unknown) => {
     if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") return null;
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const existing = await prisma.posSale.findUnique({ where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } }, include: { items: true } });

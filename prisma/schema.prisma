@@ -45,6 +45,7 @@ model User {
   posAllocations                     PosStockAllocation[]
   posAllowanceAdjustmentsCreated     PosStaffAllowanceAdjustment[]
   posAllowanceDebtSettlementsCreated PosStaffAllowanceDebtSettlement[]
+  posStockChanges                    PosStockChange[]
 
   @@index([organizationId])
 }
@@ -81,6 +82,7 @@ model AccurateCredentials {
   posStaffAllowanceAdjustments     PosStaffAllowanceAdjustment[]
   posStaffAllowanceDebtSettlements PosStaffAllowanceDebtSettlement[]
   posAllowanceNotifications        PosAllowanceNotification[]
+  posStockChanges                  PosStockChange[]
 
   @@index([organizationId])
 }
@@ -406,7 +408,8 @@ model PosProduct {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  credential   AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  stockChanges PosStockChange[]
 
   @@unique([credentialId, itemCode])
   @@index([credentialId, isActive])
@@ -481,16 +484,43 @@ model PosSale {
   staffName     String?
   allowanceUsed Decimal @default(0) @db.Decimal(14, 2)
 
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  credential  AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
-  reservation PosReservation?     @relation(fields: [reservationId], references: [id], onDelete: SetNull)
-  items       PosSaleItem[]
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential   AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  reservation  PosReservation?     @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  items        PosSaleItem[]
+  stockChanges PosStockChange[]
 
   @@unique([userId, idempotencyKey])
   @@index([credentialId, createdAt])
   @@index([credentialId, status])
   @@index([receiptEmailStatus, receiptEmailAttemptedAt])
   @@index([credentialId, staffEmail, createdAt])
+}
+
+model PosStockChange {
+  id           String  @id @default(uuid())
+  credentialId String
+  productId    String?
+  saleId       String?
+  userId       String?
+
+  itemCode       String
+  itemName       String
+  previousStock  Int
+  newStock       Int
+  quantityChange Int
+  source         String // manual, sale
+  note           String?
+  createdAt      DateTime @default(now())
+
+  credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  product    PosProduct?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+  sale       PosSale?            @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  user       User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([credentialId, itemCode, createdAt])
+  @@index([productId, createdAt])
+  @@index([saleId])
 }
 
 model PosStockAllocation {

@@ -1,5 +1,6 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getOutstandingPreviousAllowanceDebt, getPosContext, withSerializableRetry } from "@/lib/pos-server";
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const sale = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
     const changed = await tx.posReservation.updateMany({ where: { id, status: "active", expiresAt: { gt: new Date() } }, data: { status: "picked_up", pickupAt: new Date() } });
     if (changed.count !== 1) throw new Error("RESERVATION_CONFLICT");
+    const createdSale = await tx.posSale.create({ data: { userId: session.user.id, credentialId: reservation.credentialId, reservationId: reservation.id, idempotencyKey: `reservation:${reservation.id}`, requestFingerprint: `reservation:${reservation.id}`, warehouseId: reservation.warehouseId, warehouseName: reservation.warehouseName, paymentMethod: payment.data, buyerType: "staff", staffEmail: reservation.staffEmail, staffName: reservation.staffName, allowanceUsed, items: { create: reservation.items.map((item) => ({ itemCode: item.itemCode, itemName: item.itemName, quantity: item.quantity, unitPrice: item.unitPrice, unitCost: item.unitCost })) } }, include: { items: true } });
     for (const item of reservation.items) {
       const allocation = await tx.posStockAllocation.findUnique({ where: { credentialId_warehouseId_itemCode: { credentialId: reservation.credentialId, warehouseId: reservation.warehouseId, itemCode: item.itemCode } } });
       if (!allocation || allocation.heldQuantity < item.quantity) throw new Error("ALLOCATION_CONFLICT");
@@ -53,9 +55,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!product || product.stock < item.quantity) throw new Error("ALLOCATION_CONFLICT");
       await tx.posProduct.update({ where: { id: product.id }, data: { stock: { decrement: item.quantity }, syncStatus: "pending", syncError: null } });
       await tx.posStockAllocation.update({ where: { id: allocation.id }, data: { heldQuantity: { decrement: item.quantity }, soldQuantity: { increment: item.quantity }, stockSnapshot: product.stock - item.quantity } });
+      await tx.posStockChange.create({
+        data: {
+          credentialId: reservation.credentialId,
+          productId: product.id,
+          saleId: createdSale.id,
+          userId: session.user.id,
+          itemCode: product.itemCode,
+          itemName: product.itemName,
+          previousStock: product.stock,
+          newStock: product.stock - item.quantity,
+          quantityChange: -item.quantity,
+          source: "sale",
+          note: `Preorder pickup sale (${payment.data})`,
+        },
+      });
     }
-    return tx.posSale.create({ data: { userId: session.user.id, credentialId: reservation.credentialId, reservationId: reservation.id, idempotencyKey: `reservation:${reservation.id}`, requestFingerprint: `reservation:${reservation.id}`, warehouseId: reservation.warehouseId, warehouseName: reservation.warehouseName, paymentMethod: payment.data, buyerType: "staff", staffEmail: reservation.staffEmail, staffName: reservation.staffName, allowanceUsed, items: { create: reservation.items.map((item) => ({ itemCode: item.itemCode, itemName: item.itemName, quantity: item.quantity, unitPrice: item.unitPrice, unitCost: item.unitCost })) } }, include: { items: true } });
-  }).catch((error: unknown) => { if (error instanceof Error && ["RESERVATION_CONFLICT", "ALLOCATION_CONFLICT"].includes(error.message)) return null; throw error; }));
+    return createdSale;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch((error: unknown) => { if (error instanceof Error && ["RESERVATION_CONFLICT", "ALLOCATION_CONFLICT"].includes(error.message)) return null; throw error; }));
   if (!sale) return NextResponse.json({ error: "Reservation changed by another request" }, { status: 409 });
   if (!context.accurate) {
     const failed = await prisma.posSale.update({

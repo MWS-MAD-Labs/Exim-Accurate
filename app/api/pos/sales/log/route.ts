@@ -156,6 +156,7 @@ export async function GET(req: NextRequest) {
     let totalSales = new Prisma.Decimal(0);
     let totalUnits = 0;
     const periodMap = new Map<string, { period: string; sales: number; units: number; total: Prisma.Decimal }>();
+    const paymentMap = new Map<string, { paymentMethod: string; transactions: number; total: Prisma.Decimal }>();
 
     for (const sale of sales) {
       const total = saleTotal(sale.items);
@@ -174,6 +175,15 @@ export async function GET(req: NextRequest) {
       aggregate.units += units;
       aggregate.total = aggregate.total.add(total);
       periodMap.set(key, aggregate);
+
+      const payment = paymentMap.get(sale.paymentMethod) ?? {
+        paymentMethod: sale.paymentMethod,
+        transactions: 0,
+        total: new Prisma.Decimal(0),
+      };
+      payment.transactions += 1;
+      payment.total = payment.total.add(total);
+      paymentMap.set(sale.paymentMethod, payment);
     }
 
     const transactions = sales.slice(0, MAX_TRANSACTIONS).map((sale) => {
@@ -239,6 +249,11 @@ export async function GET(req: NextRequest) {
       groupedTotals: Array.from(periodMap.values())
         .sort((a, b) => b.period.localeCompare(a.period))
         .map((row) => ({ ...row, total: row.total.toFixed(2) })),
+      paymentBreakdown: Array.from(paymentMap.values()).map((row) => ({
+        paymentMethod: row.paymentMethod,
+        transactions: row.transactions,
+        total: row.total.toFixed(2),
+      })),
       transactions,
       truncated: sales.length > MAX_TRANSACTIONS,
       facets: {
