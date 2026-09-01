@@ -348,7 +348,17 @@ export async function accurateFetch<T = any>(
     // Check for Accurate-specific error responses
     // Accurate returns { s: boolean, d: data/error array }
     if (data.s === false) {
-      throw new Error("Accurate API returned an unsuccessful response");
+      const messages = Array.isArray(data.d)
+        ? data.d
+        : Array.isArray(data.d_message)
+          ? data.d_message
+          : [];
+      const detail = messages.find((message: unknown) => typeof message === "string" && message.trim());
+      throw new Error(
+        typeof detail === "string"
+          ? `Accurate API returned an unsuccessful response: ${detail}`
+          : "Accurate API returned an unsuccessful response",
+      );
     }
 
     return data;

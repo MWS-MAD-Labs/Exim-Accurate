@@ -119,10 +119,11 @@ export async function POST(req: NextRequest) {
     });
     after(() => sendPosSaleReceipt(completed.id));
     return NextResponse.json({ sale: completed, totals: calculateTotals(items), adjustmentNumber: adjustment.number }, { status: 201 });
-  } catch {
+  } catch (error) {
+    const syncError = error instanceof Error ? error.message : "Unknown Accurate synchronization error";
     const failed = await prisma.posSale.update({
       where: { id: sale.id },
-      data: { status: "sync_error", syncError: "Unable to create the Accurate inventory adjustment; no confirmed adjustment ID was returned" },
+      data: { status: "sync_error", syncError },
       include: { items: true },
     });
     return NextResponse.json({ sale: failed, error: "Sale was saved locally but Accurate inventory adjustment could not be confirmed" }, { status: 502 });

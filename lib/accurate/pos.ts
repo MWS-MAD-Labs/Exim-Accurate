@@ -88,15 +88,28 @@ export async function syncPosSale(
   credentials: PosAccurateCredentials,
   sale: PosSaleForAdjustment,
 ): Promise<{ id: number; number: string }> {
-  const result = await saveInventoryAdjustment(credentials, {
+  const payload = {
     transDate: new Date().toISOString().slice(0, 10),
     description: `POS Sale ${sale.id} | Payment: ${sale.paymentMethod}`,
     detailItem: sale.items.map((item) => ({
       itemNo: item.itemCode,
       quantity: item.quantity,
-      itemAdjustmentType: "ADJUSTMENT_OUT",
+      itemAdjustmentType: "ADJUSTMENT_OUT" as const,
       warehouseName: sale.warehouseName,
     })),
-  });
-  return { id: result.id, number: result.r };
+  };
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const result = await saveInventoryAdjustment(credentials, payload);
+      return { id: result.id, number: result.r };
+    } catch (error) {
+      if (attempt === 2 || !(error instanceof Error) || !error.message.includes("unsuccessful response")) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
+
+  throw new Error("Unable to create the Accurate inventory adjustment");
 }
