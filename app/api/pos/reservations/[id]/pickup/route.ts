@@ -74,10 +74,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return createdSale;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch((error: unknown) => { if (error instanceof Error && ["RESERVATION_CONFLICT", "ALLOCATION_CONFLICT"].includes(error.message)) return null; throw error; }));
   if (!sale) return NextResponse.json({ error: "Reservation changed by another request" }, { status: 409 });
+  const attemptAt = new Date();
+  await prisma.posSale.update({
+    where: { id: sale.id },
+    data: { syncAttempts: { increment: 1 }, lastSyncAttemptAt: attemptAt, nextSyncAttemptAt: null },
+  });
   if (!context.accurate) {
     const failed = await prisma.posSale.update({
       where: { id: sale.id },
-      data: { status: "sync_error", syncError: "Accurate session is not ready" },
+      data: { status: "sync_error", syncError: "Accurate session is not ready", nextSyncAttemptAt: new Date(attemptAt.getTime() + 5 * 60 * 1000) },
       include: { items: true },
     });
     return NextResponse.json({ sale: failed, error: "Pickup was saved locally but Accurate is not connected" }, { status: 502 });
@@ -95,7 +100,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const syncError = error instanceof Error ? error.message : "Unknown Accurate synchronization error";
     const failed = await prisma.posSale.update({
       where: { id: sale.id },
-      data: { status: "sync_error", syncError },
+      data: { status: "sync_error", syncError, nextSyncAttemptAt: new Date(attemptAt.getTime() + 5 * 60 * 1000) },
       include: { items: true },
     });
     return NextResponse.json({ sale: failed, error: "Pickup was saved locally but Accurate inventory adjustment could not be confirmed" }, { status: 502 });

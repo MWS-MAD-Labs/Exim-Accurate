@@ -471,6 +471,9 @@ model PosSale {
   status                  String    @default("pending_sync") // pending_sync, synced (confirmed inventory adjustment), sync_error
   accurateId              Int? // Accurate inventory adjustment ID
   syncError               String?
+  syncAttempts             Int       @default(0)
+  lastSyncAttemptAt        DateTime?
+  nextSyncAttemptAt        DateTime?
   receiptEmailStatus      String    @default("pending") // disabled, pending, processing, sent, failed
   receiptEmailAttemptedAt DateTime?
   receiptEmailSentAt      DateTime?

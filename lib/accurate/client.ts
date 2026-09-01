@@ -332,7 +332,7 @@ export async function accurateFetch<T = any>(
         );
       }
 
-      throw new Error(`Accurate API request failed with status ${response.status}`);
+      throw new Error(`Accurate API request failed with status ${response.status}: ${errorText.slice(0, 240)}`);
     }
 
     const responseText = await response.text();

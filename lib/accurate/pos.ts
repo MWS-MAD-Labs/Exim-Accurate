@@ -1,5 +1,6 @@
 import { accurateFetch } from "./client";
 import {
+  findInventoryAdjustmentByDescription,
   parseAccurateSaveResponse,
   saveInventoryAdjustment,
   type AccurateSaveResponse,
@@ -101,10 +102,21 @@ export async function syncPosSale(
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
+      const existing = await findInventoryAdjustmentByDescription(
+        credentials,
+        `POS Sale ${sale.id}`,
+        payload.transDate,
+      );
+      if (existing) return { id: existing.id, number: existing.number };
+
       const result = await saveInventoryAdjustment(credentials, payload);
       return { id: result.id, number: result.r };
     } catch (error) {
-      if (attempt === 2 || !(error instanceof Error) || !error.message.includes("unsuccessful response")) {
+      if (
+        attempt === 2 ||
+        !(error instanceof Error) ||
+        !/(unsuccessful response|status (408|429|5\\d\\d)|fetch failed|timed? out|timeout|reset)/i.test(error.message)
+      ) {
         throw error;
       }
       await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));

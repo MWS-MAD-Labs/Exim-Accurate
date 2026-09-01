@@ -102,10 +102,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ sale: created.sale, error: "This sale is already being processed or requires manual reconciliation." }, { status: 409 });
   }
   const sale = created.sale;
+  const attemptAt = new Date();
+  await prisma.posSale.update({
+    where: { id: sale.id },
+    data: { syncAttempts: { increment: 1 }, lastSyncAttemptAt: attemptAt, nextSyncAttemptAt: null },
+  });
   if (!context.accurate) {
     const failed = await prisma.posSale.update({
       where: { id: sale.id },
-      data: { status: "sync_error", syncError: "Accurate session is not ready" },
+      data: { status: "sync_error", syncError: "Accurate session is not ready", nextSyncAttemptAt: new Date(attemptAt.getTime() + 5 * 60 * 1000) },
       include: { items: true },
     });
     return NextResponse.json({ sale: failed, error: "Sale was saved locally but Accurate is not connected" }, { status: 502 });
@@ -123,7 +128,11 @@ export async function POST(req: NextRequest) {
     const syncError = error instanceof Error ? error.message : "Unknown Accurate synchronization error";
     const failed = await prisma.posSale.update({
       where: { id: sale.id },
-      data: { status: "sync_error", syncError },
+      data: {
+        status: "sync_error",
+        syncError,
+        nextSyncAttemptAt: new Date(attemptAt.getTime() + 5 * 60 * 1000),
+      },
       include: { items: true },
     });
     return NextResponse.json({ sale: failed, error: "Sale was saved locally but Accurate inventory adjustment could not be confirmed" }, { status: 502 });

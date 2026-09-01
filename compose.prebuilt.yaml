@@ -44,6 +44,11 @@ services:
             --retry 3 --retry-delay 10 \
             -H "Authorization: Bearer $${CRON_SECRET}" \
             http://app:5758/api/cron/pos-sale-receipts || true
+          curl --fail --silent --show-error \
+            --connect-timeout 10 --max-time 120 \
+            --retry 3 --retry-delay 10 \
+            -H "Authorization: Bearer $${CRON_SECRET}" \
+            http://app:5758/api/cron/retry-pos-sales || true
           sleep 3600
         done
 

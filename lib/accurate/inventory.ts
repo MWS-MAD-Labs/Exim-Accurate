@@ -111,6 +111,28 @@ export async function listInventoryAdjustments(
   return response;
 }
 
+export async function findInventoryAdjustmentByDescription(
+  credentials: AccurateCredentials,
+  description: string,
+  transDate: string,
+): Promise<InventoryAdjustment | null> {
+  const params = new URLSearchParams({
+    "sp.page": "1",
+    "sp.pageSize": "20",
+    fields: "id,transDate,number,description",
+    "filter.transDate.start": transDate,
+    "filter.transDate.end": transDate,
+    "filter.description.op": "CONTAIN",
+    "filter.description.val[0]": description,
+  });
+  const response = await accurateFetch<InventoryAdjustmentListResponse>(
+    `/api/item-adjustment/list.do?${params.toString()}`,
+    credentials,
+    { method: "GET" },
+  );
+  return response.d?.find((adjustment) => adjustment.description?.includes(description)) ?? null;
+}
+
 /**
  * Get inventory adjustment detail by ID
  */
