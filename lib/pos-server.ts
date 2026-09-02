@@ -37,6 +37,28 @@ export function isAdmin(role?: string | null) {
   return role === "admin";
 }
 
+export type SaleTotalItem = {
+  quantity: number;
+  unitPrice: Prisma.Decimal | number | string;
+};
+
+export function saleTotal(items: readonly SaleTotalItem[]) {
+  return items.reduce(
+    (total, item) => total.add(new Prisma.Decimal(item.unitPrice).mul(item.quantity)),
+    new Prisma.Decimal(0),
+  );
+}
+
+export function saleAllowanceUsed(
+  buyerType: string,
+  paymentMethod: string,
+  items: readonly SaleTotalItem[],
+) {
+  if (paymentMethod !== "allowance") return new Prisma.Decimal(0);
+  if (buyerType !== "staff") throw new Error("ALLOWANCE_REQUIRES_STAFF");
+  return saleTotal(items);
+}
+
 export async function getDefaultPosStore(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },

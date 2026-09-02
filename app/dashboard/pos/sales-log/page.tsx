@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActionIcon,
   Alert,
   Badge,
   Box,
   Button,
   Group,
+  Modal,
   Paper,
   ScrollArea,
   SegmentedControl,
@@ -23,6 +25,7 @@ import {
   IconAlertCircle,
   IconCalendarStats,
   IconCash,
+  IconEdit,
   IconPackage,
   IconReceipt,
   IconRefresh,
@@ -126,6 +129,10 @@ export default function PosSalesLogPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editSale, setEditSale] = useState<SalesLogData["transactions"][number] | null>(null);
+  const [editPaymentMethod, setEditPaymentMethod] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [savingPaymentMethod, setSavingPaymentMethod] = useState(false);
   const requestControllerRef = useRef<AbortController | null>(null);
 
   const labels = useMemo(() => isId ? {
@@ -163,6 +170,11 @@ export default function PosSalesLogPage() {
     people: "Pembeli / kasir",
     items: "Barang terjual",
     payment: "Pembayaran",
+    editPayment: "Ubah metode pembayaran",
+    editPaymentDescription: "Koreksi metode pembayaran untuk transaksi ini. Saldo tunjangan akan diperbarui otomatis. Transaksi yang sudah tersinkron tetap menyimpan catatan metode pembayaran awal di Accurate.",
+    savePayment: "Simpan perubahan",
+    cancel: "Batal",
+    updatePaymentError: "Metode pembayaran tidak dapat diperbarui",
     status: "Status",
     total: "Total",
     guest: "Tamu",
@@ -206,6 +218,11 @@ export default function PosSalesLogPage() {
     people: "Buyer / cashier",
     items: "Items sold",
     payment: "Payment",
+    editPayment: "Change payment method",
+    editPaymentDescription: "Correct the payment method for this transaction. Allowance balances will update automatically. Already-synced transactions keep the original payment note in Accurate.",
+    savePayment: "Save changes",
+    cancel: "Cancel",
+    updatePaymentError: "Unable to update payment method",
     status: "Status",
     total: "Total",
     guest: "Guest",
@@ -282,6 +299,41 @@ export default function PosSalesLogPage() {
     setDateRange([start, today]);
   };
 
+  const openPaymentEditor = (sale: SalesLogData["transactions"][number]) => {
+    setEditSale(sale);
+    setEditPaymentMethod(sale.paymentMethod);
+    setEditError(null);
+  };
+
+  const closePaymentEditor = () => {
+    if (savingPaymentMethod) return;
+    setEditSale(null);
+    setEditPaymentMethod(null);
+    setEditError(null);
+  };
+
+  const savePaymentMethod = async () => {
+    if (!editSale || !editPaymentMethod || editPaymentMethod === editSale.paymentMethod) return;
+    setSavingPaymentMethod(true);
+    setEditError(null);
+    try {
+      const response = await fetch(`/api/pos/sales/${editSale.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentMethod: editPaymentMethod }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || labels.updatePaymentError);
+      setEditSale(null);
+      setEditPaymentMethod(null);
+      await loadData(true);
+    } catch (saveError) {
+      setEditError(saveError instanceof Error ? saveError.message : labels.updatePaymentError);
+    } finally {
+      setSavingPaymentMethod(false);
+    }
+  };
+
   const formatPayment = (value: string) => value === "qris"
     ? "QRIS"
     : value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -319,6 +371,9 @@ export default function PosSalesLogPage() {
     { value: "all", label: labels.allPaymentMethods },
     ...(data?.facets.paymentMethods ?? []).map((value) => ({ value, label: formatPayment(value) })),
   ];
+  const editablePaymentOptions = ["allowance", "cash", "qris"]
+    .filter((value) => value !== "allowance" || editSale?.buyerType === "staff")
+    .map((value) => ({ value, label: formatPayment(value) }));
   const paymentChartData = (data?.paymentBreakdown ?? [])
     .map((row) => ({
       name: formatPayment(row.paymentMethod),
@@ -533,7 +588,20 @@ export default function PosSalesLogPage() {
                             ))}
                           </Stack>
                         </Table.Td>
-                        <Table.Td><Badge variant="light">{formatPayment(sale.paymentMethod)}</Badge></Table.Td>
+                        <Table.Td>
+                          <Group gap="xs" wrap="nowrap">
+                            <Badge variant="light">{formatPayment(sale.paymentMethod)}</Badge>
+                            <ActionIcon
+                              variant="subtle"
+                              size="sm"
+                              aria-label={labels.editPayment}
+                              title={labels.editPayment}
+                              onClick={() => openPaymentEditor(sale)}
+                            >
+                              <IconEdit size={15} />
+                            </ActionIcon>
+                          </Group>
+                        </Table.Td>
                         <Table.Td>
                           <Badge
                             color={sale.status === "synced" ? "green" : sale.status === "sync_error" ? "red" : "yellow"}
@@ -555,6 +623,40 @@ export default function PosSalesLogPage() {
           </Paper>
         </>
       ) : null}
+
+      <Modal
+        opened={!!editSale}
+        onClose={closePaymentEditor}
+        title={labels.editPayment}
+        centered
+      >
+        <Stack>
+          <Text size="sm" c="dimmed">{labels.editPaymentDescription}</Text>
+          {editSale ? (
+            <Text size="sm">
+              {new Date(editSale.createdAt).toLocaleString(isId ? "id-ID" : "en-US")} · {money.format(Number(editSale.total))}
+            </Text>
+          ) : null}
+          <Select
+            label={labels.paymentMethod}
+            data={editablePaymentOptions}
+            value={editPaymentMethod}
+            onChange={setEditPaymentMethod}
+            allowDeselect={false}
+          />
+          {editError ? <Alert color="red" icon={<IconAlertCircle size={18} />}>{editError}</Alert> : null}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closePaymentEditor} disabled={savingPaymentMethod}>{labels.cancel}</Button>
+            <Button
+              onClick={() => void savePaymentMethod()}
+              loading={savingPaymentMethod}
+              disabled={!editPaymentMethod || editPaymentMethod === editSale?.paymentMethod}
+            >
+              {labels.savePayment}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

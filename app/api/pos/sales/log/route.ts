@@ -14,7 +14,7 @@ import {
   jakartaDateKey,
   jakartaDateStart,
 } from "@/lib/pos";
-import { isAdmin } from "@/lib/pos-server";
+import { isAdmin, saleTotal } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
 
 const MAX_RANGE_DAYS = 366;
@@ -46,12 +46,6 @@ function periodKey(date: Date, period: "daily" | "weekly" | "monthly") {
   return addDateOnly(dateKey, mondayOffset);
 }
 
-function saleTotal(items: Array<{ quantity: number; unitPrice: Prisma.Decimal }>) {
-  return items.reduce(
-    (total, item) => total.add(item.unitPrice.mul(item.quantity)),
-    new Prisma.Decimal(0),
-  );
-}
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);

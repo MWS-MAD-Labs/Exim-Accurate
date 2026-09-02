@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { saleRequestSchema, calculateTotals } from "@/lib/pos";
-import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getOutstandingPreviousAllowanceDebt, getPosContext, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
+import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getOutstandingPreviousAllowanceDebt, getPosContext, resolveLocalPosProducts, saleAllowanceUsed, withSerializableRetry } from "@/lib/pos-server";
 import { syncPosSale } from "@/lib/accurate/pos";
 import crypto from "node:crypto";
 import { canOperatePos } from "@/lib/access-control";
@@ -33,7 +33,6 @@ export async function POST(req: NextRequest) {
   const items = canonicalSaleItems(requestedItems, products);
   const normalizedStaffEmail = staffEmail?.toLowerCase().trim();
 
-  let allowanceUsed = 0;
   if (buyerType === "staff") {
     if (!normalizedStaffEmail) return NextResponse.json({ error: "staffEmail is required for staff transactions" }, { status: 400 });
     const previousDebt = await getOutstandingPreviousAllowanceDebt(credentialId, normalizedStaffEmail);
@@ -41,7 +40,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Previous-period negative balance must be paid before another transaction can be completed.", previousDebt }, { status: 409 });
     }
   }
-  if (paymentMethod === "allowance") allowanceUsed = calculateTotals(items).revenue;
+  const allowanceUsed = saleAllowanceUsed(buyerType, paymentMethod, items);
 
   const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ credentialId, paymentMethod, items, buyerType, staffEmail: normalizedStaffEmail })).digest("hex");
   const existing = await prisma.posSale.findUnique({ where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } }, include: { items: true } });

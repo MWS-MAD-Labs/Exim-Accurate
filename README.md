@@ -124,6 +124,7 @@ Administrators can open **Point of Sales → Sales Log** at `/dashboard/pos/sale
 - Summary cards show total sales, transaction count, units sold, and average sale for the filtered period.
 - Period totals can be grouped daily, weekly, or monthly. Weekly periods start on Monday and all report boundaries use Jakarta time.
 - Transaction rows include the buyer, cashier, sold items, payment method, synchronization status, warehouse, and total.
+- Administrators can correct a transaction's payment method from the journal. Changing to or from allowance also recalculates the transaction's allowance usage; allowance is only available for staff transactions. If a transaction is already synced, its existing Accurate inventory adjustment keeps the original payment-method note and must be reconciled manually if that external description also needs correction.
 - The journal displays the latest 500 matching transactions. Summary cards and grouped totals still include every matching transaction.
 - A payment method mix chart splits the filtered sales value across allowance, cash, and QRIS, with per-method transaction counts.
 
