@@ -125,3 +125,20 @@ export async function syncPosSale(
 
   throw new Error("Unable to create the Accurate inventory adjustment");
 }
+
+export async function reversePosSale(
+  credentials: PosAccurateCredentials,
+  sale: PosSaleForAdjustment & { accurateId: number; voidReason: string },
+): Promise<{ id: number; number: string }> {
+  const result = await saveInventoryAdjustment(credentials, {
+    transDate: new Date().toISOString().slice(0, 10),
+    description: `VOID POS Sale ${sale.id} | Original Accurate ID: ${sale.accurateId} | Reason: ${sale.voidReason.slice(0, 200)}`,
+    detailItem: sale.items.map((item) => ({
+      itemNo: item.itemCode,
+      quantity: item.quantity,
+      itemAdjustmentType: "ADJUSTMENT_IN",
+      warehouseName: sale.warehouseName,
+    })),
+  });
+  return { id: result.id, number: result.r };
+}

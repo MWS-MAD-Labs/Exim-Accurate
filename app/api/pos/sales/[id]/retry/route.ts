@@ -15,6 +15,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     include: { items: true },
   });
   if (!sale) return NextResponse.json({ error: "Sale not found" }, { status: 404 });
+  if (sale.status === "voiding" || sale.status === "voided") {
+    return NextResponse.json({ sale, error: "Voided or void-in-progress sales cannot be re-synced." }, { status: 409 });
+  }
   if (sale.status === "synced") return NextResponse.json(sale);
   return NextResponse.json({
     sale,

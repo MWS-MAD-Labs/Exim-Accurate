@@ -125,7 +125,10 @@ Administrators can open **Point of Sales → Sales Log** at `/dashboard/pos/sale
 - Period totals can be grouped daily, weekly, or monthly. Weekly periods start on Monday and all report boundaries use Jakarta time.
 - Transaction rows include the buyer, cashier, sold items, payment method, synchronization status, warehouse, and total.
 - Administrators can correct a transaction's payment method from the journal. Changing to or from allowance also recalculates the transaction's allowance usage; allowance is only available for staff transactions. If a transaction is already synced, its existing Accurate inventory adjustment keeps the original payment-method note and must be reconciled manually if that external description also needs correction.
-- The journal displays the latest 500 matching transactions. Summary cards and grouped totals still include every matching transaction.
+- Administrators can void a fully synced transaction only after entering a reason. Voiding never deletes the sale or its line items: Exima creates a separate Accurate `ADJUSTMENT_IN`, restores local stock and sold allocation once, records the administrator/reason/time/reversal ID, releases any allowance consumed by the sale, and keeps the original financial metadata for audit.
+- Voided transactions remain in the journal with their audit details but are excluded from sales totals, payment mix, analytics revenue, and staff allowance usage. Payment editing and normal Accurate retry actions are disabled once voiding begins.
+- If the Accurate reversal result is uncertain or local finalization fails, the transaction remains `voiding` and appears as **Needs reconciliation**. Verify the inbound adjustment in Accurate, open **Complete reconciliation** in the journal, and enter its verified Accurate ID. This recovery action never sends another Accurate adjustment and restores local stock at most once.
+- The journal displays the latest 500 matching transactions. Summary cards and grouped totals still include every matching non-voided transaction.
 - A payment method mix chart splits the filtered sales value across allowance, cash, and QRIS, with per-method transaction counts.
 
 The supporting `GET /api/pos/sales/log` endpoint requires an administrator session, scopes every query through the administrator's organization, validates a maximum date range of 366 days, and rejects malformed filter values.
@@ -210,7 +213,7 @@ npm run db:seed -- admin@example.com password123 admin
 - `BorrowableItem`: organization-scoped borrowing catalog
 - `BorrowingSession` and `BorrowingActivity`: historical borrowing records linked to their original credential
 - `CheckoutSession`: self-checkout history
-- `PosReservation`, `PosSale`, `PosProduct`, and `PosStockChange`: POS operations and the stock change audit log
+- `PosReservation`, `PosSale`, `PosProduct`, and `PosStockChange`: retained POS operations, void/reconciliation audit metadata, and the stock change audit log
 - `ExportJob` and `ImportJob`: import/export audit records
 
 Refer to `prisma/schema.prisma` and migration files for the authoritative schema.
@@ -220,7 +223,7 @@ Refer to `prisma/schema.prisma` and migration files for the authoritative schema
 - Always authorize client-provided IDs through the authenticated user's organization.
 - Never expose Accurate secrets, tokens, session values, or database credentials to clients or logs.
 - Preserve Accurate's limit of 8 requests per second and 8 concurrent requests.
-- Treat Accurate writes as non-transactional with local PostgreSQL writes and retain recoverable synchronization status.
+- Treat Accurate writes as non-transactional with local PostgreSQL writes and retain recoverable synchronization status. Never blindly retry an uncertain POS void reversal; verify it in Accurate and use the reconciliation action with the confirmed reversal ID.
 - Treat uploaded spreadsheet files as untrusted input.
 
 Additional engineering constraints are documented in [`project-context.md`](project-context.md).

@@ -99,6 +99,8 @@ interface PosAnalyticsData {
     synced: number;
     pending: number;
     failed: number;
+    voiding: number;
+    voided: number;
   };
   topItems: Array<{
     itemCode: string;
@@ -261,6 +263,8 @@ export default function PosAnalyticsPage() {
     synced: "Tersinkron",
     pending: "Menunggu",
     failed: "Gagal",
+    voiding: "Perlu rekonsiliasi",
+    voided: "Dibatalkan",
     item: "Barang",
     stock: "Stok",
     sold: "Terjual",
@@ -316,6 +320,8 @@ export default function PosAnalyticsPage() {
     synced: "Synced",
     pending: "Pending",
     failed: "Failed",
+    voiding: "Needs reconciliation",
+    voided: "Voided",
     item: "Item",
     stock: "Stock",
     sold: "Sold",
@@ -471,8 +477,14 @@ export default function PosAnalyticsPage() {
   };
 
   const formatMoney = (value: string | number) => money.format(Number(value));
-  const hasSyncIssues = Boolean(data && (data.transactionHealth.pending > 0 || data.transactionHealth.failed > 0));
-  const successfulRate = data?.transactionHealth.total
+  const hasSyncIssues = Boolean(data && (data.transactionHealth.pending > 0 || data.transactionHealth.failed > 0 || data.transactionHealth.voiding > 0));
+  const syncRelevantTotal = data
+    ? data.transactionHealth.total - data.transactionHealth.voided
+    : 0;
+  const successfulRate = data && syncRelevantTotal > 0
+    ? (data.transactionHealth.synced / syncRelevantTotal) * 100
+    : 0;
+  const syncedLifecycleRate = data?.transactionHealth.total
     ? (data.transactionHealth.synced / data.transactionHealth.total) * 100
     : 0;
 
@@ -628,14 +640,18 @@ export default function PosAnalyticsPage() {
                   </Box>
                 </Center>
                 <Progress.Root size="xl">
-                  <Progress.Section value={successfulRate} color="teal"><Progress.Label>{data.transactionHealth.synced}</Progress.Label></Progress.Section>
+                  <Progress.Section value={syncedLifecycleRate} color="teal"><Progress.Label>{data.transactionHealth.synced}</Progress.Label></Progress.Section>
                   <Progress.Section value={data.transactionHealth.total ? data.transactionHealth.pending / data.transactionHealth.total * 100 : 0} color="orange"><Progress.Label>{data.transactionHealth.pending}</Progress.Label></Progress.Section>
                   <Progress.Section value={data.transactionHealth.total ? data.transactionHealth.failed / data.transactionHealth.total * 100 : 0} color="red"><Progress.Label>{data.transactionHealth.failed}</Progress.Label></Progress.Section>
+                  <Progress.Section value={data.transactionHealth.total ? data.transactionHealth.voiding / data.transactionHealth.total * 100 : 0} color="yellow"><Progress.Label>{data.transactionHealth.voiding}</Progress.Label></Progress.Section>
+                  <Progress.Section value={data.transactionHealth.total ? data.transactionHealth.voided / data.transactionHealth.total * 100 : 0} color="gray"><Progress.Label>{data.transactionHealth.voided}</Progress.Label></Progress.Section>
                 </Progress.Root>
-                <SimpleGrid cols={3}>
+                <SimpleGrid cols={{ base: 2, sm: 5 }}>
                   <Box ta="center"><Text fw={700} c="teal">{data.transactionHealth.synced}</Text><Text size="xs" c="dimmed">{labels.synced}</Text></Box>
                   <Box ta="center"><Text fw={700} c="orange">{data.transactionHealth.pending}</Text><Text size="xs" c="dimmed">{labels.pending}</Text></Box>
                   <Box ta="center"><Text fw={700} c="red">{data.transactionHealth.failed}</Text><Text size="xs" c="dimmed">{labels.failed}</Text></Box>
+                  <Box ta="center"><Text fw={700} c="yellow">{data.transactionHealth.voiding}</Text><Text size="xs" c="dimmed">{labels.voiding}</Text></Box>
+                  <Box ta="center"><Text fw={700} c="gray">{data.transactionHealth.voided}</Text><Text size="xs" c="dimmed">{labels.voided}</Text></Box>
                 </SimpleGrid>
               </Stack>
             </Panel>

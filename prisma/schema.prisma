@@ -39,13 +39,14 @@ model User {
   kioskSyncData                      KioskSyncData[]
   borrowingSessions                  BorrowingSession[]
   borrowingActivities                BorrowingActivity[]
-  posSales                           PosSale[]
+  posSales                           PosSale[]                         @relation("PosSaleCreatedBy")
   posReservations                    PosReservation[]
   posSettings                        PosSettings[]
   posAllocations                     PosStockAllocation[]
   posAllowanceAdjustmentsCreated     PosStaffAllowanceAdjustment[]
   posAllowanceDebtSettlementsCreated PosStaffAllowanceDebtSettlement[]
   posStockChanges                    PosStockChange[]
+  posSalesVoided                     PosSale[]                         @relation("PosSaleVoidedBy")
 
   @@index([organizationId])
 }
@@ -468,12 +469,17 @@ model PosSale {
   warehouseId             Int
   warehouseName           String
   paymentMethod           String
-  status                  String    @default("pending_sync") // pending_sync, synced (confirmed inventory adjustment), sync_error
+  status                  String    @default("pending_sync") // pending_sync, synced, sync_error, voiding, voided
   accurateId              Int? // Accurate inventory adjustment ID
   syncError               String?
   syncAttempts             Int       @default(0)
   lastSyncAttemptAt        DateTime?
   nextSyncAttemptAt        DateTime?
+  voidReason               String?
+  voidedAt                 DateTime?
+  voidedById               String?
+  voidAccurateId           Int? // Accurate ADJUSTMENT_IN reversal ID
+  voidSyncError            String?
   receiptEmailStatus      String    @default("pending") // disabled, pending, processing, sent, failed
   receiptEmailAttemptedAt DateTime?
   receiptEmailSentAt      DateTime?
@@ -487,7 +493,8 @@ model PosSale {
   staffName     String?
   allowanceUsed Decimal @default(0) @db.Decimal(14, 2)
 
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User                @relation("PosSaleCreatedBy", fields: [userId], references: [id], onDelete: Restrict)
+  voidedBy     User?               @relation("PosSaleVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
   credential   AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
   reservation  PosReservation?     @relation(fields: [reservationId], references: [id], onDelete: SetNull)
   items        PosSaleItem[]
@@ -498,6 +505,7 @@ model PosSale {
   @@index([credentialId, status])
   @@index([receiptEmailStatus, receiptEmailAttemptedAt])
   @@index([credentialId, staffEmail, createdAt])
+  @@index([voidedById])
 }
 
 model PosStockChange {
@@ -512,7 +520,7 @@ model PosStockChange {
   previousStock  Int
   newStock       Int
   quantityChange Int
-  source         String // manual, sale
+  source         String // manual, sale, void
   note           String?
   createdAt      DateTime @default(now())
 

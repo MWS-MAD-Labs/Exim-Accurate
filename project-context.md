@@ -121,7 +121,8 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - Do not create duplicate borrowing, checkout, import, or export jobs on client retries. Reuse an idempotency key or perform a server-side duplicate check where the workflow supports it.
 - Borrowing availability and return quantities are domain constraints: reject overlapping bookings/loans, non-positive quantities, returns beyond borrowed quantities, and dates that violate the feature rules.
 - Keep `BorrowableItem` organization-owned. Item codes are unique within an organization, and availability/currently-out calculations must aggregate active borrowing sessions across all current and historical credentials in that organization.
-- Every `PosProduct.stock` mutation must insert a `PosStockChange` audit row in the same transaction (manual stock edits, POS sales, preorder pickups), capturing previous/new stock, quantity change, source, and the acting user.
+- Every `PosProduct.stock` mutation must insert a `PosStockChange` audit row in the same transaction (manual stock edits, POS sales, preorder pickups, and POS void finalization), capturing previous/new stock, quantity change, source, and the acting user.
+- POS sales are permanent audit records: never delete a sale or its line items to cancel it. A void requires an administrator reason, an opposite Accurate `ADJUSTMENT_IN`, explicit `voiding`/`voided` state, and exactly-once local stock restoration. If the Accurate result is uncertain, never retry the external reversal blindly; require an administrator to verify the Accurate reversal ID and use local-only reconciliation.
 - Treat uploaded CSV/XLSX files as untrusted input. Enforce the configured size limit, validate headers and rows, reject unsupported formats, and never execute or interpret spreadsheet formulas as application commands.
 - Escape or safely encode exported values and user-controlled descriptions to avoid CSV/XLSX formula injection and unsafe HTML rendering.
 - Preserve bilingual UI behavior (`id` and `en`) when adding visible text, including errors, empty states, navigation labels, and notifications.
@@ -147,4 +148,4 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - Update the technology versions and rules when architecture, dependencies, deployment, or domain behavior changes.
 - Review periodically for stale, duplicated, or overly obvious guidance.
 
-_Last updated: 2026-08-31_
+_Last updated: 2026-09-02_

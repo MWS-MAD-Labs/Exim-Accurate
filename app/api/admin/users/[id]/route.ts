@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getCurrentAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
@@ -111,6 +112,26 @@ export async function DELETE(
     );
   }
 
-  await prisma.user.delete({ where: { id } });
-  return NextResponse.json({ success: true });
+  const posSalesCount = await prisma.posSale.count({
+    where: { OR: [{ userId: id }, { voidedById: id }] },
+  });
+  if (posSalesCount > 0) {
+    return NextResponse.json(
+      { error: "This user has POS sales history and cannot be deleted. Change their role or disable their access instead." },
+      { status: 409 },
+    );
+  }
+
+  try {
+    await prisma.user.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return NextResponse.json(
+        { error: "This user is referenced by retained audit history and cannot be deleted. Change their role or disable their access instead." },
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
 }

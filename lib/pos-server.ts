@@ -140,7 +140,7 @@ export async function getStaffAllowance(
         credentialId,
         staffEmail: normalizedEmail,
         paymentMethod: "allowance",
-        status: { not: "sync_error" },
+        status: { notIn: ["sync_error", "voided"] },
         createdAt: { gte: period.startsAt, lt: periodEndExclusive },
       },
       _sum: { allowanceUsed: true },

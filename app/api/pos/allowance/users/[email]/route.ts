@@ -51,7 +51,7 @@ export async function GET(
         credentialId: query.data.credentialId,
         staffEmail,
         paymentMethod: "allowance",
-        status: { not: "sync_error" },
+        status: { notIn: ["sync_error", "voided"] },
         createdAt: { gte: periodStartsAt, lt: periodEndExclusive },
       },
       select: {
