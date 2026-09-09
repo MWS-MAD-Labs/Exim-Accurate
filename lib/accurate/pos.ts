@@ -77,7 +77,7 @@ export interface PosSaleForAdjustment {
   id: string;
   warehouseName: string;
   paymentMethod: string;
-  items: Array<{ itemCode: string; quantity: number }>;
+  items: Array<{ itemCode: string; quantity: number; unitCost?: unknown }>;
 }
 
 /**
@@ -96,6 +96,7 @@ export async function syncPosSale(
       itemNo: item.itemCode,
       quantity: item.quantity,
       itemAdjustmentType: "ADJUSTMENT_OUT" as const,
+      unitCost: item.unitCost === undefined ? undefined : Number(item.unitCost),
       warehouseName: sale.warehouseName,
     })),
   };

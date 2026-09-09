@@ -32,6 +32,21 @@ export async function POST(req: NextRequest) {
   }
   const items = canonicalSaleItems(requestedItems, products);
   const normalizedStaffEmail = staffEmail?.toLowerCase().trim();
+  let canonicalStaffName = staffName;
+
+  if (buyerType === "staff" && normalizedStaffEmail) {
+    const registeredStaff = await prisma.user.findFirst({
+      where: {
+        email: normalizedStaffEmail,
+        organizationId: context.credential.organizationId,
+      },
+      select: { name: true },
+    });
+    if (!registeredStaff) {
+      return NextResponse.json({ error: "Staff email is not registered in this organization" }, { status: 409 });
+    }
+    canonicalStaffName = registeredStaff.name || staffName;
+  }
 
   let allowanceUsed = 0;
   if (buyerType === "staff") {
@@ -54,7 +69,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(existing);
   }
   const created = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
-    const sale = await tx.posSale.create({ data: { userId: session.user.id, credentialId, idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, paymentMethod, buyerType, staffEmail: normalizedStaffEmail, staffName, allowanceUsed, items: { create: items } }, include: { items: true } });
+    const sale = await tx.posSale.create({ data: { userId: session.user.id, credentialId, idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, paymentMethod, buyerType, staffEmail: normalizedStaffEmail, staffName: canonicalStaffName, allowanceUsed, items: { create: items } }, include: { items: true } });
     for (const item of items) {
       const product = await tx.posProduct.findUnique({ where: { credentialId_itemCode: { credentialId, itemCode: item.itemCode } } });
       if (!product?.isActive) throw new Error("INSUFFICIENT_STOCK");

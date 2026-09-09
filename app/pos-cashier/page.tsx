@@ -135,6 +135,7 @@ export default function PosCashierPage() {
   const [staffSuggestionsRefresh, setStaffSuggestionsRefresh] = useState(0);
   const [highlightedStaffSuggestion, setHighlightedStaffSuggestion] = useState(0);
   const [staffSuggestionNavigated, setStaffSuggestionNavigated] = useState(false);
+  const [staffError, setStaffError] = useState("");
   const [allowance, setAllowance] = useState<Allowance | null>(null);
   const [staffDebtPrompt, setStaffDebtPrompt] = useState<PreviousDebt | null>(null);
   const [confirmingDebtPayment, setConfirmingDebtPayment] = useState(false);
@@ -217,6 +218,11 @@ export default function PosCashierPage() {
     const matchedStaff = staffSuggestions.find(
       (staff) => staff.email.toLowerCase() === trimmed,
     );
+    if (!registeredName && !matchedStaff) {
+      setStaffError("Pilih staf dari daftar yang muncul sebelum melanjutkan.");
+      return;
+    }
+    setStaffError("");
     setStaffEmail(trimmed);
     setStaffName(registeredName || matchedStaff?.name || parseStaffInfo(trimmed));
     setStaffSuggestionsOpen(false);
@@ -858,6 +864,7 @@ export default function PosCashierPage() {
               onChange={(event) => {
                 setStaffEmail(event.currentTarget.value);
                 setStaffName("");
+                setStaffError("");
                 setStaffSuggestionsOpen(true);
                 setStaffSuggestionNavigated(false);
               }}
@@ -917,6 +924,7 @@ export default function PosCashierPage() {
               size="lg"
               styles={inputStyles}
             />
+            {staffError && <Text size="sm" c="red" mt={4}>{staffError}</Text>}
             {staffSuggestionsOpen && staffSuggestions.length > 0 && (
               <Card
                 id="pos-staff-suggestions"

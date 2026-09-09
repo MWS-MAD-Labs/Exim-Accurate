@@ -7,6 +7,10 @@ interface AccurateCredentials {
   session?: string;
 }
 
+interface AccurateListResponse {
+  d?: Array<{ no?: string; unitCost?: number }>;
+}
+
 export interface InventoryAdjustment {
   id: number;
   transDate: string;
@@ -171,6 +175,27 @@ export async function saveInventoryAdjustment(
   const [year, month, day] = data.transDate.split("-");
   const formattedDate = `${day}/${month}/${year}`;
 
+  const resolvedCosts = new Map<string, number>();
+  for (const item of data.detailItem) {
+    if (item.unitCost !== undefined) {
+      if (!Number.isFinite(item.unitCost) || item.unitCost <= 0) {
+        throw new Error(`A positive unit cost is required for item ${item.itemNo}`);
+      }
+      resolvedCosts.set(item.itemNo, item.unitCost);
+      continue;
+    }
+
+    const itemResponse = await accurateFetch<AccurateListResponse>(
+      `/api/item/list.do?fields=no,unitCost&filter.no.op=EQUAL&filter.no.val[0]=${encodeURIComponent(item.itemNo)}`,
+      credentials,
+    );
+    const unitCost = Number(itemResponse.d?.[0]?.unitCost);
+    if (!Number.isFinite(unitCost) || unitCost <= 0) {
+      throw new Error(`A positive unit cost is required for item ${item.itemNo}`);
+    }
+    resolvedCosts.set(item.itemNo, unitCost);
+  }
+
   const requestBody = {
     transDate: formattedDate,
     number: data.number,
@@ -179,7 +204,7 @@ export async function saveInventoryAdjustment(
       itemNo: item.itemNo,
       quantity: item.quantity,
       itemAdjustmentType: item.itemAdjustmentType,
-      unitCost: item.unitCost || 0,
+      unitCost: resolvedCosts.get(item.itemNo),
       warehouseName: item.warehouseName,
     })),
   };
