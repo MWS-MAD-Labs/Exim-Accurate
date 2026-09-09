@@ -388,6 +388,8 @@ export async function GET(req: NextRequest) {
         synced: statusCounts.synced ?? 0,
         pending: statusCounts.pending_sync ?? 0,
         failed: statusCounts.sync_error ?? 0,
+        voiding: statusCounts.voiding ?? 0,
+        voided: statusCounts.voided ?? 0,
       },
       topItems,
       restock: actionableRestock,

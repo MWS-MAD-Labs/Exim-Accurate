@@ -14,7 +14,7 @@ import {
   jakartaDateKey,
   jakartaDateStart,
 } from "@/lib/pos";
-import { isAdmin } from "@/lib/pos-server";
+import { isAdmin, saleTotal } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
 
 const MAX_RANGE_DAYS = 366;
@@ -46,12 +46,6 @@ function periodKey(date: Date, period: "daily" | "weekly" | "monthly") {
   return addDateOnly(dateKey, mondayOffset);
 }
 
-function saleTotal(items: Array<{ quantity: number; unitPrice: Prisma.Decimal }>) {
-  return items.reduce(
-    (total, item) => total.add(item.unitPrice.mul(item.quantity)),
-    new Prisma.Decimal(0),
-  );
-}
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -131,6 +125,7 @@ export async function GET(req: NextRequest) {
         include: {
           items: { orderBy: { itemName: "asc" } },
           user: { select: { id: true, name: true, email: true } },
+          voidedBy: { select: { id: true, name: true, email: true } },
           credential: { select: { id: true, appKey: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -159,6 +154,7 @@ export async function GET(req: NextRequest) {
     const paymentMap = new Map<string, { paymentMethod: string; transactions: number; total: Prisma.Decimal }>();
 
     for (const sale of sales) {
+      if (sale.status === "voided") continue;
       const total = saleTotal(sale.items);
       const units = sale.items.reduce((sum, item) => sum + item.quantity, 0);
       totalSales = totalSales.add(total);
@@ -186,6 +182,7 @@ export async function GET(req: NextRequest) {
       paymentMap.set(sale.paymentMethod, payment);
     }
 
+    const transactionCount = Array.from(periodMap.values()).reduce((sum, row) => sum + row.sales, 0);
     const transactions = sales.slice(0, MAX_TRANSACTIONS).map((sale) => {
       const total = saleTotal(sale.items);
       const units = sale.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -195,6 +192,11 @@ export async function GET(req: NextRequest) {
         createdAt: sale.createdAt.toISOString(),
         paymentMethod: sale.paymentMethod,
         status: sale.status,
+        voidReason: sale.voidReason,
+        voidedAt: sale.voidedAt?.toISOString() ?? null,
+        voidedBy: sale.voidedBy,
+        voidAccurateId: sale.voidAccurateId,
+        voidSyncError: sale.voidSyncError,
         buyerType: sale.buyerType,
         person: sale.buyerType === "staff"
           ? { name: sale.staffName, email: sale.staffEmail }
@@ -242,9 +244,9 @@ export async function GET(req: NextRequest) {
       period: { start: startValue, end: endValue, grouping: parsed.data.period },
       summary: {
         totalSales: totalSales.toFixed(2),
-        transactions: sales.length,
+        transactions: transactionCount,
         units: totalUnits,
-        averageSale: sales.length ? totalSales.div(sales.length).toFixed(2) : "0.00",
+        averageSale: transactionCount ? totalSales.div(transactionCount).toFixed(2) : "0.00",
       },
       groupedTotals: Array.from(periodMap.values())
         .sort((a, b) => b.period.localeCompare(a.period))

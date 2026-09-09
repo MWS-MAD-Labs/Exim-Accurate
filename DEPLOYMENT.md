@@ -141,6 +141,12 @@ Historical borrowing sessions remain attached to their original credentials. Ava
 
 Fresh databases require no manual reconciliation; normal `prisma migrate deploy` applies the full history.
 
+Migration `20260902000000_add_pos_sale_void` adds retained POS void audit fields and changes the POS sale creator foreign key from cascade deletion to restricted deletion. After deployment:
+
+- users referenced as a POS cashier or voiding administrator cannot be deleted; change their role or access instead;
+- voided sales and their line items remain permanently available for audit;
+- the Sales Log can create an Accurate inbound reversal and restore local stock without deleting the original sale.
+
 ## Pre-Deployment Validation
 
 Run:
@@ -169,10 +175,24 @@ Also verify:
 - Test inventory export preview and download.
 - Validate and run a sample import.
 - Configure the POS warehouse and confirm each organization can activate its own store.
+- Void a test synced POS sale with a reason; confirm the original sale remains visible, an Accurate `ADJUSTMENT_IN` exists, local stock is restored, and the sale is excluded from totals and allowance usage.
+- Confirm a `voiding` test record exposes **Complete reconciliation** and accepts only the verified Accurate reversal ID without creating a second Accurate adjustment.
 - Configure the separate Resource Management warehouse and confirm borrowing/return adjustments use it without changing the POS warehouse.
 - Test borrowing, booking, availability, return, and historical-loan return flows.
 - Confirm an Accurate sync failure reports `pending_reconciliation` without losing the local return.
 - Verify cross-organization IDs cannot access credentials, products, analytics, reservations, or borrowing PII.
+
+## POS Void Reconciliation
+
+A transaction can remain `voiding` when the Accurate response is uncertain or when Accurate succeeds but local stock finalization fails. Do not repeat the automatic void request because the external adjustment may already exist.
+
+1. Open the original sale in **Point of Sales → Sales Log** and note its reason and any recorded reversal ID/error.
+2. In Accurate, verify the inbound inventory adjustment for the sale ID and warehouse. Create it manually only when you have confirmed that no reversal already exists.
+3. In the Sales Log, select **Complete reconciliation** for the `voiding` row.
+4. Enter the verified positive Accurate adjustment ID. If Exima already recorded an ID, the entered value must match it.
+5. Confirm the sale becomes `voided`, stock is restored once, the stock history contains a `void` entry, and allowance/totals exclude the sale.
+
+If reconciliation reports a missing catalog product, restore the product with the same credential and item code before retrying local finalization. If it reports an allocation conflict, reconcile the local sold allocation before continuing. The reconciliation endpoint is intentionally local-only and never calls Accurate.
 
 ## Operations
 

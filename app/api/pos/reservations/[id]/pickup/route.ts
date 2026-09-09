@@ -3,8 +3,8 @@ import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getOutstandingPreviousAllowanceDebt, getPosContext, withSerializableRetry } from "@/lib/pos-server";
-import { calculateTotals, paymentMethodSchema } from "@/lib/pos";
+import { getOutstandingPreviousAllowanceDebt, getPosContext, saleAllowanceUsed, withSerializableRetry } from "@/lib/pos-server";
+import { paymentMethodSchema } from "@/lib/pos";
 import { syncPosSale } from "@/lib/accurate/pos";
 import { canOperatePos } from "@/lib/access-control";
 import { getOperationalPosCredential } from "@/lib/credential-access";
@@ -39,10 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Previous-period negative balance must be paid before another transaction can be completed.", previousDebt }, { status: 409 });
   }
 
-  let allowanceUsed = 0;
-  if (payment.data === "allowance") {
-    allowanceUsed = calculateTotals(reservation.items.map((item) => ({ ...item, unitPrice: Number(item.unitPrice), unitCost: Number(item.unitCost) }))).revenue;
-  }
+  const allowanceUsed = saleAllowanceUsed("staff", payment.data, reservation.items);
 
   const sale = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
     const changed = await tx.posReservation.updateMany({ where: { id, status: "active", expiresAt: { gt: new Date() } }, data: { status: "picked_up", pickupAt: new Date() } });

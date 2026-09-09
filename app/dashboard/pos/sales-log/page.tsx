@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActionIcon,
   Alert,
   Badge,
   Box,
   Button,
   Group,
+  Modal,
   Paper,
   ScrollArea,
   SegmentedControl,
@@ -16,13 +18,17 @@ import {
   Stack,
   Table,
   Text,
+  Textarea,
+  TextInput,
   Title,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import {
   IconAlertCircle,
+  IconBan,
   IconCalendarStats,
   IconCash,
+  IconEdit,
   IconPackage,
   IconReceipt,
   IconRefresh,
@@ -75,6 +81,11 @@ interface SalesLogData {
     createdAt: string;
     paymentMethod: string;
     status: string;
+    voidReason: string | null;
+    voidedAt: string | null;
+    voidedBy: { id: string; name: string | null; email: string } | null;
+    voidAccurateId: number | null;
+    voidSyncError: string | null;
     buyerType: string;
     person: { name: string | null; email: string | null };
     cashier: { id: string; name: string | null; email: string };
@@ -126,6 +137,18 @@ export default function PosSalesLogPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editSale, setEditSale] = useState<SalesLogData["transactions"][number] | null>(null);
+  const [editPaymentMethod, setEditPaymentMethod] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [savingPaymentMethod, setSavingPaymentMethod] = useState(false);
+  const [voidSale, setVoidSale] = useState<SalesLogData["transactions"][number] | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidError, setVoidError] = useState<string | null>(null);
+  const [voidingSale, setVoidingSale] = useState(false);
+  const [reconcileSale, setReconcileSale] = useState<SalesLogData["transactions"][number] | null>(null);
+  const [reversalId, setReversalId] = useState("");
+  const [reconcileError, setReconcileError] = useState<string | null>(null);
+  const [reconcilingSale, setReconcilingSale] = useState(false);
   const requestControllerRef = useRef<AbortController | null>(null);
 
   const labels = useMemo(() => isId ? {
@@ -163,6 +186,25 @@ export default function PosSalesLogPage() {
     people: "Pembeli / kasir",
     items: "Barang terjual",
     payment: "Pembayaran",
+    editPayment: "Ubah metode pembayaran",
+    editPaymentDescription: "Koreksi metode pembayaran untuk transaksi ini. Saldo tunjangan akan diperbarui otomatis. Transaksi yang sudah tersinkron tetap menyimpan catatan metode pembayaran awal di Accurate.",
+    savePayment: "Simpan perubahan",
+    cancel: "Batal",
+    updatePaymentError: "Metode pembayaran tidak dapat diperbarui",
+    voidTransaction: "Batalkan transaksi",
+    voidDescription: "Transaksi dan barangnya tetap tersimpan. Sistem akan membuat penyesuaian stok masuk di Accurate, mengembalikan stok lokal, dan mengeluarkan transaksi ini dari total penjualan.",
+    voidReason: "Alasan pembatalan",
+    voidReasonPlaceholder: "Jelaskan alasan pembatalan transaksi",
+    confirmVoid: "Konfirmasi pembatalan",
+    voidError: "Transaksi tidak dapat dibatalkan",
+    voidedBy: "Dibatalkan oleh",
+    voidedAt: "Waktu pembatalan",
+    actions: "Tindakan",
+    reconcileVoid: "Selesaikan rekonsiliasi",
+    reconcileDescription: "Periksa Accurate terlebih dahulu. Masukkan ID penyesuaian stok masuk yang benar. Tindakan ini tidak membuat penyesuaian Accurate baru; hanya menyelesaikan pembatalan dan pengembalian stok lokal satu kali.",
+    accurateReversalId: "ID pembalikan Accurate",
+    reconcileError: "Rekonsiliasi pembatalan tidak dapat diselesaikan",
+    finalizeVoid: "Selesaikan pembatalan",
     status: "Status",
     total: "Total",
     guest: "Tamu",
@@ -206,6 +248,25 @@ export default function PosSalesLogPage() {
     people: "Buyer / cashier",
     items: "Items sold",
     payment: "Payment",
+    editPayment: "Change payment method",
+    editPaymentDescription: "Correct the payment method for this transaction. Allowance balances will update automatically. Already-synced transactions keep the original payment note in Accurate.",
+    savePayment: "Save changes",
+    cancel: "Cancel",
+    updatePaymentError: "Unable to update payment method",
+    voidTransaction: "Void transaction",
+    voidDescription: "The transaction and its items will remain recorded. The system will create an inbound stock adjustment in Accurate, restore local stock, and exclude this transaction from sales totals.",
+    voidReason: "Reason for voiding",
+    voidReasonPlaceholder: "Explain why this transaction must be voided",
+    confirmVoid: "Confirm void",
+    voidError: "Unable to void transaction",
+    voidedBy: "Voided by",
+    voidedAt: "Voided at",
+    actions: "Actions",
+    reconcileVoid: "Complete reconciliation",
+    reconcileDescription: "Check Accurate first and enter the correct inbound inventory-adjustment ID. This action does not create another Accurate adjustment; it only completes the void and restores local stock once.",
+    accurateReversalId: "Accurate reversal ID",
+    reconcileError: "Unable to complete void reconciliation",
+    finalizeVoid: "Finalize void",
     status: "Status",
     total: "Total",
     guest: "Guest",
@@ -282,6 +343,113 @@ export default function PosSalesLogPage() {
     setDateRange([start, today]);
   };
 
+  const openPaymentEditor = (sale: SalesLogData["transactions"][number]) => {
+    setEditSale(sale);
+    setEditPaymentMethod(sale.paymentMethod);
+    setEditError(null);
+  };
+
+  const closePaymentEditor = () => {
+    if (savingPaymentMethod) return;
+    setEditSale(null);
+    setEditPaymentMethod(null);
+    setEditError(null);
+  };
+
+  const savePaymentMethod = async () => {
+    if (!editSale || !editPaymentMethod || editPaymentMethod === editSale.paymentMethod) return;
+    setSavingPaymentMethod(true);
+    setEditError(null);
+    try {
+      const response = await fetch(`/api/pos/sales/${editSale.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentMethod: editPaymentMethod }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || labels.updatePaymentError);
+      setEditSale(null);
+      setEditPaymentMethod(null);
+      await loadData(true);
+    } catch (saveError) {
+      setEditError(saveError instanceof Error ? saveError.message : labels.updatePaymentError);
+    } finally {
+      setSavingPaymentMethod(false);
+    }
+  };
+
+  const openVoidModal = (sale: SalesLogData["transactions"][number]) => {
+    setVoidSale(sale);
+    setVoidReason("");
+    setVoidError(null);
+  };
+
+  const closeVoidModal = () => {
+    if (voidingSale) return;
+    setVoidSale(null);
+    setVoidReason("");
+    setVoidError(null);
+  };
+
+  const confirmVoid = async () => {
+    if (!voidSale || voidReason.trim().length < 3) return;
+    setVoidingSale(true);
+    setVoidError(null);
+    try {
+      const response = await fetch(`/api/pos/sales/${voidSale.id}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: voidReason.trim() }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || labels.voidError);
+      setVoidSale(null);
+      setVoidReason("");
+      await loadData(true);
+    } catch (submitError) {
+      setVoidError(submitError instanceof Error ? submitError.message : labels.voidError);
+      await loadData(true);
+    } finally {
+      setVoidingSale(false);
+    }
+  };
+
+  const openReconcileModal = (sale: SalesLogData["transactions"][number]) => {
+    setReconcileSale(sale);
+    setReversalId(sale.voidAccurateId ? String(sale.voidAccurateId) : "");
+    setReconcileError(null);
+  };
+
+  const closeReconcileModal = () => {
+    if (reconcilingSale) return;
+    setReconcileSale(null);
+    setReversalId("");
+    setReconcileError(null);
+  };
+
+  const finalizeReconciledVoid = async () => {
+    const accurateReversalId = Number(reversalId);
+    if (!reconcileSale || !Number.isInteger(accurateReversalId) || accurateReversalId <= 0) return;
+    setReconcilingSale(true);
+    setReconcileError(null);
+    try {
+      const response = await fetch(`/api/pos/sales/${reconcileSale.id}/void`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accurateReversalId }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || labels.reconcileError);
+      setReconcileSale(null);
+      setReversalId("");
+      await loadData(true);
+    } catch (submitError) {
+      setReconcileError(submitError instanceof Error ? submitError.message : labels.reconcileError);
+    } finally {
+      setReconcilingSale(false);
+    }
+  };
+
   const formatPayment = (value: string) => value === "qris"
     ? "QRIS"
     : value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -319,6 +487,9 @@ export default function PosSalesLogPage() {
     { value: "all", label: labels.allPaymentMethods },
     ...(data?.facets.paymentMethods ?? []).map((value) => ({ value, label: formatPayment(value) })),
   ];
+  const editablePaymentOptions = ["allowance", "cash", "qris"]
+    .filter((value) => value !== "allowance" || editSale?.buyerType === "staff")
+    .map((value) => ({ value, label: formatPayment(value) }));
   const paymentChartData = (data?.paymentBreakdown ?? [])
     .map((row) => ({
       name: formatPayment(row.paymentMethod),
@@ -508,6 +679,7 @@ export default function PosSalesLogPage() {
                       <Table.Th>{labels.payment}</Table.Th>
                       <Table.Th>{labels.status}</Table.Th>
                       <Table.Th ta="right">{labels.total}</Table.Th>
+                      <Table.Th ta="right">{labels.actions}</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
@@ -533,18 +705,52 @@ export default function PosSalesLogPage() {
                             ))}
                           </Stack>
                         </Table.Td>
-                        <Table.Td><Badge variant="light">{formatPayment(sale.paymentMethod)}</Badge></Table.Td>
+                        <Table.Td>
+                          <Group gap="xs" wrap="nowrap">
+                            <Badge variant="light">{formatPayment(sale.paymentMethod)}</Badge>
+                            <ActionIcon
+                              variant="subtle"
+                              size="sm"
+                              aria-label={labels.editPayment}
+                              title={labels.editPayment}
+                              onClick={() => openPaymentEditor(sale)}
+                              disabled={sale.status === "voiding" || sale.status === "voided"}
+                            >
+                              <IconEdit size={15} />
+                            </ActionIcon>
+                          </Group>
+                        </Table.Td>
                         <Table.Td>
                           <Badge
-                            color={sale.status === "synced" ? "green" : sale.status === "sync_error" ? "red" : "yellow"}
+                            color={sale.status === "synced" ? "green" : sale.status === "sync_error" || sale.status === "voided" ? "red" : "yellow"}
                             variant="light"
                           >
                             {formatPayment(sale.status)}
                           </Badge>
+                          {sale.voidReason ? <Text size="xs" mt={4}>{sale.voidReason}</Text> : null}
+                          {sale.voidedAt ? (
+                            <Text size="xs" c="dimmed">
+                              {labels.voidedAt}: {new Date(sale.voidedAt).toLocaleString(isId ? "id-ID" : "en-US")}
+                            </Text>
+                          ) : null}
+                          {sale.voidedBy ? <Text size="xs" c="dimmed">{labels.voidedBy}: {sale.voidedBy.name || sale.voidedBy.email}</Text> : null}
+                          {sale.voidSyncError ? <Text size="xs" c="red">{sale.voidSyncError}</Text> : null}
                         </Table.Td>
                         <Table.Td ta="right">
                           <Text fw={700}>{money.format(Number(sale.total))}</Text>
                           <Text size="xs" c="dimmed">{number.format(sale.units)} {labels.units.toLowerCase()}</Text>
+                        </Table.Td>
+                        <Table.Td ta="right">
+                          <ActionIcon
+                            color={sale.status === "voiding" ? "orange" : "red"}
+                            variant="light"
+                            aria-label={sale.status === "voiding" ? labels.reconcileVoid : labels.voidTransaction}
+                            title={sale.status === "voiding" ? labels.reconcileVoid : labels.voidTransaction}
+                            onClick={() => sale.status === "voiding" ? openReconcileModal(sale) : openVoidModal(sale)}
+                            disabled={sale.status !== "synced" && sale.status !== "voiding"}
+                          >
+                            <IconBan size={16} />
+                          </ActionIcon>
                         </Table.Td>
                       </Table.Tr>
                     ))}
@@ -555,6 +761,109 @@ export default function PosSalesLogPage() {
           </Paper>
         </>
       ) : null}
+
+      <Modal
+        opened={!!reconcileSale}
+        onClose={closeReconcileModal}
+        title={labels.reconcileVoid}
+        centered
+      >
+        <Stack>
+          <Alert color="orange" icon={<IconAlertCircle size={18} />}>{labels.reconcileDescription}</Alert>
+          {reconcileSale?.voidSyncError ? <Text size="sm" c="red">{reconcileSale.voidSyncError}</Text> : null}
+          <TextInput
+            label={labels.accurateReversalId}
+            value={reversalId}
+            onChange={(event) => setReversalId(event.currentTarget.value.replace(/\D/g, ""))}
+            inputMode="numeric"
+            required
+          />
+          {reconcileError ? <Alert color="red" icon={<IconAlertCircle size={18} />}>{reconcileError}</Alert> : null}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeReconcileModal} disabled={reconcilingSale}>{labels.cancel}</Button>
+            <Button
+              color="orange"
+              onClick={() => void finalizeReconciledVoid()}
+              loading={reconcilingSale}
+              disabled={!/^\d+$/.test(reversalId) || Number(reversalId) <= 0}
+            >
+              {labels.finalizeVoid}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={!!voidSale}
+        onClose={closeVoidModal}
+        title={labels.voidTransaction}
+        centered
+      >
+        <Stack>
+          <Alert color="orange" icon={<IconAlertCircle size={18} />}>{labels.voidDescription}</Alert>
+          {voidSale ? (
+            <Text size="sm">
+              {new Date(voidSale.createdAt).toLocaleString(isId ? "id-ID" : "en-US")} · {money.format(Number(voidSale.total))}
+            </Text>
+          ) : null}
+          <Textarea
+            label={labels.voidReason}
+            placeholder={labels.voidReasonPlaceholder}
+            value={voidReason}
+            onChange={(event) => setVoidReason(event.currentTarget.value)}
+            minRows={3}
+            maxLength={500}
+            required
+          />
+          {voidError ? <Alert color="red" icon={<IconAlertCircle size={18} />}>{voidError}</Alert> : null}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeVoidModal} disabled={voidingSale}>{labels.cancel}</Button>
+            <Button
+              color="red"
+              leftSection={<IconBan size={16} />}
+              onClick={() => void confirmVoid()}
+              loading={voidingSale}
+              disabled={voidReason.trim().length < 3}
+            >
+              {labels.confirmVoid}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={!!editSale}
+        onClose={closePaymentEditor}
+        title={labels.editPayment}
+        centered
+      >
+        <Stack>
+          <Text size="sm" c="dimmed">{labels.editPaymentDescription}</Text>
+          {editSale ? (
+            <Text size="sm">
+              {new Date(editSale.createdAt).toLocaleString(isId ? "id-ID" : "en-US")} · {money.format(Number(editSale.total))}
+            </Text>
+          ) : null}
+          <Select
+            label={labels.paymentMethod}
+            data={editablePaymentOptions}
+            value={editPaymentMethod}
+            onChange={setEditPaymentMethod}
+            allowDeselect={false}
+          />
+          {editError ? <Alert color="red" icon={<IconAlertCircle size={18} />}>{editError}</Alert> : null}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closePaymentEditor} disabled={savingPaymentMethod}>{labels.cancel}</Button>
+            <Button
+              onClick={() => void savePaymentMethod()}
+              loading={savingPaymentMethod}
+              disabled={!editPaymentMethod || editPaymentMethod === editSale?.paymentMethod}
+            >
+              {labels.savePayment}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }
