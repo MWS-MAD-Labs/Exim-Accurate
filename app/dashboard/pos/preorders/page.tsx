@@ -50,6 +50,8 @@ interface Reservation {
   staffEmail: string;
   staffName: string | null;
   preferredPaymentMethod: PaymentMethod;
+  paymentStrategy: "external_only" | "allowance_then_external" | "allowance_debt";
+  externalPaymentMethod: "cash" | "qris" | null;
   status: ReservationStatus;
   expiresAt: string;
   pickupAt: string | null;
@@ -350,7 +352,7 @@ export default function PreorderManagementPage() {
             <SimpleGrid cols={{ base: 1, sm: 3 }}>
               <div><Text size="xs" c="dimmed">Created</Text><Text size="sm">{formatDate(selected.createdAt)}</Text></div>
               <div><Text size="xs" c="dimmed">Expires</Text><Text size="sm">{formatDate(selected.expiresAt)}</Text></div>
-              <div><Text size="xs" c="dimmed">Payment</Text><Text size="sm">{paymentLabel(selected.preferredPaymentMethod)}</Text></div>
+              <div><Text size="xs" c="dimmed">Payment</Text><Text size="sm">{selected.paymentStrategy === "allowance_debt" ? "Allowance debt" : selected.paymentStrategy === "allowance_then_external" ? `Allowance first + ${paymentLabel(selected.externalPaymentMethod || "cash")}` : paymentLabel(selected.externalPaymentMethod || selected.preferredPaymentMethod)}</Text></div>
             </SimpleGrid>
             <Divider />
             <ScrollArea.Autosize mah={320}>

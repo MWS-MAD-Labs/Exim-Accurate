@@ -13,7 +13,41 @@ import {
   isReservationActive,
   reservationStatusAt,
   toggleHolidayDate,
+  saleRequestSchema,
+  reservationRequestSchema,
 } from "./pos";
+
+test("normalizes legacy sale payment payloads during the compatibility window", () => {
+  const parsed = saleRequestSchema.parse({
+    credentialId: "00000000-0000-4000-8000-000000000001",
+    paymentMethod: "cash",
+    idempotencyKey: "legacy-sale-key",
+    buyerType: "guest",
+    items: [{ itemCode: "A", quantity: 1 }],
+  });
+  assert.deepEqual(parsed.payment, { strategy: "external_only", method: "cash" });
+});
+
+test("normalizes legacy allowance preorder preferences explicitly", () => {
+  const parsed = reservationRequestSchema.parse({
+    preferredPaymentMethod: "allowance",
+    idempotencyKey: "legacy-reservation-key",
+    items: [{ itemCode: "A", quantity: 1 }],
+  });
+  assert.deepEqual(parsed.payment, { strategy: "allowance_debt", debtConfirmed: true });
+});
+
+test("rejects requests that send both legacy and normalized payment fields", () => {
+  const parsed = saleRequestSchema.safeParse({
+    credentialId: "00000000-0000-4000-8000-000000000001",
+    paymentMethod: "cash",
+    payment: { strategy: "external_only", method: "cash" },
+    idempotencyKey: "duplicate-payment-fields",
+    buyerType: "guest",
+    items: [{ itemCode: "A", quantity: 1 }],
+  });
+  assert.equal(parsed.success, false);
+});
 
 test("calculates revenue, cost, profit, and margin from immutable line values", () => {
   assert.deepEqual(calculateProfit([

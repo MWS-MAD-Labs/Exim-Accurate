@@ -1,5 +1,12 @@
 import crypto from "node:crypto";
 import { z } from "zod";
+import {
+  legacyPaymentIntent,
+  legacyPaymentMethodSchema,
+  legacyReservationPaymentPreference,
+  paymentIntentSchema,
+  reservationPaymentPreferenceSchema,
+} from "@/lib/pos-payments";
 
 export const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -28,7 +35,6 @@ export function parseDateOnly(value: string) {
   return new Date(year, month - 1, day);
 }
 
-export const paymentMethodSchema = z.enum(["allowance", "cash", "qris"]);
 
 export const buyerTypeSchema = z.enum(["staff", "guest"]);
 
@@ -46,28 +52,44 @@ export const posItemSchema = posItemRequestSchema.extend({
 export const saleRequestSchema = z
   .object({
     credentialId: z.string().uuid(),
-    paymentMethod: paymentMethodSchema,
+    payment: paymentIntentSchema.optional(),
+    paymentMethod: legacyPaymentMethodSchema.optional(),
     idempotencyKey: z.string().trim().min(8).max(128),
     items: z.array(posItemRequestSchema).min(1),
     buyerType: buyerTypeSchema.default("guest"),
     staffEmail: z.string().trim().email().optional(),
     staffName: z.string().trim().min(1).optional(),
   })
+  .refine((data) => !!data.payment !== !!data.paymentMethod, {
+    message: "Provide exactly one payment intent",
+    path: ["payment"],
+  })
+  .transform((data) => ({
+    ...data,
+    payment: data.payment ?? legacyPaymentIntent(data.paymentMethod!),
+  }))
   .refine((data) => data.buyerType !== "staff" || !!data.staffEmail, {
     message: "staffEmail is required when buyerType is staff",
     path: ["staffEmail"],
   })
-  .refine((data) => data.paymentMethod !== "allowance" || data.buyerType === "staff", {
-    message: "Only staff can pay with allowance",
-    path: ["paymentMethod"],
+  .refine((data) => data.payment.strategy === "external_only" || data.buyerType === "staff", {
+    message: "Only staff can use allowance",
+    path: ["payment"],
   });
 
 export const reservationRequestSchema = z.object({
   credentialId: z.string().uuid().optional(),
   idempotencyKey: z.string().trim().min(8).max(128),
-  preferredPaymentMethod: paymentMethodSchema,
+  payment: reservationPaymentPreferenceSchema.optional(),
+  preferredPaymentMethod: legacyPaymentMethodSchema.optional(),
   items: z.array(posItemRequestSchema).min(1),
-});
+}).refine((data) => !!data.payment !== !!data.preferredPaymentMethod, {
+  message: "Provide exactly one payment preference",
+  path: ["payment"],
+}).transform((data) => ({
+  ...data,
+  payment: data.payment ?? legacyReservationPaymentPreference(data.preferredPaymentMethod!),
+}));
 
 export type PosItem = z.infer<typeof posItemSchema>;
 

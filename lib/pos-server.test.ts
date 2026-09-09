@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Prisma } from "@prisma/client";
-import { buildPreviousAllowanceDebt, canonicalizeRequestedItems, getStaffPaydayForPeriod, saleAllowanceUsed, saleTotal } from "./pos-server";
+import { buildPreviousAllowanceDebt, canonicalizeRequestedItems, getStaffPaydayForPeriod, saleTotal } from "./pos-server";
 
 test("canonicalizeRequestedItems merges duplicate item codes into a single line", () => {
   const result = canonicalizeRequestedItems([
@@ -33,19 +33,6 @@ test("saleTotal calculates sale values with Decimal precision", () => {
   assert.equal(total.toFixed(2), "38.95");
 });
 
-test("saleAllowanceUsed recalculates when switching to and from allowance", () => {
-  const items = [{ quantity: 2, unitPrice: new Prisma.Decimal("12500.50") }];
-  assert.equal(saleAllowanceUsed("staff", "allowance", items).toFixed(2), "25001.00");
-  assert.equal(saleAllowanceUsed("staff", "cash", items).toFixed(2), "0.00");
-  assert.equal(saleAllowanceUsed("staff", "qris", items).toFixed(2), "0.00");
-});
-
-test("saleAllowanceUsed rejects allowance for non-staff sales", () => {
-  assert.throws(
-    () => saleAllowanceUsed("guest", "allowance", [{ quantity: 1, unitPrice: 1000 }]),
-    /ALLOWANCE_REQUIRES_STAFF/,
-  );
-});
 
 test("uses the first staff salary payday on or after the new allowance period starts", () => {
   assert.deepEqual(

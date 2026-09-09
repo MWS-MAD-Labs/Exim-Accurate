@@ -20,6 +20,7 @@ import {
   Text,
   Textarea,
   TextInput,
+  NumberInput,
   Title,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
@@ -80,6 +81,11 @@ interface SalesLogData {
     id: string;
     createdAt: string;
     paymentMethod: string;
+    paymentStrategy: string;
+    paymentVersion: number;
+    payments: Array<{ method: string; amount: string }>;
+    allowanceBalanceBefore: string | null;
+    allowanceBalanceAfter: string | null;
     status: string;
     voidReason: string | null;
     voidedAt: string | null;
@@ -139,6 +145,8 @@ export default function PosSalesLogPage() {
   const [error, setError] = useState<string | null>(null);
   const [editSale, setEditSale] = useState<SalesLogData["transactions"][number] | null>(null);
   const [editPaymentMethod, setEditPaymentMethod] = useState<string | null>(null);
+  const [editAllowanceAmount, setEditAllowanceAmount] = useState<number | string>(0);
+  const [editReason, setEditReason] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [savingPaymentMethod, setSavingPaymentMethod] = useState(false);
   const [voidSale, setVoidSale] = useState<SalesLogData["transactions"][number] | null>(null);
@@ -345,7 +353,15 @@ export default function PosSalesLogPage() {
 
   const openPaymentEditor = (sale: SalesLogData["transactions"][number]) => {
     setEditSale(sale);
-    setEditPaymentMethod(sale.paymentMethod);
+    const allowancePayment = sale.payments.find((payment) => payment.method === "allowance");
+    const externalPayment = sale.payments.find((payment) => payment.method !== "allowance");
+    setEditPaymentMethod(sale.paymentStrategy === "allowance_debt"
+      ? "allowance_debt"
+      : sale.payments.length > 1
+        ? externalPayment?.method === "qris" ? "split_qris" : "split_cash"
+        : sale.payments[0]?.method ?? null);
+    setEditAllowanceAmount(allowancePayment ? Number(allowancePayment.amount) : 0);
+    setEditReason("");
     setEditError(null);
   };
 
@@ -353,23 +369,47 @@ export default function PosSalesLogPage() {
     if (savingPaymentMethod) return;
     setEditSale(null);
     setEditPaymentMethod(null);
+    setEditAllowanceAmount(0);
+    setEditReason("");
     setEditError(null);
   };
 
   const savePaymentMethod = async () => {
-    if (!editSale || !editPaymentMethod || editPaymentMethod === editSale.paymentMethod) return;
+    if (!editSale || !editPaymentMethod || editReason.trim().length < 3) return;
+    const total = Number(editSale.total);
+    const allowanceAmount = typeof editAllowanceAmount === "number" ? editAllowanceAmount : Number(editAllowanceAmount);
+    const isSplit = editPaymentMethod === "split_cash" || editPaymentMethod === "split_qris";
+    const isAllowanceDebt = editPaymentMethod === "allowance_debt";
+    if (isSplit && (!Number.isFinite(allowanceAmount) || allowanceAmount <= 0 || allowanceAmount >= total)) {
+      setEditError(isId ? "Jumlah allowance harus lebih dari 0 dan kurang dari total transaksi." : "Allowance amount must be greater than 0 and less than the sale total.");
+      return;
+    }
+    const externalMethod = editPaymentMethod === "split_qris" ? "qris" : "cash";
+    const payments = isSplit
+      ? [
+          { method: "allowance", amount: allowanceAmount.toFixed(2) },
+          { method: externalMethod, amount: (total - allowanceAmount).toFixed(2) },
+        ]
+      : [{ method: isAllowanceDebt ? "allowance" : editPaymentMethod, amount: editSale.total }];
     setSavingPaymentMethod(true);
     setEditError(null);
     try {
       const response = await fetch(`/api/pos/sales/${editSale.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentMethod: editPaymentMethod }),
+        body: JSON.stringify({
+          expectedVersion: editSale.paymentVersion,
+          reason: editReason.trim(),
+          paymentStrategy: isAllowanceDebt ? "allowance_debt" : isSplit || editPaymentMethod === "allowance" ? "allowance_then_external" : "external_only",
+          payments,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || labels.updatePaymentError);
       setEditSale(null);
       setEditPaymentMethod(null);
+      setEditAllowanceAmount(0);
+      setEditReason("");
       await loadData(true);
     } catch (saveError) {
       setEditError(saveError instanceof Error ? saveError.message : labels.updatePaymentError);
@@ -487,9 +527,16 @@ export default function PosSalesLogPage() {
     { value: "all", label: labels.allPaymentMethods },
     ...(data?.facets.paymentMethods ?? []).map((value) => ({ value, label: formatPayment(value) })),
   ];
-  const editablePaymentOptions = ["allowance", "cash", "qris"]
-    .filter((value) => value !== "allowance" || editSale?.buyerType === "staff")
-    .map((value) => ({ value, label: formatPayment(value) }));
+  const editablePaymentOptions = [
+    ...(editSale?.buyerType === "staff" ? [
+      { value: "allowance", label: isId ? "Allowance tersedia" : "Available allowance" },
+      { value: "allowance_debt", label: isId ? "Utang allowance (jumlah penuh)" : "Allowance debt (full amount)" },
+      { value: "split_cash", label: `${formatPayment("allowance")} + ${formatPayment("cash")}` },
+      { value: "split_qris", label: `${formatPayment("allowance")} + ${formatPayment("qris")}` },
+    ] : []),
+    { value: "cash", label: formatPayment("cash") },
+    { value: "qris", label: formatPayment("qris") },
+  ];
   const paymentChartData = (data?.paymentBreakdown ?? [])
     .map((row) => ({
       name: formatPayment(row.paymentMethod),
@@ -851,13 +898,52 @@ export default function PosSalesLogPage() {
             onChange={setEditPaymentMethod}
             allowDeselect={false}
           />
+          {editPaymentMethod === "allowance" ? (
+            <Alert color="blue">
+              {isId
+                ? "Opsi ini hanya memakai saldo allowance positif yang tersedia. Pilih Utang allowance jika transaksi harus membuat atau menambah saldo negatif."
+                : "This option can only use the live positive allowance balance. Choose Allowance debt if the transaction should create or increase a negative balance."}
+            </Alert>
+          ) : null}
+          {editPaymentMethod === "allowance_debt" && editSale ? (
+            <Alert color="orange">
+              {isId
+                ? `Jumlah penuh ${money.format(Number(editSale.total))} akan dicatat sebagai utang allowance.`
+                : `The full ${money.format(Number(editSale.total))} will be recorded as allowance debt.`}
+            </Alert>
+          ) : null}
+          {(editPaymentMethod === "split_cash" || editPaymentMethod === "split_qris") && editSale ? (
+            <Stack gap="xs">
+              <NumberInput
+                label={isId ? "Jumlah allowance" : "Allowance amount"}
+                value={editAllowanceAmount}
+                onChange={setEditAllowanceAmount}
+                min={0.01}
+                max={Math.max(0.01, Number(editSale.total) - 0.01)}
+                decimalScale={2}
+                fixedDecimalScale
+                required
+              />
+              <Text size="sm" c="dimmed">
+                {isId ? "Sisa pembayaran" : "External remainder"}: {money.format(Math.max(0, Number(editSale.total) - Number(editAllowanceAmount || 0)))} {editPaymentMethod === "split_qris" ? "QRIS" : formatPayment("cash")}
+              </Text>
+            </Stack>
+          ) : null}
+          <Textarea
+            label={isId ? "Alasan koreksi" : "Correction reason"}
+            value={editReason}
+            onChange={(event) => setEditReason(event.currentTarget.value)}
+            minRows={2}
+            maxLength={500}
+            required
+          />
           {editError ? <Alert color="red" icon={<IconAlertCircle size={18} />}>{editError}</Alert> : null}
           <Group justify="flex-end">
             <Button variant="default" onClick={closePaymentEditor} disabled={savingPaymentMethod}>{labels.cancel}</Button>
             <Button
               onClick={() => void savePaymentMethod()}
               loading={savingPaymentMethod}
-              disabled={!editPaymentMethod || editPaymentMethod === editSale?.paymentMethod}
+              disabled={!editPaymentMethod || editReason.trim().length < 3}
             >
               {labels.savePayment}
             </Button>

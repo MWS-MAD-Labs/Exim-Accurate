@@ -31,6 +31,7 @@ const querySchema = z.object({
   ]).optional(),
   itemCode: z.string().max(120).optional(),
   paymentMethod: z.string().max(80).optional(),
+  paymentStrategy: z.string().max(80).optional(),
   period: z.enum(["daily", "weekly", "monthly"]).default("daily"),
 });
 
@@ -70,6 +71,7 @@ export async function GET(req: NextRequest) {
       person: params.get("person") ?? undefined,
       itemCode: params.get("itemCode") ?? undefined,
       paymentMethod: params.get("paymentMethod") ?? undefined,
+      paymentStrategy: params.get("paymentStrategy") ?? undefined,
       period: params.get("period") ?? undefined,
     });
     if (!parsed.success) {
@@ -114,7 +116,8 @@ export async function GET(req: NextRequest) {
         lt: jakartaDateStart(addDateOnly(endValue, 1)),
       },
       ...(parsed.data.credentialId ? { credentialId: parsed.data.credentialId } : {}),
-      ...(parsed.data.paymentMethod ? { paymentMethod: parsed.data.paymentMethod } : {}),
+      ...(parsed.data.paymentMethod ? { payments: { some: { method: parsed.data.paymentMethod } } } : {}),
+      ...(parsed.data.paymentStrategy ? { paymentStrategy: parsed.data.paymentStrategy } : {}),
       ...(parsed.data.itemCode ? { items: { some: { itemCode: parsed.data.itemCode } } } : {}),
       ...personFilter,
     };
@@ -124,6 +127,7 @@ export async function GET(req: NextRequest) {
         where,
         include: {
           items: { orderBy: { itemName: "asc" } },
+          payments: { orderBy: { createdAt: "asc" } },
           user: { select: { id: true, name: true, email: true } },
           voidedBy: { select: { id: true, name: true, email: true } },
           credential: { select: { id: true, appKey: true } },
@@ -134,6 +138,8 @@ export async function GET(req: NextRequest) {
         where: { credential: { organizationId } },
         select: {
           paymentMethod: true,
+          paymentStrategy: true,
+          payments: { select: { method: true } },
           buyerType: true,
           staffEmail: true,
           staffName: true,
@@ -172,14 +178,16 @@ export async function GET(req: NextRequest) {
       aggregate.total = aggregate.total.add(total);
       periodMap.set(key, aggregate);
 
-      const payment = paymentMap.get(sale.paymentMethod) ?? {
-        paymentMethod: sale.paymentMethod,
-        transactions: 0,
-        total: new Prisma.Decimal(0),
-      };
-      payment.transactions += 1;
-      payment.total = payment.total.add(total);
-      paymentMap.set(sale.paymentMethod, payment);
+      for (const allocation of sale.payments) {
+        const payment = paymentMap.get(allocation.method) ?? {
+          paymentMethod: allocation.method,
+          transactions: 0,
+          total: new Prisma.Decimal(0),
+        };
+        payment.transactions += 1;
+        payment.total = payment.total.add(allocation.amount);
+        paymentMap.set(allocation.method, payment);
+      }
     }
 
     const transactionCount = Array.from(periodMap.values()).reduce((sum, row) => sum + row.sales, 0);
@@ -191,6 +199,11 @@ export async function GET(req: NextRequest) {
         id: sale.id,
         createdAt: sale.createdAt.toISOString(),
         paymentMethod: sale.paymentMethod,
+        paymentStrategy: sale.paymentStrategy,
+        paymentVersion: sale.paymentVersion,
+        payments: sale.payments.map((payment) => ({ method: payment.method, amount: payment.amount.toFixed(2) })),
+        allowanceBalanceBefore: sale.allowanceBalanceBefore?.toFixed(2) ?? null,
+        allowanceBalanceAfter: sale.allowanceBalanceAfter?.toFixed(2) ?? null,
         status: sale.status,
         voidReason: sale.voidReason,
         voidedAt: sale.voidedAt?.toISOString() ?? null,
@@ -224,7 +237,7 @@ export async function GET(req: NextRequest) {
     const payments = new Set<string>();
     let hasGuest = false;
     for (const sale of facetSales) {
-      payments.add(sale.paymentMethod);
+      for (const payment of sale.payments) payments.add(payment.method);
       if (sale.buyerType === "staff" && sale.staffEmail) {
         people.set(`staff:${sale.staffEmail}`, {
           value: `staff:${sale.staffEmail}`,

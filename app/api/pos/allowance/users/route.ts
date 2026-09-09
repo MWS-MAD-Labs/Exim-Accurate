@@ -104,16 +104,20 @@ export async function GET(req: NextRequest) {
       },
       select: { staffEmail: true, amount: true },
     }),
-    prisma.posSale.groupBy({
-      by: ["staffEmail"],
+    prisma.posSalePayment.findMany({
       where: {
-        credentialId,
-        staffEmail: { in: staffEmails },
-        paymentMethod: "allowance",
-        status: { notIn: ["sync_error", "voided"] },
-        createdAt: { gte: period.startsAt, lt: periodEndExclusive },
+        method: "allowance",
+        sale: {
+          credentialId,
+          staffEmail: { in: staffEmails },
+          status: { not: "voided" },
+          OR: [
+            { allowancePeriodStartsAt: period.startsAt, allowancePeriodEndsAt: period.endsAt },
+            { allowancePeriodStartsAt: null, createdAt: { gte: period.startsAt, lt: periodEndExclusive } },
+          ],
+        },
       },
-      _sum: { allowanceUsed: true },
+      select: { amount: true, sale: { select: { staffEmail: true } } },
     }),
     prisma.posStaffDayOff.findMany({
       where: {
@@ -132,16 +136,20 @@ export async function GET(req: NextRequest) {
       },
       select: { staffEmail: true, amount: true },
     }),
-    prisma.posSale.groupBy({
-      by: ["staffEmail"],
+    prisma.posSalePayment.findMany({
       where: {
-        credentialId,
-        staffEmail: { in: staffEmails },
-        paymentMethod: "allowance",
-        status: { notIn: ["sync_error", "voided"] },
-        createdAt: { gte: previousPeriod.startsAt, lt: previousPeriodEndExclusive },
+        method: "allowance",
+        sale: {
+          credentialId,
+          staffEmail: { in: staffEmails },
+          status: { not: "voided" },
+          OR: [
+            { allowancePeriodStartsAt: previousPeriod.startsAt, allowancePeriodEndsAt: previousPeriod.endsAt },
+            { allowancePeriodStartsAt: null, createdAt: { gte: previousPeriod.startsAt, lt: previousPeriodEndExclusive } },
+          ],
+        },
       },
-      _sum: { allowanceUsed: true },
+      select: { amount: true, sale: { select: { staffEmail: true } } },
     }),
     prisma.posStaffAllowanceDebtSettlement.groupBy({
       by: ["staffEmail"],
@@ -162,9 +170,10 @@ export async function GET(req: NextRequest) {
     daysOffByStaff.set(entry.staffEmail, current);
   }
   const adjustmentByStaff = new Map(adjustments.map((entry) => [entry.staffEmail, Number(entry.amount)]));
-  const spentMap = new Map(spentByStaff.flatMap((entry) => entry.staffEmail
-    ? [[entry.staffEmail, Number(entry._sum.allowanceUsed ?? 0)] as const]
-    : []));
+  const spentMap = new Map<string, number>();
+  for (const entry of spentByStaff) {
+    if (entry.sale.staffEmail) spentMap.set(entry.sale.staffEmail, (spentMap.get(entry.sale.staffEmail) ?? 0) + Number(entry.amount));
+  }
   const previousDaysOffByStaff = new Map<string, Date[]>();
   for (const entry of previousDaysOff) {
     const current = previousDaysOffByStaff.get(entry.staffEmail) ?? [];
@@ -172,9 +181,10 @@ export async function GET(req: NextRequest) {
     previousDaysOffByStaff.set(entry.staffEmail, current);
   }
   const previousAdjustmentByStaff = new Map(previousAdjustments.map((entry) => [entry.staffEmail, Number(entry.amount)]));
-  const previousSpentMap = new Map(previousSpentByStaff.flatMap((entry) => entry.staffEmail
-    ? [[entry.staffEmail, Number(entry._sum.allowanceUsed ?? 0)] as const]
-    : []));
+  const previousSpentMap = new Map<string, number>();
+  for (const entry of previousSpentByStaff) {
+    if (entry.sale.staffEmail) previousSpentMap.set(entry.sale.staffEmail, (previousSpentMap.get(entry.sale.staffEmail) ?? 0) + Number(entry.amount));
+  }
   const settlementMap = new Map(settlementsByStaff.map((entry) => [entry.staffEmail, Number(entry._sum.amount ?? 0)]));
   const dailyRate = Number(settings?.allowancePerWorkingDay ?? 0);
   const workingDays = settings?.workingDays ?? [1, 2, 3, 4, 5];

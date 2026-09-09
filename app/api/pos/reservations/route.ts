@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   if (!isRoleAllowed(session.user.role, ["admin", "staff"])) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const parsed = reservationRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid reservation" }, { status: 400 });
-  const { credentialId: requestedCredentialId, idempotencyKey, preferredPaymentMethod, items: requestedItems } = parsed.data;
+  const { credentialId: requestedCredentialId, idempotencyKey, payment, items: requestedItems } = parsed.data;
   const defaultStore = requestedCredentialId ? null : await getDefaultPosStore(session.user.id);
   const credentialId = requestedCredentialId ?? defaultStore?.credentialId;
   if (!credentialId) return NextResponse.json({ error: "POS store is not configured" }, { status: 409 });
@@ -70,16 +70,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Some items are not available in the POS catalog" }, { status: 409 });
   }
   const items = canonicalSaleItems(requestedItems, products);
-  const previousDebt = await getOutstandingPreviousAllowanceDebt(credentialId, session.user.email);
-  if (previousDebt.blocked) {
-    return NextResponse.json({ error: "Previous-period negative balance must be paid before another transaction can be completed.", previousDebt }, { status: 409 });
-  }
-  const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ credentialId, expiresAt: expiresAt.toISOString(), preferredPaymentMethod, items })).digest("hex");
+  const fingerprint = crypto.createHash("sha256").update(JSON.stringify({ credentialId, payment, items })).digest("hex");
   const existing = await prisma.posReservation.findUnique({ where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } }, include: { items: true } });
   if (existing) {
     if (existing.requestFingerprint !== fingerprint) return NextResponse.json({ error: "Idempotency key was already used for a different reservation" }, { status: 409 });
     return NextResponse.json(existing);
   }
+  const previousDebt = await getOutstandingPreviousAllowanceDebt(credentialId, session.user.email);
+  if (previousDebt.blocked) {
+    return NextResponse.json({ error: "Previous-period negative balance must be paid before another transaction can be completed.", previousDebt }, { status: 409 });
+  }
+  const preferredPaymentMethod = payment.strategy === "allowance_debt"
+    ? "allowance"
+    : payment.strategy === "external_only"
+      ? payment.method
+      : "allowance";
+  const externalPaymentMethod = payment.strategy === "external_only" ? payment.method : payment.strategy === "allowance_then_external" ? payment.remainderMethod : null;
   const reservation = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
     for (const item of items) {
       const product = await tx.posProduct.findUnique({ where: { credentialId_itemCode: { credentialId, itemCode: item.itemCode } } });
@@ -88,7 +94,7 @@ export async function POST(req: NextRequest) {
       const updated = await tx.posStockAllocation.updateMany({ where: { id: allocation.id, heldQuantity: { lte: product.stock - item.quantity } }, data: { heldQuantity: { increment: item.quantity }, stockSnapshot: product.stock } });
       if (updated.count !== 1) throw new Error("INSUFFICIENT_STOCK");
     }
-    return tx.posReservation.create({ data: { userId: session.user.id, credentialId, reference: makeReservationReference(), idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, staffEmail: session.user.email, staffName: session.user.name, preferredPaymentMethod, expiresAt, items: { create: items } }, include: { items: true } });
+    return tx.posReservation.create({ data: { userId: session.user.id, credentialId, reference: makeReservationReference(), idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, staffEmail: session.user.email, staffName: session.user.name, preferredPaymentMethod, paymentStrategy: payment.strategy, externalPaymentMethod, expiresAt, items: { create: items } }, include: { items: true } });
   }).catch(async (error: unknown) => {
     if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") return null;
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

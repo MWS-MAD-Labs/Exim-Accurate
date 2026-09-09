@@ -1,5 +1,5 @@
 import { sendEmail } from "@/lib/email";
-import { getStaffAllowance } from "@/lib/pos-server";
+
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
@@ -39,12 +39,16 @@ export function buildReceiptMessage(input: {
   saleId: string;
   customerName: string | null;
   items: Array<{ itemName: string; quantity: number; unitPrice: number }>;
-  paymentMethod: string;
+  paymentStrategy: string;
+  payments: Array<{ method: string; amount: number }>;
   total: number;
-  remainingBalance: number;
+  allowanceBalanceBefore: number | null;
+  allowanceBalanceAfter: number | null;
   purchasedAt: Date;
 }) {
   const greeting = input.customerName?.trim() || "Bapak/Ibu";
+  const paymentText = input.payments.map((payment) => `${paymentMethodLabel(payment.method)} ${moneyFormatter.format(payment.amount)}`);
+  const strategyLabel = input.paymentStrategy === "allowance_debt" ? "Allowance debt" : input.paymentStrategy === "allowance_then_external" ? "Allowance first" : "External payment";
   const itemText = input.items.map((item) =>
     `- ${item.itemName} × ${item.quantity}: ${moneyFormatter.format(item.quantity * item.unitPrice)}`,
   );
@@ -56,9 +60,13 @@ export function buildReceiptMessage(input: {
     "Detail belanja:",
     ...itemText,
     "",
-    `Metode pembayaran: ${paymentMethodLabel(input.paymentMethod)}`,
+    `Strategi pembayaran: ${strategyLabel}`,
+    `Alokasi pembayaran: ${paymentText.join(" + ")}`,
     `Total pembayaran: ${moneyFormatter.format(input.total)}`,
-    `Sisa saldo allowance: ${moneyFormatter.format(input.remainingBalance)}`,
+    ...(input.allowanceBalanceAfter === null ? [] : [
+      `Saldo allowance sebelum: ${moneyFormatter.format(input.allowanceBalanceBefore ?? 0)}`,
+      `Saldo allowance sesudah: ${moneyFormatter.format(input.allowanceBalanceAfter)}`,
+    ]),
     "",
     `Waktu transaksi: ${dateFormatter.format(input.purchasedAt)}`,
     `Referensi: ${input.saleId}`,
@@ -71,10 +79,11 @@ export function buildReceiptMessage(input: {
     return `<tr style="background:${background}"><td style="padding:14px 16px;color:#343a40;border-bottom:1px solid #e9ecef"><div style="font-weight:600">${escapeHtml(item.itemName)}</div><div style="font-size:12px;color:#868e96;margin-top:3px">${escapeHtml(moneyFormatter.format(item.unitPrice))} × ${item.quantity}</div></td><td style="padding:14px 16px;text-align:right;font-weight:600;color:#343a40;border-bottom:1px solid #e9ecef;white-space:nowrap">${escapeHtml(moneyFormatter.format(item.quantity * item.unitPrice))}</td></tr>`;
   }).join("");
 
-  const balanceColors = input.remainingBalance < 0
+  const remainingBalance = input.allowanceBalanceAfter;
+  const balanceColors = (remainingBalance ?? 0) < 0
     ? { background: "#fff5f5", border: "#ffc9c9", label: "#c92a2a", value: "#e03131" }
     : { background: "#ebfbee", border: "#b2f2bb", label: "#2b8a3e", value: "#2f9e44" };
-  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#f1f3f5;font-family:Inter,Arial,sans-serif;color:#343a40"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f3f5;padding:28px 12px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08)"><tr><td style="padding:30px;background:linear-gradient(135deg,#228BE6 0%,#1C7ED6 100%);color:#ffffff"><div style="font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;opacity:.86">Millennia Mart</div><h1 style="margin:8px 0 5px;font-size:27px;line-height:1.25">Terima kasih sudah berbelanja!</h1><p style="margin:0;font-size:15px;line-height:1.6;opacity:.92">Transaksi Anda telah berhasil.</p></td></tr><tr><td style="padding:28px 30px 8px"><p style="margin:0 0 18px;font-size:15px;line-height:1.7">Halo <strong>${escapeHtml(greeting)}</strong>, berikut rincian belanja Anda:</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden">${itemRows}</table></td></tr><tr><td style="padding:18px 30px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:6px 0;color:#868e96;font-size:14px">Metode pembayaran</td><td style="padding:6px 0;text-align:right;font-size:14px;font-weight:600">${escapeHtml(paymentMethodLabel(input.paymentMethod))}</td></tr><tr><td style="padding:10px 0 4px;color:#343a40;font-size:16px;font-weight:700;border-top:1px solid #e9ecef">Total pembayaran</td><td style="padding:10px 0 4px;text-align:right;color:#1C7ED6;font-size:20px;font-weight:800;border-top:1px solid #e9ecef">${escapeHtml(moneyFormatter.format(input.total))}</td></tr></table></td></tr><tr><td style="padding:0 30px 24px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${balanceColors.background};border:1px solid ${balanceColors.border};border-radius:12px"><tr><td style="padding:17px 18px"><div style="font-size:12px;font-weight:700;color:${balanceColors.label};text-transform:uppercase;letter-spacing:.6px">Sisa saldo allowance</div><div style="margin-top:5px;font-size:24px;font-weight:800;color:${balanceColors.value}">${escapeHtml(moneyFormatter.format(input.remainingBalance))}</div></td></tr></table></td></tr><tr><td style="padding:20px 30px;background:#f8f9fa;border-top:1px solid #e9ecef"><p style="margin:0 0 6px;font-size:12px;color:#868e96">${escapeHtml(dateFormatter.format(input.purchasedAt))} · Referensi ${escapeHtml(input.saleId)}</p><p style="margin:0;font-size:13px;color:#495057">Sampai jumpa di Millennia Mart!</p></td></tr></table></td></tr></table></body></html>`;
+  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#f1f3f5;font-family:Inter,Arial,sans-serif;color:#343a40"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f3f5;padding:28px 12px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08)"><tr><td style="padding:30px;background:linear-gradient(135deg,#228BE6 0%,#1C7ED6 100%);color:#ffffff"><div style="font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;opacity:.86">Millennia Mart</div><h1 style="margin:8px 0 5px;font-size:27px;line-height:1.25">Terima kasih sudah berbelanja!</h1><p style="margin:0;font-size:15px;line-height:1.6;opacity:.92">Transaksi Anda telah berhasil.</p></td></tr><tr><td style="padding:28px 30px 8px"><p style="margin:0 0 18px;font-size:15px;line-height:1.7">Halo <strong>${escapeHtml(greeting)}</strong>, berikut rincian belanja Anda:</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden">${itemRows}</table></td></tr><tr><td style="padding:18px 30px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="padding:6px 0;color:#868e96;font-size:14px">Metode pembayaran</td><td style="padding:6px 0;text-align:right;font-size:14px;font-weight:600">${escapeHtml(`${strategyLabel}: ${paymentText.join(" + ")}`)}</td></tr><tr><td style="padding:10px 0 4px;color:#343a40;font-size:16px;font-weight:700;border-top:1px solid #e9ecef">Total pembayaran</td><td style="padding:10px 0 4px;text-align:right;color:#1C7ED6;font-size:20px;font-weight:800;border-top:1px solid #e9ecef">${escapeHtml(moneyFormatter.format(input.total))}</td></tr></table></td></tr><tr><td style="padding:0 30px 24px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${balanceColors.background};border:1px solid ${balanceColors.border};border-radius:12px"><tr><td style="padding:17px 18px"><div style="font-size:12px;font-weight:700;color:${balanceColors.label};text-transform:uppercase;letter-spacing:.6px">Sisa saldo allowance</div><div style="margin-top:5px;font-size:24px;font-weight:800;color:${balanceColors.value}">${escapeHtml(remainingBalance === null ? "Tidak digunakan" : moneyFormatter.format(remainingBalance))}</div></td></tr></table></td></tr><tr><td style="padding:20px 30px;background:#f8f9fa;border-top:1px solid #e9ecef"><p style="margin:0 0 6px;font-size:12px;color:#868e96">${escapeHtml(dateFormatter.format(input.purchasedAt))} · Referensi ${escapeHtml(input.saleId)}</p><p style="margin:0;font-size:13px;color:#495057">Sampai jumpa di Millennia Mart!</p></td></tr></table></td></tr></table></body></html>`;
 
   return {
     subject: "Terima kasih sudah berbelanja di Millennia Mart",
@@ -115,6 +124,7 @@ export async function sendPosSaleReceipt(saleId: string) {
       where: { id: saleId },
       include: {
         items: true,
+        payments: { orderBy: { createdAt: "asc" } },
         credential: { select: { organizationId: true } },
       },
     });
@@ -145,16 +155,17 @@ export async function sendPosSaleReceipt(saleId: string) {
       unitPrice: Number(item.unitPrice),
     }));
     const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-    const allowance = await getStaffAllowance(sale.credentialId, normalizedEmail, sale.createdAt);
     await sendEmail({
       to: normalizedEmail,
       ...buildReceiptMessage({
         saleId: sale.id,
         customerName: registeredStaff.name ?? sale.staffName,
         items,
-        paymentMethod: sale.paymentMethod,
+        paymentStrategy: sale.paymentStrategy,
+        payments: sale.payments.map((payment) => ({ method: payment.method, amount: Number(payment.amount) })),
         total,
-        remainingBalance: allowance.remaining,
+        allowanceBalanceBefore: sale.allowanceBalanceBefore === null ? null : Number(sale.allowanceBalanceBefore),
+        allowanceBalanceAfter: sale.allowanceBalanceAfter === null ? null : Number(sale.allowanceBalanceAfter),
         purchasedAt: sale.syncedAt ?? sale.createdAt,
       }),
     });

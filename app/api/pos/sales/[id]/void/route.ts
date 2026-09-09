@@ -28,7 +28,7 @@ async function finalizeLocalVoid(saleId: string, reversalId: number, userId: str
   return withSerializableRetry(() => prisma.$transaction(async (tx) => {
     const sale = await tx.posSale.findFirst({
       where: { id: saleId, status: "voiding" },
-      include: { items: true },
+      include: { items: true, payments: true },
     });
     if (!sale) throw new Error("VOID_FINALIZATION_CONFLICT");
     if (sale.voidAccurateId && sale.voidAccurateId !== reversalId) throw new Error("VOID_REVERSAL_ID_CONFLICT");
@@ -94,6 +94,7 @@ async function finalizeLocalVoid(saleId: string, reversalId: number, userId: str
       },
       include: {
         items: true,
+        payments: true,
         voidedBy: { select: { id: true, name: true, email: true } },
       },
     });
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const existing = await prisma.posSale.findFirst({
     where: { id, credential: { organizationId: admin.organizationId } },
-    include: { items: true },
+    include: { items: true, payments: true },
   });
   if (!existing) return NextResponse.json({ error: "Sale not found" }, { status: 404 });
   if (existing.status === "voided") return NextResponse.json({ sale: existing });
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       id: claimed.id,
       accurateId: claimed.accurateId!,
       warehouseName: claimed.warehouseName,
-      paymentMethod: claimed.paymentMethod,
+
       voidReason: parsed.data.reason,
       items: claimed.items.map((item) => ({ itemCode: item.itemCode, quantity: item.quantity })),
     });
@@ -208,7 +209,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     const voided = await finalizeLocalVoid(claimed.id, reversal.id, admin.userId);
-    return NextResponse.json({ sale: voided, reversalNumber: reversal.number });
+    return NextResponse.json({
+      sale: voided,
+      reversalNumber: reversal.number,
+      allowanceRestored: voided.payments.find((payment) => payment.method === "allowance")?.amount.toFixed(2) ?? "0.00",
+      externalRefundsRequired: voided.payments.filter((payment) => payment.method !== "allowance").map((payment) => ({ method: payment.method, amount: payment.amount.toFixed(2) })),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to finalize the local void";
     await prisma.posSale.updateMany({
@@ -243,7 +249,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   try {
     const voided = await finalizeLocalVoid(sale.id, parsed.data.accurateReversalId, admin.userId);
-    return NextResponse.json({ sale: voided });
+    return NextResponse.json({
+      sale: voided,
+      allowanceRestored: voided.payments.find((payment) => payment.method === "allowance")?.amount.toFixed(2) ?? "0.00",
+      externalRefundsRequired: voided.payments.filter((payment) => payment.method !== "allowance").map((payment) => ({ method: payment.method, amount: payment.amount.toFixed(2) })),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to finalize the local void";
     await prisma.posSale.updateMany({

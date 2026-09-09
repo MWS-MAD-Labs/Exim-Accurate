@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
           ...credentialFilter,
           createdAt: { gte: start, lt: endExclusive },
         },
-        include: { items: true },
+        include: { items: true, payments: true },
         orderBy: { createdAt: "asc" },
       }),
       prisma.posSale.findMany({
@@ -168,7 +168,7 @@ export async function GET(req: NextRequest) {
           createdAt: { gte: previousStart, lt: previousEndExclusive },
           status: "synced",
         },
-        include: { items: true },
+        include: { items: true, payments: true },
         orderBy: { createdAt: "asc" },
       }),
       prisma.posProduct.findMany({
@@ -225,14 +225,16 @@ export async function GET(req: NextRequest) {
         saleUnits += item.quantity;
       }
 
-      const payment = paymentMap.get(sale.paymentMethod) ?? {
-        paymentMethod: sale.paymentMethod,
-        count: 0,
-        revenue: new Prisma.Decimal(0),
-      };
-      payment.count += 1;
-      payment.revenue = payment.revenue.add(saleRevenue);
-      paymentMap.set(sale.paymentMethod, payment);
+      for (const allocation of sale.payments) {
+        const payment = paymentMap.get(allocation.method) ?? {
+          paymentMethod: allocation.method,
+          count: 0,
+          revenue: new Prisma.Decimal(0),
+        };
+        payment.count += 1;
+        payment.revenue = payment.revenue.add(allocation.amount);
+        paymentMap.set(allocation.method, payment);
+      }
 
       const buyerType = sale.buyerType === "staff" ? "staff" : "guest";
       const customer = customerMap.get(buyerType) ?? {

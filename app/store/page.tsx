@@ -19,6 +19,7 @@ import {
   Paper,
   ScrollArea,
   Radio,
+  Checkbox,
   SegmentedControl,
   SimpleGrid,
   Stack,
@@ -68,6 +69,7 @@ interface Allowance {
 }
 
 type PaymentMethod = "allowance" | "cash" | "qris";
+type PaymentChoice = "cash" | "qris" | "allowance_first_cash" | "allowance_first_qris" | "allowance_debt";
 
 interface Product {
   itemCode: string;
@@ -95,6 +97,8 @@ interface Reservation {
   pickupAt: string | null;
   createdAt: string;
   preferredPaymentMethod: PaymentMethod;
+  paymentStrategy: "external_only" | "allowance_then_external" | "allowance_debt";
+  externalPaymentMethod: "cash" | "qris" | null;
   items: ReservationItem[];
 }
 
@@ -142,7 +146,8 @@ export default function StorePage() {
   const [view, setView] = useState("catalog");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentChoice | null>(null);
+  const [debtConfirmed, setDebtConfirmed] = useState(false);
   const [message, setMessage] = useState<{ color: string; text: string } | null>(null);
 
   const loadReservations = useCallback(async () => {
@@ -191,13 +196,13 @@ export default function StorePage() {
   );
   const cartCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
   const cartTotal = cartLines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
-  const allowanceAvailable = !!allowance && !allowance.previousDebt.blocked && cartTotal > 0;
+  const allowanceAvailable = !!allowance && !allowance.previousDebt.blocked && allowance.remaining > 0 && cartTotal > 0;
   const allowanceCoversCart = allowanceAvailable && allowance.remaining >= cartTotal;
   const amountOverAllowance = Math.max(0, cartTotal - (allowance?.remaining ?? 0));
 
   useEffect(() => {
-    if (allowanceAvailable) setPaymentMethod((current) => current ?? "allowance");
-    else setPaymentMethod((current) => current === "allowance" ? null : current);
+    if (allowanceAvailable) setPaymentMethod((current) => current ?? "allowance_first_cash");
+    else setPaymentMethod((current) => current?.startsWith("allowance_first") ? null : current);
   }, [allowanceAvailable]);
 
   const setQuantity = (product: Product, quantity: number) => {
@@ -206,7 +211,7 @@ export default function StorePage() {
   };
 
   const reserve = async () => {
-    if (!store || !cartLines.length || !paymentMethod || submitting) return;
+    if (!store || !cartLines.length || !paymentMethod || (paymentMethod === "allowance_debt" && !debtConfirmed) || submitting) return;
     setSubmitting(true);
     setMessage(null);
     try {
@@ -215,7 +220,11 @@ export default function StorePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           idempotencyKey: createIdempotencyKey(),
-          preferredPaymentMethod: paymentMethod,
+          payment: paymentMethod === "cash" || paymentMethod === "qris"
+            ? { strategy: "external_only", method: paymentMethod }
+            : paymentMethod === "allowance_debt"
+              ? { strategy: "allowance_debt", debtConfirmed: true }
+              : { strategy: "allowance_then_external", remainderMethod: paymentMethod === "allowance_first_qris" ? "qris" : "cash" },
           items: cartLines.map(({ itemCode, quantity }) => ({ itemCode, quantity })),
         }),
       });
@@ -223,6 +232,7 @@ export default function StorePage() {
       if (!response.ok) throw new Error(data.error || "Unable to create preorder");
       setCart({});
       setPaymentMethod(null);
+      setDebtConfirmed(false);
       cartHandlers.close();
       setView("orders");
       setMessage({ color: "green", text: `Preorder ${data.reference} created. Show its QR code at the cashier.` });
@@ -387,7 +397,7 @@ export default function StorePage() {
                             <Badge color={meta.color}>{meta.label}</Badge>
                           </Group>
                           <Text size="sm" c="dimmed">{reservation.warehouseName}</Text>
-                          <Text size="xs" c="dimmed">Payment: {reservation.preferredPaymentMethod === "qris" ? "QRIS" : reservation.preferredPaymentMethod === "cash" ? "Cash" : "Staff allowance"}</Text>
+                          <Text size="xs" c="dimmed">Payment: {reservation.paymentStrategy === "allowance_debt" ? "Allowance debt" : reservation.paymentStrategy === "allowance_then_external" ? `Allowance first + ${reservation.externalPaymentMethod === "qris" ? "QRIS" : "Cash"}` : reservation.externalPaymentMethod === "qris" ? "QRIS" : "Cash"}</Text>
                         </Box>
                         <Text fw={700}>{formatMoney(total)}</Text>
                       </Group>
@@ -472,22 +482,28 @@ export default function StorePage() {
               </Group>
             )}
           </Paper>
-          {allowanceCoversCart ? (
-            <Alert color="green" icon={<IconWallet size={18} />}>This preorder will use your staff allowance at pickup.</Alert>
-          ) : (
-            <Stack gap="xs">
-              <Alert color="orange" icon={<IconAlertCircle size={18} />}>{allowanceAvailable ? "Your allowance does not cover this preorder. Choosing allowance will create a negative balance to repay at the end of the period." : "Your allowance balance is unavailable. Choose another payment method."}</Alert>
-              <Radio.Group value={paymentMethod || ""} onChange={(value) => setPaymentMethod(value as PaymentMethod)} label="Payment method">
-                <Group mt="xs">
-                  {allowanceAvailable && <Radio value="allowance" label={<Group gap="xs"><IconWallet size={16} />Allowance</Group>} />}
-                  <Radio value="cash" label={<Group gap="xs"><IconCash size={16} />Cash</Group>} />
-                  <Radio value="qris" label={<Group gap="xs"><IconQrcode size={16} />QRIS</Group>} />
-                </Group>
-              </Radio.Group>
-            </Stack>
-          )}
-          <Button size="lg" fullWidth loading={submitting} disabled={cartLines.length === 0 || !paymentMethod} onClick={() => void reserve()}>Confirm preorder</Button>
-          <Text size="xs" c="dimmed" ta="center">Confirming immediately locks the selected stock until the configured pickup deadline.</Text>
+          <Stack gap="xs">
+            <Alert color="blue" icon={<IconWallet size={18} />}>This is a payment preference only. Allowance and the final Cash/QRIS remainder are recalculated at pickup.</Alert>
+            <Radio.Group value={paymentMethod || ""} onChange={(value) => { setPaymentMethod(value as PaymentChoice); setDebtConfirmed(false); }} label="Payment strategy">
+              <Stack mt="xs" gap="xs">
+                {allowanceAvailable && <Radio value="allowance_first_cash" label={<Group gap="xs"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + Cash {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
+                {allowanceAvailable && <Radio value="allowance_first_qris" label={<Group gap="xs"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + QRIS {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
+                <Radio value="cash" label={<Group gap="xs"><IconCash size={16} />Full Cash</Group>} />
+                <Radio value="qris" label={<Group gap="xs"><IconQrcode size={16} />Full QRIS</Group>} />
+                {!allowance?.previousDebt.blocked && <Radio value="allowance_debt" label={<Group gap="xs"><IconAlertCircle size={16} />Record full amount as allowance debt</Group>} />}
+              </Stack>
+            </Radio.Group>
+            {paymentMethod === "allowance_debt" && allowance && (
+              <Alert color="orange">
+                <Stack gap="xs">
+                  <Text size="sm">Estimated balance after pickup: {formatMoney(allowance.remaining - cartTotal)}.</Text>
+                  <Checkbox checked={debtConfirmed} onChange={(event) => setDebtConfirmed(event.currentTarget.checked)} label="I explicitly confirm this preorder may create or increase allowance debt" />
+                </Stack>
+              </Alert>
+            )}
+          </Stack>
+          <Button size="lg" fullWidth loading={submitting} disabled={cartLines.length === 0 || !paymentMethod || (paymentMethod === "allowance_debt" && !debtConfirmed)} onClick={() => void reserve()}>Confirm preorder</Button>
+          <Text size="xs" c="dimmed" ta="center">Confirming locks stock only. It does not reserve or consume allowance until pickup.</Text>
         </Stack>
       </Drawer>
     </AppShell>

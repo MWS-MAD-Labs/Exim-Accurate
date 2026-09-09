@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   Center,
+  Checkbox,
   Group,
   Loader,
   Modal,
@@ -94,6 +95,8 @@ interface PickupReservation {
   status: "active" | "picked_up" | "cancelled" | "expired";
   expiresAt: string;
   preferredPaymentMethod: PaymentMethod;
+  paymentStrategy: "external_only" | "allowance_then_external" | "allowance_debt";
+  externalPaymentMethod: "cash" | "qris" | null;
   items: Array<{
     id: string;
     itemCode: string;
@@ -104,6 +107,7 @@ interface PickupReservation {
 }
 
 type PaymentMethod = "allowance" | "cash" | "qris";
+type PaymentChoice = "cash" | "qris" | "allowance_first_cash" | "allowance_first_qris" | "allowance_debt";
 type Step = "identify" | "shop" | "pay" | "done";
 
 function formatMoney(value: number) {
@@ -147,14 +151,15 @@ export default function PosCashierPage() {
   const [highlightedSuggestion, setHighlightedSuggestion] = useState(0);
   const [suggestionNavigated, setSuggestionNavigated] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
-    null,
-  );
+  const [paymentMethod, setPaymentMethod] = useState<PaymentChoice | null>(null);
+  const [qrisConfirmed, setQrisConfirmed] = useState(false);
+  const [debtConfirmed, setDebtConfirmed] = useState(false);
   const [adjustmentNumber, setAdjustmentNumber] = useState<string | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
   const [pickupOpened, setPickupOpened] = useState(false);
   const [pickupReservation, setPickupReservation] = useState<PickupReservation | null>(null);
-  const [pickupPaymentMethod, setPickupPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [pickupPaymentMethod, setPickupPaymentMethod] = useState<PaymentChoice | null>(null);
+  const [pickupAllowance, setPickupAllowance] = useState<Allowance | null>(null);
   const [pickupPreviousDebt, setPickupPreviousDebt] = useState<PreviousDebt | null>(null);
   const [pickupLoading, setPickupLoading] = useState(false);
   const [pickupError, setPickupError] = useState("");
@@ -471,10 +476,49 @@ export default function PosCashierPage() {
     setCart((current) => current.filter((line) => line.itemCode !== itemCode));
 
   const canPayWithAllowance = buyerType === "staff" && !!allowance && !allowance.previousDebt.blocked;
-  const allowanceWillGoNegative = !!allowance && allowance.remaining < total;
+  const canUseAllowanceFirst = canPayWithAllowance && allowance.remaining > 0;
+  const allowanceApplied = Math.min(total, Math.max(0, allowance?.remaining ?? 0));
+  const splitRemainder = Math.max(0, total - allowanceApplied);
+  const selectedUsesQris = paymentMethod === "qris" || paymentMethod === "allowance_first_qris";
+  const selectedIsDebt = paymentMethod === "allowance_debt";
+  const paymentReady = !!paymentMethod && (!selectedUsesQris || qrisConfirmed) && (!selectedIsDebt || debtConfirmed);
+
+  const buildPaymentIntent = (choice: PaymentChoice, balance = allowance?.remaining ?? 0) => {
+    if (choice === "cash" || choice === "qris") return { strategy: "external_only" as const, method: choice };
+    if (choice === "allowance_debt") return { strategy: "allowance_debt" as const, expectedAllowanceBalance: balance.toFixed(2), debtConfirmed: true as const };
+    return {
+      strategy: "allowance_then_external" as const,
+      remainderMethod: choice === "allowance_first_qris" ? "qris" as const : "cash" as const,
+      expectedAllowanceAvailable: Math.max(0, balance).toFixed(2),
+    };
+  };
+
+  const choosePayment = useCallback((choice: PaymentChoice | null) => {
+    setPaymentMethod(choice);
+    setQrisConfirmed(false);
+    setDebtConfirmed(false);
+  }, []);
+
+  const chooseCash = useCallback(() => choosePayment(
+    paymentMethod === "allowance_first_cash"
+      ? "cash"
+      : paymentMethod?.startsWith("allowance_first")
+        ? "allowance_first_cash"
+        : "cash",
+  ), [choosePayment, paymentMethod]);
+  const chooseQris = useCallback(() => choosePayment(
+    paymentMethod === "allowance_first_qris"
+      ? "qris"
+      : paymentMethod?.startsWith("allowance_first")
+        ? "allowance_first_qris"
+        : "qris",
+  ), [choosePayment, paymentMethod]);
+  const toggleAllowanceFirst = useCallback(() => choosePayment(
+    paymentMethod?.startsWith("allowance_first") ? null : "allowance_first_cash",
+  ), [choosePayment, paymentMethod]);
 
   const submitSale = async () => {
-    if (!credentialId || !paymentMethod || cart.length === 0 || submitting)
+    if (!credentialId || !paymentMethod || !paymentReady || cart.length === 0 || submitting)
       return;
     setSubmitting(true);
     try {
@@ -483,7 +527,7 @@ export default function PosCashierPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           credentialId,
-          paymentMethod,
+          payment: buildPaymentIntent(paymentMethod),
           idempotencyKey,
           buyerType: buyerType || "guest",
           staffEmail: buyerType === "staff" ? staffEmail : undefined,
@@ -492,15 +536,25 @@ export default function PosCashierPage() {
         }),
       });
       const data = await response.json();
-      if (response.ok) {
+      const committedLocally = !!data.sale?.id;
+      if (response.ok || committedLocally) {
         setAdjustmentNumber(data.adjustmentNumber || null);
         setStep("done");
         notify({
           title: t.dashboard.pos.saleCompleted,
-          message: data.adjustmentNumber || "",
-          color: "green",
+          message: response.ok ? (data.adjustmentNumber || "") : (data.error || "Sale saved locally; do not collect payment again."),
+          color: response.ok ? "green" : "orange",
           autoClose: 3000,
         });
+      } else if (data.code === "ALLOWANCE_CHANGED" || data.code === "ALLOWANCE_DEBT_CHANGED") {
+        if (data.allowance?.currentlyAvailable !== undefined) {
+          setAllowance((current) => current ? { ...current, remaining: Number(data.allowance.currentlyAvailable) } : current);
+        } else if (data.allowance?.currentBalance !== undefined) {
+          setAllowance((current) => current ? { ...current, remaining: Number(data.allowance.currentBalance) } : current);
+        }
+        setQrisConfirmed(false);
+        setDebtConfirmed(false);
+        notify({ title: t.common.error, message: data.error, color: "orange", autoClose: 5000 });
       } else {
         notify({
           title: t.common.error,
@@ -518,6 +572,8 @@ export default function PosCashierPage() {
     setPickupReservation(null);
     setPickupPaymentMethod(null);
     setPickupPreviousDebt(null);
+    setQrisConfirmed(false);
+    setDebtConfirmed(false);
     setPickupError("");
     setScannerKey((current) => current + 1);
     setPickupOpened(true);
@@ -540,10 +596,18 @@ export default function PosCashierPage() {
       const allowanceResponse = await fetch(`/api/pos/allowance?credentialId=${encodeURIComponent(data.credentialId)}&email=${encodeURIComponent(data.staffEmail)}`);
       const pickupAllowance = allowanceResponse.ok ? await allowanceResponse.json() as Allowance : null;
       setPickupPreviousDebt(pickupAllowance?.previousDebt ?? null);
-      setPickupPaymentMethod(pickupAllowance?.previousDebt.blocked ? null : data.preferredPaymentMethod || null);
+      setPickupAllowance(pickupAllowance);
+      setPickupPaymentMethod(pickupAllowance?.previousDebt.blocked
+        ? null
+        : data.paymentStrategy === "allowance_debt"
+          ? "allowance_debt"
+          : data.paymentStrategy === "allowance_then_external"
+            ? data.externalPaymentMethod === "qris" ? "allowance_first_qris" : "allowance_first_cash"
+            : data.externalPaymentMethod === "qris" ? "qris" : "cash");
       if (data.status !== "active") setPickupError(`This preorder is ${String(data.status).replace("_", " ")}.`);
     } catch (error) {
       setPickupReservation(null);
+      setPickupAllowance(null);
       setPickupPreviousDebt(null);
       setPickupError(error instanceof Error ? error.message : "Unable to load preorder");
       setScannerKey((current) => current + 1);
@@ -560,10 +624,18 @@ export default function PosCashierPage() {
       const response = await fetch(`/api/pos/reservations/${pickupReservation.id}/pickup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentMethod: pickupPaymentMethod }),
+        body: JSON.stringify({ payment: buildPaymentIntent(pickupPaymentMethod, pickupAllowance?.remaining ?? 0) }),
       });
       const data = await response.json();
-      if (!response.ok && !data.sale) throw new Error(data.error || "Unable to confirm pickup");
+      if (!response.ok && !data.sale) {
+        if (data.code === "ALLOWANCE_CHANGED" || data.code === "ALLOWANCE_DEBT_CHANGED") {
+          const currentBalance = data.allowance?.currentlyAvailable ?? data.allowance?.currentBalance;
+          if (currentBalance !== undefined) setPickupAllowance((current) => current ? { ...current, remaining: Number(currentBalance) } : current);
+          setDebtConfirmed(false);
+          setQrisConfirmed(false);
+        }
+        throw new Error(data.error || "Unable to confirm pickup");
+      }
       notify({
         title: "Preorder picked up",
         message: data.adjustmentNumber || pickupReservation.reference,
@@ -573,6 +645,7 @@ export default function PosCashierPage() {
       setPickupOpened(false);
       setPickupReservation(null);
       setPickupPaymentMethod(null);
+      setPickupAllowance(null);
       setPickupPreviousDebt(null);
     } catch (error) {
       setPickupError(error instanceof Error ? error.message : "Unable to confirm pickup");
@@ -597,16 +670,19 @@ export default function PosCashierPage() {
     setItemLookup("");
     setSuggestions([]);
     setPaymentMethod(null);
+    setQrisConfirmed(false);
+    setDebtConfirmed(false);
     setAdjustmentNumber(null);
     setIdempotencyKey(createIdempotencyKey());
   }, []);
 
   useEffect(() => {
-    if (paymentMethod) submitButtonRef.current?.focus();
-  }, [paymentMethod]);
+    if (paymentReady) submitButtonRef.current?.focus();
+  }, [paymentReady]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
+      if (pickupOpened || staffDebtPrompt) return;
       if (event.key === "F2" && step === "shop") {
         event.preventDefault();
         itemInputRef.current?.focus();
@@ -625,18 +701,21 @@ export default function PosCashierPage() {
         startNewTransaction();
       } else if (event.key === "F8" && step === "pay") {
         event.preventDefault();
-        setPaymentMethod("cash");
+        chooseCash();
       } else if (event.key === "F9" && step === "pay") {
         event.preventDefault();
-        setPaymentMethod("qris");
-      } else if (event.key === "F10" && step === "pay" && canPayWithAllowance) {
+        chooseQris();
+      } else if (event.key === "F10" && step === "pay" && canUseAllowanceFirst) {
         event.preventDefault();
-        setPaymentMethod("allowance");
+        toggleAllowanceFirst();
+      } else if (event.altKey && event.key.toLowerCase() === "d" && step === "pay" && canPayWithAllowance) {
+        event.preventDefault();
+        choosePayment("allowance_debt");
       } else if (
         event.ctrlKey &&
         event.key === "Enter" &&
         step === "pay" &&
-        paymentMethod
+        paymentReady
       ) {
         event.preventDefault();
         submitButtonRef.current?.click();
@@ -650,9 +729,17 @@ export default function PosCashierPage() {
     return () => window.removeEventListener("keydown", handleShortcut);
   }, [
     canPayWithAllowance,
+    canUseAllowanceFirst,
+    chooseCash,
+    choosePayment,
+    chooseQris,
     cart.length,
     paymentMethod,
+    paymentReady,
+    pickupOpened,
+    staffDebtPrompt,
     startGuestCheckout,
+    toggleAllowanceFirst,
     startNewTransaction,
     step,
   ]);
@@ -826,16 +913,21 @@ export default function PosCashierPage() {
               </Card>
               {pickupReservation.status === "active" && (
                 <>
-                  <Text fw={600}>Payment method <Text span size="xs" c="dimmed">(staff selected {pickupReservation.preferredPaymentMethod === "qris" ? "QRIS" : pickupReservation.preferredPaymentMethod === "allowance" ? "Allowance" : "Cash"})</Text></Text>
-                  <SimpleGrid cols={3}>
-                    <Button variant={pickupPaymentMethod === "allowance" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => setPickupPaymentMethod("allowance")}>Allowance</Button>
-                    <Button variant={pickupPaymentMethod === "cash" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => setPickupPaymentMethod("cash")}>Cash</Button>
-                    <Button variant={pickupPaymentMethod === "qris" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => setPickupPaymentMethod("qris")}>QRIS</Button>
+                  <Text fw={600}>Payment strategy <Text span size="xs" c="dimmed">(staff selected {pickupReservation.paymentStrategy.replaceAll("_", " ")})</Text></Text>
+                  <SimpleGrid cols={2}>
+                    <Button variant={pickupPaymentMethod === "cash" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => { setPickupPaymentMethod("cash"); setQrisConfirmed(false); setDebtConfirmed(false); }}>Full Cash</Button>
+                    <Button variant={pickupPaymentMethod === "qris" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => { setPickupPaymentMethod("qris"); setQrisConfirmed(false); setDebtConfirmed(false); }}>Full QRIS</Button>
+                    <Button variant={pickupPaymentMethod === "allowance_first_cash" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked || (pickupAllowance?.remaining ?? 0) <= 0} onClick={() => { setPickupPaymentMethod("allowance_first_cash"); setQrisConfirmed(false); setDebtConfirmed(false); }}>Allowance + Cash</Button>
+                    <Button variant={pickupPaymentMethod === "allowance_first_qris" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked || (pickupAllowance?.remaining ?? 0) <= 0} onClick={() => { setPickupPaymentMethod("allowance_first_qris"); setQrisConfirmed(false); setDebtConfirmed(false); }}>Allowance + QRIS</Button>
+                    <Button color="orange" variant={pickupPaymentMethod === "allowance_debt" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => { setPickupPaymentMethod("allowance_debt"); setQrisConfirmed(false); setDebtConfirmed(false); }}>Allowance debt</Button>
                   </SimpleGrid>
+                  {pickupAllowance && <Alert color="blue">Current allowance: {formatMoney(pickupAllowance.remaining)}. Final allocation is verified when pickup is submitted.</Alert>}
+                  {(pickupPaymentMethod === "qris" || pickupPaymentMethod === "allowance_first_qris") && <Checkbox checked={qrisConfirmed} onChange={(event) => setQrisConfirmed(event.currentTarget.checked)} label="QRIS payment received" />}
+                  {pickupPaymentMethod === "allowance_debt" && <Checkbox checked={debtConfirmed} onChange={(event) => setDebtConfirmed(event.currentTarget.checked)} label={`Confirm allowance balance will become ${formatMoney((pickupAllowance?.remaining ?? 0) - pickupReservation.items.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0))}`} />}
                   {pickupPreviousDebt?.blocked && <Alert color="red">{t.dashboard.pos.pickupDebtOverdueAlert.replace("{amount}", formatMoney(pickupPreviousDebt.outstanding))}</Alert>}
                   <Group grow>
                     <Button variant="subtle" onClick={() => { setPickupReservation(null); setPickupPaymentMethod(null); setPickupPreviousDebt(null); setPickupError(""); setScannerKey((current) => current + 1); }}>Scan another</Button>
-                    <Button loading={pickupLoading} disabled={!pickupPaymentMethod} onClick={() => void confirmPickup()}>Confirm pickup</Button>
+                    <Button loading={pickupLoading} disabled={!pickupPaymentMethod || ((pickupPaymentMethod === "qris" || pickupPaymentMethod === "allowance_first_qris") && !qrisConfirmed) || (pickupPaymentMethod === "allowance_debt" && !debtConfirmed)} onClick={() => void confirmPickup()}>Confirm pickup</Button>
                   </Group>
                 </>
               )}
@@ -1305,39 +1397,55 @@ export default function PosCashierPage() {
           </Card>
           <SimpleGrid cols={1} spacing="md">
             {buyerType === "staff" && (
-              <Button
-                size="lg"
-                leftSection={<IconWallet size={18} />}
-                variant={paymentMethod === "allowance" ? "filled" : "outline"}
-                disabled={!canPayWithAllowance}
-                onClick={() => setPaymentMethod("allowance")}
-              >
-                {t.dashboard.pos.payWithAllowance} (F10)
-                {allowance?.previousDebt.blocked
-                  ? ` (${t.dashboard.pos.paymentRequiredShort})`
-                  : allowanceWillGoNegative
-                    ? ` (${t.dashboard.pos.insufficientAllowance})`
-                    : ""}
-              </Button>
+              <>
+                <Button
+                  size="lg"
+                  leftSection={<IconWallet size={18} />}
+                  variant={paymentMethod?.startsWith("allowance_first") ? "filled" : "outline"}
+                  disabled={!canUseAllowanceFirst}
+                  onClick={toggleAllowanceFirst}
+                >
+                  Allowance first (F10): {formatMoney(allowanceApplied)} allowance{splitRemainder > 0 ? ` + ${formatMoney(splitRemainder)} Cash/QRIS` : ""}
+                </Button>
+                <Button
+                  size="lg"
+                  color="orange"
+                  leftSection={<IconWallet size={18} />}
+                  variant={paymentMethod === "allowance_debt" ? "filled" : "outline"}
+                  disabled={!canPayWithAllowance}
+                  onClick={() => choosePayment("allowance_debt")}
+                >
+                  Record full amount as allowance debt (Alt+D)
+                </Button>
+              </>
             )}
             <Button
               ref={cashButtonRef}
               size="lg"
               leftSection={<IconCash size={18} />}
-              variant={paymentMethod === "cash" ? "filled" : "outline"}
-              onClick={() => setPaymentMethod("cash")}
+              variant={paymentMethod === "cash" || paymentMethod === "allowance_first_cash" ? "filled" : "outline"}
+              onClick={chooseCash}
             >
               {t.dashboard.pos.payWithCash} (F8)
             </Button>
             <Button
               size="lg"
               leftSection={<IconQrcode size={18} />}
-              variant={paymentMethod === "qris" ? "filled" : "outline"}
-              onClick={() => setPaymentMethod("qris")}
+              variant={paymentMethod === "qris" || paymentMethod === "allowance_first_qris" ? "filled" : "outline"}
+              onClick={chooseQris}
             >
               {t.dashboard.pos.payWithQris} (F9)
             </Button>
           </SimpleGrid>
+          {selectedUsesQris && <Checkbox checked={qrisConfirmed} onChange={(event) => setQrisConfirmed(event.currentTarget.checked)} label="QRIS payment received" styles={{ label: { color: "white" } }} />}
+          {selectedIsDebt && allowance && (
+            <Alert color="orange" title="Explicit allowance debt confirmation">
+              <Stack gap="xs">
+                <Text size="sm">Current balance: {formatMoney(allowance.remaining)}. Balance after this sale: {formatMoney(allowance.remaining - total)}.</Text>
+                <Checkbox checked={debtConfirmed} onChange={(event) => setDebtConfirmed(event.currentTarget.checked)} label="I confirm this purchase should create or increase allowance debt" />
+              </Stack>
+            </Alert>
+          )}
           <Group grow>
             <Button variant="subtle" onClick={() => setStep("shop")}>
               {t.common.back}
@@ -1345,7 +1453,7 @@ export default function PosCashierPage() {
             <Button
               ref={submitButtonRef}
               loading={submitting}
-              disabled={!paymentMethod}
+              disabled={!paymentReady}
               onClick={() => void submitSale()}
             >
               {t.dashboard.pos.checkout} (Ctrl+Enter)

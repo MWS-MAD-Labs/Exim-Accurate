@@ -76,7 +76,6 @@ export async function syncPosProduct(
 export interface PosSaleForAdjustment {
   id: string;
   warehouseName: string;
-  paymentMethod: string;
   items: Array<{ itemCode: string; quantity: number; unitCost?: unknown }>;
 }
 
@@ -91,7 +90,7 @@ export async function syncPosSale(
 ): Promise<{ id: number; number: string }> {
   const payload = {
     transDate: new Date().toISOString().slice(0, 10),
-    description: `POS Sale ${sale.id} | Payment: ${sale.paymentMethod}`,
+    description: `POS Sale ${sale.id}`,
     detailItem: sale.items.map((item) => ({
       itemNo: item.itemCode,
       quantity: item.quantity,
