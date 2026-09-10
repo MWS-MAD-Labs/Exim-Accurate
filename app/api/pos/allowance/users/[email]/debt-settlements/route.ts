@@ -44,18 +44,19 @@ export async function POST(
   if (!debtStatus.hasOutstanding) return NextResponse.json({ code: "DEBT_ALREADY_PAID", error: "There is no outstanding previous-period debt", previousDebt: debtStatus }, { status: 409 });
 
   const settlement = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
-    const settlements = await tx.posStaffAllowanceDebtSettlement.aggregate({
-      where: {
-        credentialId: parsed.data.credentialId,
-        staffEmail,
-        periodStartsAt: requestedStartsAt,
-        periodEndsAt: requestedEndsAt,
-      },
-      _sum: { amount: true },
-    });
-    const outstanding = Math.max(0, debtStatus.debt - Math.max(0, Number(settlements._sum.amount ?? 0)));
-    if (outstanding <= 0) throw new Error("DEBT_ALREADY_PAID");
-    if (parsed.data.amount > outstanding) throw new Error("PAYMENT_EXCEEDS_DEBT");
+    const currentDebt = await getOutstandingPreviousAllowanceDebt(
+      parsed.data.credentialId,
+      staffEmail,
+      new Date(),
+      undefined,
+      tx,
+    );
+    if (
+      requestedStartsAt.getTime() !== new Date(currentDebt.period.startsAt).getTime() ||
+      requestedEndsAt.getTime() !== new Date(currentDebt.period.endsAt).getTime()
+    ) throw new Error("DEBT_PERIOD_CHANGED");
+    if (!currentDebt.hasOutstanding) throw new Error("DEBT_ALREADY_PAID");
+    if (parsed.data.amount > currentDebt.outstanding) throw new Error("PAYMENT_EXCEEDS_DEBT");
     return tx.posStaffAllowanceDebtSettlement.create({
       data: {
         credentialId: parsed.data.credentialId,
@@ -68,9 +69,13 @@ export async function POST(
       },
     });
   }, { isolationLevel: "Serializable" })).catch((error: unknown) => {
-    if (error instanceof Error && ["DEBT_ALREADY_PAID", "PAYMENT_EXCEEDS_DEBT"].includes(error.message)) return error.message;
+    if (error instanceof Error && ["DEBT_PERIOD_CHANGED", "DEBT_ALREADY_PAID", "PAYMENT_EXCEEDS_DEBT"].includes(error.message)) return error.message;
     throw error;
   });
+  if (settlement === "DEBT_PERIOD_CHANGED") {
+    const previousDebt = await getOutstandingPreviousAllowanceDebt(parsed.data.credentialId, staffEmail);
+    return NextResponse.json({ code: "DEBT_PERIOD_CHANGED", error: "Debt period is no longer the previous allowance period", previousDebt }, { status: 409 });
+  }
   if (settlement === "DEBT_ALREADY_PAID") {
     const previousDebt = await getOutstandingPreviousAllowanceDebt(parsed.data.credentialId, staffEmail);
     return NextResponse.json({ code: "DEBT_ALREADY_PAID", error: "There is no outstanding previous-period debt", previousDebt }, { status: 409 });

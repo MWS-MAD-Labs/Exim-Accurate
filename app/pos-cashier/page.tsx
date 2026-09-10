@@ -13,6 +13,7 @@ import {
   Group,
   Loader,
   Modal,
+  NumberInput,
   Select,
   SimpleGrid,
   Stack,
@@ -142,6 +143,7 @@ export default function PosCashierPage() {
   const [staffError, setStaffError] = useState("");
   const [allowance, setAllowance] = useState<Allowance | null>(null);
   const [staffDebtPrompt, setStaffDebtPrompt] = useState<PreviousDebt | null>(null);
+  const [debtPaymentAmount, setDebtPaymentAmount] = useState<number | string>("");
   const [confirmingDebtPayment, setConfirmingDebtPayment] = useState(false);
 
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -245,6 +247,7 @@ export default function PosCashierPage() {
     setAllowance(staffAllowance);
     if (staffAllowance.previousDebt.hasOutstanding) {
       setStaffDebtPrompt(staffAllowance.previousDebt);
+      setDebtPaymentAmount(staffAllowance.previousDebt.outstanding);
       return;
     }
     setStep("shop");
@@ -297,8 +300,16 @@ export default function PosCashierPage() {
   }, [credentialId, staffEmail, staffSuggestionsOpen, staffSuggestionsRefresh, step]);
 
   const confirmDebtPaymentReceived = async () => {
-    if (!credentialId || !staffDebtPrompt || !staffEmail || confirmingDebtPayment) return;
-    const paymentAmount = staffDebtPrompt.outstanding;
+    if (
+      !credentialId ||
+      !staffDebtPrompt ||
+      !staffEmail ||
+      confirmingDebtPayment ||
+      typeof debtPaymentAmount !== "number" ||
+      debtPaymentAmount <= 0 ||
+      debtPaymentAmount > staffDebtPrompt.outstanding
+    ) return;
+    const paymentAmount = debtPaymentAmount;
     setConfirmingDebtPayment(true);
     try {
       const response = await fetch(`/api/pos/allowance/users/${encodeURIComponent(staffEmail)}/debt-settlements`, {
@@ -323,6 +334,7 @@ export default function PosCashierPage() {
       if (outstandingChanged || (periodChanged && data.previousDebt?.hasOutstanding)) {
         setAllowance((current) => current ? { ...current, previousDebt: data.previousDebt } : current);
         setStaffDebtPrompt(data.previousDebt);
+        setDebtPaymentAmount(data.previousDebt.outstanding);
         notify({
           title: periodChanged ? t.dashboard.pos.debtPeriodChanged : t.dashboard.pos.debtAmountUpdated,
           message: periodChanged
@@ -337,8 +349,10 @@ export default function PosCashierPage() {
       }
 
       if (data.previousDebt) setAllowance((current) => current ? { ...current, previousDebt: data.previousDebt } : current);
-      setStaffDebtPrompt(null);
-      setStep("shop");
+      const remainingDebt = data.previousDebt?.hasOutstanding ? data.previousDebt as PreviousDebt : null;
+      setStaffDebtPrompt(remainingDebt);
+      setDebtPaymentAmount(remainingDebt?.outstanding ?? "");
+      if (!remainingDebt) setStep("shop");
       notify({
         title: debtCleared
           ? t.dashboard.pos.debtAlreadyPaid
@@ -666,6 +680,7 @@ export default function PosCashierPage() {
     setStaffSuggestionNavigated(false);
     setAllowance(null);
     setStaffDebtPrompt(null);
+    setDebtPaymentAmount("");
     setCart([]);
     setItemLookup("");
     setSuggestions([]);
@@ -846,19 +861,48 @@ export default function PosCashierPage() {
                     .replace("{amount}", formatMoney(staffDebtPrompt.outstanding))
                     .replace("{payday}", staffDebtPrompt.payday ? new Date(staffDebtPrompt.payday).toLocaleDateString() : t.dashboard.pos.notConfigured)}
             </Alert>
+            <SimpleGrid cols={3}>
+              <Box>
+                <Text size="xs" c="dimmed">{t.dashboard.pos.originalDebt}</Text>
+                <Text fw={700}>{formatMoney(staffDebtPrompt.debt)}</Text>
+              </Box>
+              <Box>
+                <Text size="xs" c="dimmed">{t.dashboard.pos.debtPaid}</Text>
+                <Text fw={700}>{formatMoney(staffDebtPrompt.paid)}</Text>
+              </Box>
+              <Box>
+                <Text size="xs" c="dimmed">{t.dashboard.pos.debtOutstanding}</Text>
+                <Text fw={700} c={staffDebtPrompt.blocked ? "red" : "orange"}>{formatMoney(staffDebtPrompt.outstanding)}</Text>
+              </Box>
+            </SimpleGrid>
             <Text size="sm">
               {t.dashboard.pos.staffSalaryPayday}: {staffDebtPrompt.payday ? new Date(staffDebtPrompt.payday).toLocaleDateString() : t.dashboard.pos.notConfigured}
             </Text>
+            <NumberInput
+              label={t.dashboard.pos.debtPaymentAmount}
+              value={debtPaymentAmount}
+              onChange={setDebtPaymentAmount}
+              min={1}
+              max={staffDebtPrompt.outstanding}
+              thousandSeparator=","
+              decimalScale={0}
+              allowNegative={false}
+            />
             <Group grow>
-              <Button variant="default" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setBuyerType(null); setAllowance(null); setStaffEmail(""); setStaffName(""); requestAnimationFrame(() => badgeInputRef.current?.focus()); }}>
+              <Button variant="default" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setDebtPaymentAmount(""); setBuyerType(null); setAllowance(null); setStaffEmail(""); setStaffName(""); requestAnimationFrame(() => badgeInputRef.current?.focus()); }}>
                 {t.dashboard.pos.selectAnotherUser}
               </Button>
               {!staffDebtPrompt.blocked && (
-                <Button variant="light" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setStep("shop"); }}>
+                <Button variant="light" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setDebtPaymentAmount(""); setStep("shop"); }}>
                   {t.dashboard.pos.payLaterBeforePayday}
                 </Button>
               )}
-              <Button color="green" loading={confirmingDebtPayment} onClick={() => void confirmDebtPaymentReceived()}>
+              <Button
+                color="green"
+                loading={confirmingDebtPayment}
+                disabled={typeof debtPaymentAmount !== "number" || debtPaymentAmount <= 0 || debtPaymentAmount > staffDebtPrompt.outstanding}
+                onClick={() => void confirmDebtPaymentReceived()}
+              >
                 {t.dashboard.pos.confirmPaymentReceived}
               </Button>
             </Group>
