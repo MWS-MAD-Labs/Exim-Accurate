@@ -1,6 +1,6 @@
 import { accurateFetch } from "./client";
 
-interface AccurateCredentials {
+export interface AccurateCredentials {
   apiToken: string;
   signatureSecret: string;
   host: string;
@@ -153,9 +153,56 @@ export async function getInventoryAdjustmentDetail(
   return response.d;
 }
 
-/**
- * Save inventory adjustment (for import)
- */
+export class MissingItemCostError extends Error {
+  constructor(public readonly items: string[]) {
+    const itemList = items.join(", ");
+    super(
+      `Harga modal belum diatur untuk barang: ${itemList}. `
+      + `Purchase cost is not configured for item(s): ${itemList}.`,
+    );
+    this.name = "MissingItemCostError";
+  }
+}
+
+/** Validate that every inventory adjustment item has a positive purchase cost. */
+export function validateInventoryAdjustmentCosts(
+  items: Array<{ itemNo: string; itemName?: string; unitCost: number }>,
+): Map<string, number> {
+  const invalidItems = items
+    .filter((item) => !Number.isFinite(item.unitCost) || item.unitCost <= 0)
+    .map((item) => item.itemName ? `${item.itemName} (${item.itemNo})` : item.itemNo);
+
+  if (invalidItems.length > 0) {
+    throw new MissingItemCostError(invalidItems);
+  }
+
+  return new Map(items.map((item) => [item.itemNo, item.unitCost]));
+}
+
+/** Resolve missing purchase costs from Accurate, then validate all resolved values. */
+export async function resolveInventoryAdjustmentCosts(
+  credentials: AccurateCredentials,
+  items: Array<{ itemNo: string; itemName?: string; unitCost?: number }>,
+): Promise<Map<string, number>> {
+  const itemsWithCosts: Array<{ itemNo: string; itemName?: string; unitCost: number }> = [];
+
+  for (const item of items) {
+    let unitCost = item.unitCost;
+    if (unitCost === undefined) {
+      const itemResponse = await accurateFetch<AccurateListResponse>(
+        `/api/item/list.do?fields=no,unitCost&filter.no.op=EQUAL&filter.no.val[0]=${encodeURIComponent(item.itemNo)}`,
+        credentials,
+      );
+      unitCost = Number(itemResponse.d?.[0]?.unitCost);
+    }
+
+    itemsWithCosts.push({ ...item, unitCost: Number(unitCost) });
+  }
+
+  return validateInventoryAdjustmentCosts(itemsWithCosts);
+}
+
+/** Save an inventory adjustment in Accurate. */
 export async function saveInventoryAdjustment(
   credentials: AccurateCredentials,
   data: {
@@ -164,6 +211,7 @@ export async function saveInventoryAdjustment(
     description?: string;
     detailItem: Array<{
       itemNo: string;
+      itemName?: string;
       quantity: number;
       itemAdjustmentType: "ADJUSTMENT_IN" | "ADJUSTMENT_OUT" | "ADJUSTMENT_STOCK";
       unitCost?: number;
@@ -175,26 +223,7 @@ export async function saveInventoryAdjustment(
   const [year, month, day] = data.transDate.split("-");
   const formattedDate = `${day}/${month}/${year}`;
 
-  const resolvedCosts = new Map<string, number>();
-  for (const item of data.detailItem) {
-    if (item.unitCost !== undefined) {
-      if (!Number.isFinite(item.unitCost) || item.unitCost <= 0) {
-        throw new Error(`A positive unit cost is required for item ${item.itemNo}`);
-      }
-      resolvedCosts.set(item.itemNo, item.unitCost);
-      continue;
-    }
-
-    const itemResponse = await accurateFetch<AccurateListResponse>(
-      `/api/item/list.do?fields=no,unitCost&filter.no.op=EQUAL&filter.no.val[0]=${encodeURIComponent(item.itemNo)}`,
-      credentials,
-    );
-    const unitCost = Number(itemResponse.d?.[0]?.unitCost);
-    if (!Number.isFinite(unitCost) || unitCost <= 0) {
-      throw new Error(`A positive unit cost is required for item ${item.itemNo}`);
-    }
-    resolvedCosts.set(item.itemNo, unitCost);
-  }
+  const resolvedCosts = await resolveInventoryAdjustmentCosts(credentials, data.detailItem);
 
   const requestBody = {
     transDate: formattedDate,

@@ -4,10 +4,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { saveInventoryAdjustment } from "@/lib/accurate/inventory";
+import {
+    MissingItemCostError,
+    resolveInventoryAdjustmentCosts,
+    saveInventoryAdjustment,
+} from "@/lib/accurate/inventory";
 import { refreshSession, refreshAccessToken } from "@/lib/accurate/client";
 import { getResourceCredential } from "@/lib/credential-access";
 import dayjs from "dayjs";
+import { submitSelfCheckoutAdjustment } from "@/lib/self-checkout-submit";
 
 interface CheckoutItem {
     itemCode: string;
@@ -75,6 +80,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Minimal satu barang wajib diisi" }, { status: 400 });
     }
 
+    if (items.some((item) => !item || typeof item.itemCode !== "string" || !item.itemCode.trim())) {
+        return NextResponse.json({ error: "Kode barang wajib diisi" }, { status: 400 });
+    }
+
+    if (items.some((item) => !Number.isInteger(item.quantity) || item.quantity <= 0)) {
+        return NextResponse.json({ error: "Jumlah barang harus berupa bilangan bulat positif" }, { status: 400 });
+    }
+
     try {
         // Get credentials
         let credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
@@ -95,25 +108,6 @@ export async function POST(req: NextRequest) {
 
         // Parse staff info from email
         const { name: staffName, department: staffDept } = parseStaffInfo(staffEmail);
-
-        // Create checkout session in database
-        const checkoutSession = await prisma.checkoutSession.create({
-            data: {
-                staffEmail,
-                staffName,
-                staffDept,
-                credentialId,
-                status: "pending",
-                items: {
-                    create: items.map((item) => ({
-                        itemCode: item.itemCode,
-                        itemName: item.itemName,
-                        quantity: item.quantity,
-                    })),
-                },
-            },
-            include: { items: true },
-        });
 
         // Ensure we have a valid session
         if (!credential.session || !credential.host) {
@@ -152,18 +146,10 @@ export async function POST(req: NextRequest) {
                             data: { host, session: newSession },
                         });
                     } else {
-                        await prisma.checkoutSession.update({
-                            where: { id: checkoutSession.id },
-                            data: { status: "failed", errorMessage: "Sesi kedaluwarsa" },
-                        });
                         throw new Error("Sesi kedaluwarsa. Silakan hubungkan ulang ke Accurate.");
                     }
                 }
             } else {
-                await prisma.checkoutSession.update({
-                    where: { id: checkoutSession.id },
-                    data: { status: "failed", errorMessage: "Kredensial belum dikonfigurasi" },
-                });
                 return NextResponse.json(
                     { error: "Kredensial belum dikonfigurasi lengkap. Silakan hubungkan ulang ke Accurate." },
                     { status: 400 }
@@ -179,56 +165,99 @@ export async function POST(req: NextRequest) {
         descriptionParts.push(`Email: ${staffEmail}`);
         const description = descriptionParts.join(" | ");
 
-        // Create inventory adjustment in Accurate (ADJUSTMENT_OUT = taking items out)
-        const adjustmentData = {
-            transDate: dayjs().format("YYYY-MM-DD"),
-            description,
-            detailItem: items.map((item) => ({
-                itemNo: item.itemCode,
-                quantity: item.quantity,
-                itemAdjustmentType: "ADJUSTMENT_OUT" as const,
-                warehouseName: resourceSettings.warehouseName,
-            })),
+        const accurateCredentials = {
+            apiToken: credential.apiToken,
+            signatureSecret: credential.signatureSecret,
+            host: credential.host!,
+            session: credential.session!,
         };
 
-        console.log(
-            `[self-checkout/submit] Creating adjustment with ${adjustmentData.detailItem.length} item lines`,
-        );
-
-        const result = await saveInventoryAdjustment(
-            {
-                apiToken: credential.apiToken,
-                signatureSecret: credential.signatureSecret,
-                host: credential.host!,
-                session: credential.session!,
+        const submission = await submitSelfCheckoutAdjustment({
+            items,
+            createSession: () => prisma.checkoutSession.create({
+                data: {
+                    staffEmail,
+                    staffName,
+                    staffDept,
+                    credentialId,
+                    status: "pending",
+                    items: {
+                        create: items.map((item) => ({
+                            itemCode: item.itemCode,
+                            itemName: item.itemName,
+                            quantity: item.quantity,
+                        })),
+                    },
+                },
+                select: { id: true },
+            }),
+            resolveItems: async (submittedItems) => {
+                const costs = await resolveInventoryAdjustmentCosts(
+                    accurateCredentials,
+                    submittedItems.map((item) => ({
+                        itemNo: item.itemCode,
+                        itemName: item.itemName,
+                    })),
+                );
+                return submittedItems.map((item) => ({
+                    ...item,
+                    unitCost: costs.get(item.itemCode)!,
+                }));
             },
-            adjustmentData
-        );
+            saveAdjustment: async (resolvedItems) => {
+                const adjustmentData = {
+                    transDate: dayjs().format("YYYY-MM-DD"),
+                    description,
+                    detailItem: resolvedItems.map((item) => ({
+                        itemNo: item.itemCode,
+                        itemName: item.itemName,
+                        quantity: item.quantity,
+                        itemAdjustmentType: "ADJUSTMENT_OUT" as const,
+                        unitCost: item.unitCost,
+                        warehouseName: resourceSettings.warehouseName,
+                    })),
+                };
 
-        // Update checkout session as completed
-        await prisma.checkoutSession.update({
-            where: { id: checkoutSession.id },
-            data: {
-                status: "completed",
-                completedAt: new Date(),
-                adjustmentId: result.id,
+                console.log(
+                    `[self-checkout/submit] Creating adjustment with ${adjustmentData.detailItem.length} item lines`,
+                );
+                return saveInventoryAdjustment(accurateCredentials, adjustmentData);
+            },
+            completeSession: async (sessionId, result) => {
+                await prisma.checkoutSession.update({
+                    where: { id: sessionId },
+                    data: {
+                        status: "completed",
+                        completedAt: new Date(),
+                        adjustmentId: result.id,
+                        errorMessage: null,
+                    },
+                });
+            },
+            failSession: async (sessionId, errorMessage) => {
+                await prisma.checkoutSession.update({
+                    where: { id: sessionId },
+                    data: { status: "failed", errorMessage },
+                });
             },
         });
 
         return NextResponse.json({
             success: true,
-            sessionId: checkoutSession.id,
-            adjustmentId: result.id,
-            adjustmentNumber: result.r,
+            sessionId: submission.sessionId,
+            adjustmentId: submission.result.id,
+            adjustmentNumber: submission.result.r,
             staffName,
             staffDept,
             itemCount: items.length,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("[self-checkout/submit] Error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Gagal mengirim checkout";
+        const status = error instanceof MissingItemCostError ? 409 : 500;
         return NextResponse.json(
-            { error: error.message || "Gagal mengirim checkout" },
-            { status: 500 }
+            { error: errorMessage },
+            { status }
         );
     }
 }
