@@ -8,7 +8,12 @@ export interface AccurateCredentials {
 }
 
 interface AccurateListResponse {
-  d?: Array<{ no?: string; unitCost?: number }>;
+  d?: Array<{
+    no?: string;
+    name?: string;
+    vendorPrice?: number;
+    balanceUnitCost?: number;
+  }>;
 }
 
 export interface InventoryAdjustment {
@@ -179,7 +184,10 @@ export function validateInventoryAdjustmentCosts(
   return new Map(items.map((item) => [item.itemNo, item.unitCost]));
 }
 
-/** Resolve missing purchase costs from Accurate, then validate all resolved values. */
+/**
+ * Resolve missing purchase costs for all inventory-adjustment flows.
+ * Accurate vendorPrice takes precedence over balanceUnitCost when both are positive.
+ */
 export async function resolveInventoryAdjustmentCosts(
   credentials: AccurateCredentials,
   items: Array<{ itemNo: string; itemName?: string; unitCost?: number }>,
@@ -188,15 +196,22 @@ export async function resolveInventoryAdjustmentCosts(
 
   for (const item of items) {
     let unitCost = item.unitCost;
+    let itemName = item.itemName;
     if (unitCost === undefined) {
       const itemResponse = await accurateFetch<AccurateListResponse>(
-        `/api/item/list.do?fields=no,unitCost&filter.no.op=EQUAL&filter.no.val[0]=${encodeURIComponent(item.itemNo)}`,
+        `/api/item/list.do?fields=no,name,vendorPrice,balanceUnitCost&filter.no.op=EQUAL&filter.no.val[0]=${encodeURIComponent(item.itemNo)}`,
         credentials,
       );
-      unitCost = Number(itemResponse.d?.[0]?.unitCost);
+      const accurateItem = itemResponse.d?.[0];
+      const vendorPrice = Number(accurateItem?.vendorPrice);
+      const balanceUnitCost = Number(accurateItem?.balanceUnitCost);
+      itemName ??= accurateItem?.name;
+      unitCost = Number.isFinite(vendorPrice) && vendorPrice > 0
+        ? vendorPrice
+        : balanceUnitCost;
     }
 
-    itemsWithCosts.push({ ...item, unitCost: Number(unitCost) });
+    itemsWithCosts.push({ ...item, itemName, unitCost: Number(unitCost) });
   }
 
   return validateInventoryAdjustmentCosts(itemsWithCosts);
