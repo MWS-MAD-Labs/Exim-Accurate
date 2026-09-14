@@ -2,6 +2,7 @@
 
 import {
   Alert,
+  Badge,
   Button,
   Card,
   Grid,
@@ -27,7 +28,7 @@ import { useLanguage } from "@/lib/language";
 interface Credential { id: string; appKey: string }
 interface Period { startsAt: string; endsAt: string; isCustom: boolean }
 interface PeriodOption extends Period { isOngoing: boolean }
-interface PreviousDebt {
+interface DebtStatus {
   hasOutstanding: boolean;
   blocked: boolean;
   overdue: boolean;
@@ -50,7 +51,8 @@ interface Allowance {
   allowanceSpent: number;
   remainingAllowance: number;
   period: Period;
-  previousDebt: PreviousDebt;
+  currentDebt: DebtStatus;
+  previousDebt: DebtStatus;
 }
 interface DayOff { id: string; date: string; reason: string | null }
 interface Sale {
@@ -99,6 +101,10 @@ function formatDate(value: string) {
 
 function periodValue(period: Pick<Period, "startsAt" | "endsAt">) {
   return `${period.startsAt}:${period.endsAt}`;
+}
+
+function samePeriod(left: Pick<Period, "startsAt" | "endsAt">, right: Pick<Period, "startsAt" | "endsAt">) {
+  return dateOnly(left.startsAt) === dateOnly(right.startsAt) && dateOnly(left.endsAt) === dateOnly(right.endsAt);
 }
 
 function formatPeriod(period: Pick<Period, "startsAt" | "endsAt">) {
@@ -421,14 +427,17 @@ export default function StaffAllowancePage() {
               <Table.Th>{t.dashboard.pos.staffEmail}</Table.Th><Table.Th>{t.dashboard.pos.baseDays}</Table.Th>
               <Table.Th>{t.dashboard.pos.daysOff}</Table.Th><Table.Th>{t.dashboard.pos.standardAllowance}</Table.Th>
               <Table.Th>{t.dashboard.pos.manualAdjustment}</Table.Th><Table.Th>{t.dashboard.pos.totalAllowance}</Table.Th>
-              <Table.Th>{t.dashboard.pos.allowanceUsed}</Table.Th><Table.Th>{t.dashboard.pos.allowanceRemaining}</Table.Th><Table.Th>{t.dashboard.pos.previousDebt}</Table.Th><Table.Th />
+              <Table.Th>{t.dashboard.pos.allowanceUsed}</Table.Th><Table.Th>{t.dashboard.pos.allowanceUsageBalance}</Table.Th><Table.Th>{t.dashboard.pos.selectedPeriodDebt}</Table.Th><Table.Th>{t.dashboard.pos.previousDebt}</Table.Th><Table.Th />
             </Table.Tr></Table.Thead>
             <Table.Tbody>{staff.map((entry) => <Table.Tr key={entry.staffEmail}>
               <Table.Td><Text fw={500}>{entry.staffName || entry.staffEmail}</Text>{entry.staffName && <Text size="xs" c="dimmed">{entry.staffEmail}</Text>}</Table.Td>
               <Table.Td>{entry.baseWorkingDays}</Table.Td><Table.Td>{entry.daysOffCount}</Table.Td>
               <Table.Td>{formatMoney(entry.standardAllowance)}</Table.Td><Table.Td>{formatMoney(entry.manualAdjustment)}</Table.Td>
               <Table.Td><Text c={entry.totalAllowance < 0 ? "red" : undefined}>{formatMoney(entry.totalAllowance)}</Text></Table.Td><Table.Td>{formatMoney(entry.allowanceSpent)}</Table.Td>
-              <Table.Td><Text fw={700} c={entry.remainingAllowance < 0 ? "red" : "green"}>{formatMoney(entry.remainingAllowance)}</Text></Table.Td>
+              <Table.Td><Text fw={700} c={entry.remainingAllowance < 0 && entry.currentDebt.hasOutstanding ? "red" : entry.remainingAllowance < 0 ? "dimmed" : "green"}>{formatMoney(entry.remainingAllowance)}</Text></Table.Td>
+              <Table.Td>{entry.currentDebt.hasOutstanding
+                ? <Text fw={700} c="orange">{formatMoney(entry.currentDebt.outstanding)}</Text>
+                : <Badge color="green" variant="light">{entry.currentDebt.debt > 0 ? t.dashboard.pos.debtSettled : t.dashboard.pos.noDebt}</Badge>}</Table.Td>
               <Table.Td><Text fw={700} c={entry.previousDebt.blocked ? "red" : entry.previousDebt.hasOutstanding ? "orange" : "green"}>{entry.previousDebt.hasOutstanding ? formatMoney(entry.previousDebt.outstanding) : t.dashboard.pos.previousDebtPaidOrNone}</Text></Table.Td>
               <Table.Td><Button size="xs" variant="light" leftSection={<IconEdit size={14} />} onClick={() => void openDetail(entry)}>{t.dashboard.pos.details}</Button></Table.Td>
             </Table.Tr>)}</Table.Tbody>
@@ -440,7 +449,33 @@ export default function StaffAllowancePage() {
       <Modal opened={!!detail} onClose={() => setDetail(null)} title={detail?.staffName || detail?.staffEmail} size="xl">
         {detail && <Stack>
           <Text c="dimmed">{detail.staffEmail} · {formatDate(detail.period.startsAt)} – {formatDate(detail.period.endsAt)}</Text>
-          <Card withBorder><Text c="dimmed">{t.dashboard.pos.allowanceRemaining}</Text><Text size="2rem" fw={800} c={detail.remainingAllowance < 0 ? "red" : "green"}>{formatMoney(detail.remainingAllowance)}</Text><Text size="sm">{detail.effectiveWorkingDays} × {formatMoney(detail.dailyRate)} + {formatMoney(detail.manualAdjustment)} − {formatMoney(detail.allowanceSpent)}</Text></Card>
+          <Card withBorder>
+            <Group justify="space-between" align="start">
+              <div>
+                <Text c="dimmed">{t.dashboard.pos.allowanceUsageBalance}</Text>
+                <Text size="2rem" fw={800} c={detail.remainingAllowance < 0 && detail.currentDebt.hasOutstanding ? "red" : detail.remainingAllowance < 0 ? "dimmed" : "green"}>{formatMoney(detail.remainingAllowance)}</Text>
+              </div>
+              {!detail.currentDebt.hasOutstanding && detail.currentDebt.debt > 0 && <Badge color="green" size="lg" variant="light">{t.dashboard.pos.debtSettled}</Badge>}
+            </Group>
+            <Text size="sm">{detail.effectiveWorkingDays} × {formatMoney(detail.dailyRate)} + {formatMoney(detail.manualAdjustment)} − {formatMoney(detail.allowanceSpent)}</Text>
+            <Text size="xs" c="dimmed" mt="sm">{t.dashboard.pos.allowanceUsageBalanceHelp}</Text>
+          </Card>
+          <Card withBorder>
+            <Group justify="space-between" mb="sm">
+              <Text fw={700}>{t.dashboard.pos.selectedPeriodSettlement}</Text>
+              <Badge color={detail.currentDebt.hasOutstanding ? "orange" : "green"} variant="light">
+                {detail.currentDebt.hasOutstanding ? t.dashboard.pos.unpaid : detail.currentDebt.debt > 0 ? t.dashboard.pos.paid : t.dashboard.pos.noDebt}
+              </Badge>
+            </Group>
+            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+              <div><Text size="sm" c="dimmed">{t.dashboard.pos.allowanceUsageBalance}</Text><Text fw={700}>{formatMoney(detail.remainingAllowance)}</Text></div>
+              <div><Text size="sm" c="dimmed">{t.dashboard.pos.debtPaymentReceived}</Text><Text fw={700}>{formatMoney(detail.currentDebt.paid)}{detail.currentDebt.paid > 0 && (() => {
+                const methods = [...new Set(detail.debtSettlements.filter((settlement) => samePeriod({ startsAt: settlement.periodStartsAt, endsAt: settlement.periodEndsAt }, detail.period)).map((settlement) => settlement.paymentMethod === "qris" ? t.dashboard.pos.qris : settlement.paymentMethod === "cash" ? t.dashboard.pos.cash : t.dashboard.pos.unknownPaymentMethod))];
+                return methods.length ? ` ${t.dashboard.pos.via} ${methods.join(", ")}` : "";
+              })()}</Text></div>
+              <div><Text size="sm" c="dimmed">{t.dashboard.pos.debtOutstanding}</Text><Text fw={700} c={detail.currentDebt.hasOutstanding ? "orange" : "green"}>{formatMoney(detail.currentDebt.outstanding)}{!detail.currentDebt.hasOutstanding && detail.currentDebt.debt > 0 ? ` — ${t.dashboard.pos.paid}` : ""}</Text></div>
+            </SimpleGrid>
+          </Card>
           {detail.previousDebt.hasOutstanding && (
             <Alert color={detail.previousDebt.blocked ? "red" : "orange"}>
               {detail.previousDebt.blocked

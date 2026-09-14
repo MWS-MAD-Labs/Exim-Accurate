@@ -152,12 +152,14 @@ export async function GET(req: NextRequest) {
       select: { amount: true, sale: { select: { staffEmail: true } } },
     }),
     prisma.posStaffAllowanceDebtSettlement.groupBy({
-      by: ["staffEmail"],
+      by: ["staffEmail", "periodStartsAt", "periodEndsAt"],
       where: {
         credentialId,
         staffEmail: { in: staffEmails },
-        periodStartsAt: previousPeriod.startsAt,
-        periodEndsAt: previousPeriod.endsAt,
+        OR: [
+          { periodStartsAt: period.startsAt, periodEndsAt: period.endsAt },
+          { periodStartsAt: previousPeriod.startsAt, periodEndsAt: previousPeriod.endsAt },
+        ],
       },
       _sum: { amount: true },
     }),
@@ -185,7 +187,13 @@ export async function GET(req: NextRequest) {
   for (const entry of previousSpentByStaff) {
     if (entry.sale.staffEmail) previousSpentMap.set(entry.sale.staffEmail, (previousSpentMap.get(entry.sale.staffEmail) ?? 0) + Number(entry.amount));
   }
-  const settlementMap = new Map(settlementsByStaff.map((entry) => [entry.staffEmail, Number(entry._sum.amount ?? 0)]));
+  const settlementMap = new Map(settlementsByStaff.map((entry) => [
+    `${entry.staffEmail}:${entry.periodStartsAt.toISOString()}:${entry.periodEndsAt.toISOString()}`,
+    Number(entry._sum.amount ?? 0),
+  ]));
+  const settlementAmount = (staffEmail: string, debtPeriod: { startsAt: Date; endsAt: Date }) => settlementMap.get(
+    `${staffEmail}:${debtPeriod.startsAt.toISOString()}:${debtPeriod.endsAt.toISOString()}`,
+  ) ?? 0;
   const dailyRate = Number(settings?.allowancePerWorkingDay ?? 0);
   const workingDays = settings?.workingDays ?? [1, 2, 3, 4, 5];
   const holidayDates = settings?.holidayDates ?? [];
@@ -209,9 +217,16 @@ export async function GET(req: NextRequest) {
       previousAdjustmentByStaff.get(staffEmail) ?? 0,
       previousSpentMap.get(staffEmail) ?? 0,
     );
+    const currentDebt = buildPreviousAllowanceDebt(
+      breakdown.remainingAllowance,
+      settlementAmount(staffEmail, period),
+      period,
+      null,
+      new Date(),
+    );
     const previousDebt = buildPreviousAllowanceDebt(
       previousBreakdown.remainingAllowance,
-      settlementMap.get(staffEmail) ?? 0,
+      settlementAmount(staffEmail, previousPeriod),
       previousPeriod,
       getStaffPaydayForPeriod(period, settings?.staffPaydayDay ?? 28),
       new Date(),
@@ -224,6 +239,7 @@ export async function GET(req: NextRequest) {
       used: breakdown.allowanceSpent,
       remaining: breakdown.remainingAllowance,
       period: { startsAt: period.startsAt.toISOString(), endsAt: period.endsAt.toISOString(), isCustom },
+      currentDebt,
       previousDebt,
     };
   });

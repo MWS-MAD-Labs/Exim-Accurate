@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { prisma } from "@/lib/prisma";
-import { getOutstandingPreviousAllowanceDebt, getStaffAllowance, isAdmin } from "@/lib/pos-server";
+import { getOutstandingCurrentAllowanceDebt, getOutstandingPreviousAllowanceDebt, getStaffAllowance, isAdmin } from "@/lib/pos-server";
 import { dateOnlySchema, parseDateOnly, startOfDate } from "@/lib/pos";
 
 export async function GET(
@@ -41,7 +41,7 @@ export async function GET(
   const periodEndExclusive = new Date(periodEndsAt);
   periodEndExclusive.setDate(periodEndExclusive.getDate() + 1);
 
-  const [daysOff, sales, adjustments, debtSettlements, previousDebt, userIdentity, latestSaleIdentity] = await Promise.all([
+  const [daysOff, sales, adjustments, debtSettlements, currentDebt, previousDebt, userIdentity, latestSaleIdentity] = await Promise.all([
     prisma.posStaffDayOff.findMany({
       where: { credentialId: query.data.credentialId, staffEmail, date: { gte: periodStartsAt, lt: periodEndExclusive } },
       orderBy: { date: "asc" },
@@ -79,6 +79,7 @@ export async function GET(
       select: { id: true, periodStartsAt: true, periodEndsAt: true, amount: true, paymentMethod: true, note: true, createdAt: true, createdBy: { select: { email: true } } },
       orderBy: { createdAt: "desc" },
     }),
+    getOutstandingCurrentAllowanceDebt(query.data.credentialId, staffEmail, new Date(), requestedPeriod),
     getOutstandingPreviousAllowanceDebt(query.data.credentialId, staffEmail, new Date(), requestedPeriod),
     prisma.user.findFirst({
       where: { organizationId: credential.organizationId, email: staffEmail },
@@ -98,6 +99,7 @@ export async function GET(
     sales,
     adjustments,
     debtSettlements,
+    currentDebt,
     previousDebt,
   });
 }

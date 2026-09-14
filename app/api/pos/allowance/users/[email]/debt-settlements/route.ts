@@ -96,5 +96,17 @@ export async function POST(
   if (settlement === "PAYMENT_EXCEEDS_DEBT") {
     return NextResponse.json({ code: "PAYMENT_EXCEEDS_DEBT", error: "Payment exceeds the outstanding debt", ...await refreshedDebt() }, { status: 400 });
   }
-  return NextResponse.json({ settlement, ...await refreshedDebt() }, { status: 201 });
+  const debtsAfter = await refreshedDebt();
+  const settledPeriod = debtsAfter.currentDebt.period.startsAt === requestedStartsAt.toISOString()
+    && debtsAfter.currentDebt.period.endsAt === requestedEndsAt.toISOString()
+    ? debtsAfter.currentDebt
+    : debtsAfter.previousDebt;
+  console.info("debt_settlement_created", {
+    staffEmail,
+    period: `${parsed.data.periodStartsAt}..${parsed.data.periodEndsAt}`,
+    amount: parsed.data.amount,
+    paymentMethod: parsed.data.paymentMethod,
+    outstandingAfter: settledPeriod.outstanding,
+  });
+  return NextResponse.json({ settlement, ...debtsAfter }, { status: 201 });
 }
