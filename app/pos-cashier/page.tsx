@@ -149,6 +149,7 @@ export default function PosCashierPage() {
   const [allowance, setAllowance] = useState<Allowance | null>(null);
   const [staffDebtPrompt, setStaffDebtPrompt] = useState<DebtPrompt | null>(null);
   const [debtPaymentAmount, setDebtPaymentAmount] = useState<number | string>("");
+  const [debtPaymentMethod, setDebtPaymentMethod] = useState<"cash" | "qris" | null>(null);
   const [confirmingDebtPayment, setConfirmingDebtPayment] = useState(false);
   const [debtRefreshRequired, setDebtRefreshRequired] = useState(false);
 
@@ -336,6 +337,7 @@ export default function PosCashierPage() {
       !staffEmail ||
       confirmingDebtPayment ||
       typeof debtPaymentAmount !== "number" ||
+      !debtPaymentMethod ||
       debtPaymentAmount <= 0 ||
       debtPaymentAmount > staffDebtPrompt.outstanding
     ) return;
@@ -353,6 +355,7 @@ export default function PosCashierPage() {
               periodStartsAt: staffDebtPrompt.period.startsAt.slice(0, 10),
               periodEndsAt: staffDebtPrompt.period.endsAt.slice(0, 10),
               amount: paymentAmount,
+              paymentMethod: debtPaymentMethod,
               note: t.dashboard.pos.debtSettlementNoteAtCashier,
             }),
           });
@@ -726,6 +729,7 @@ export default function PosCashierPage() {
     setAllowance(null);
     setStaffDebtPrompt(null);
     setDebtPaymentAmount("");
+    setDebtPaymentMethod(null);
     setDebtRefreshRequired(false);
     setCart([]);
     setItemLookup("");
@@ -954,8 +958,22 @@ export default function PosCashierPage() {
               disabled={debtRefreshRequired}
               styles={inputStyles}
             />
+            <Select
+              label={t.dashboard.pos.debtPaymentMethod}
+              placeholder={t.dashboard.pos.selectDebtPaymentMethod}
+              data={[
+                { value: "cash", label: t.dashboard.pos.cash },
+                { value: "qris", label: t.dashboard.pos.qris },
+              ]}
+              value={debtPaymentMethod}
+              onChange={(value) => setDebtPaymentMethod(value as "cash" | "qris" | null)}
+              allowDeselect={false}
+              disabled={debtRefreshRequired}
+              styles={inputStyles}
+              required
+            />
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-              <Button className="cashier-debt-modal__action" variant="default" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setDebtPaymentAmount(""); setDebtRefreshRequired(false); setBuyerType(null); setAllowance(null); setStaffEmail(""); setStaffName(""); requestAnimationFrame(() => badgeInputRef.current?.focus()); }}>
+              <Button className="cashier-debt-modal__action" variant="default" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setDebtPaymentAmount(""); setDebtPaymentMethod(null); setDebtRefreshRequired(false); setBuyerType(null); setAllowance(null); setStaffEmail(""); setStaffName(""); requestAnimationFrame(() => badgeInputRef.current?.focus()); }}>
                 {t.dashboard.pos.selectAnotherUser}
               </Button>
               {!debtRefreshRequired && !staffDebtPrompt.blocked && allowance?.[staffDebtPrompt.periodType === "previous" ? "currentDebt" : "previousDebt"].hasOutstanding && (
@@ -995,7 +1013,7 @@ export default function PosCashierPage() {
                   }`}
                   color="green"
                   loading={confirmingDebtPayment}
-                  disabled={typeof debtPaymentAmount !== "number" || debtPaymentAmount <= 0 || debtPaymentAmount > staffDebtPrompt.outstanding}
+                  disabled={!debtPaymentMethod || typeof debtPaymentAmount !== "number" || debtPaymentAmount <= 0 || debtPaymentAmount > staffDebtPrompt.outstanding}
                   onClick={() => void confirmDebtPaymentReceived()}
                 >
                   {t.dashboard.pos.confirmPaymentReceived}

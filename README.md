@@ -123,7 +123,7 @@ Administrators can open **Point of Sales → Sales Log** at `/dashboard/pos/sale
 - Sales can be filtered by buyer or cashier, item, payment method, Accurate credential/store, and date range.
 - Summary cards show total sales, transaction count, units sold, and average sale for the filtered period.
 - Period totals can be grouped daily, weekly, or monthly. Weekly periods start on Monday and all report boundaries use Jakarta time.
-- Transaction rows include the buyer, cashier, sold items, payment method, synchronization status, warehouse, and total.
+- Transaction rows include the buyer, cashier, sold items, payment method, synchronization status, warehouse, and total. Allowance debt repayments also appear as distinct journal entries with their staff member, recording cashier, debt period, amount, note, and Cash/QRIS method; they do not increase sales revenue, units, transaction KPIs, period totals, or the sales payment-mix chart.
 - Administrators can correct a transaction's payment method from the journal. Changing to or from allowance also recalculates the transaction's allowance usage; allowance is only available for staff transactions. If a transaction is already synced, its existing Accurate inventory adjustment keeps the original payment-method note and must be reconciled manually if that external description also needs correction.
 - Administrators can void a fully synced transaction only after entering a reason. Voiding never deletes the sale or its line items: Exima creates a separate Accurate `ADJUSTMENT_IN`, restores local stock and sold allocation once, records the administrator/reason/time/reversal ID, releases any allowance consumed by the sale, and keeps the original financial metadata for audit.
 - Voided transactions remain in the journal with their audit details but are excluded from sales totals, payment mix, analytics revenue, and staff allowance usage. Payment editing and normal Accurate retry actions are disabled once voiding begins.
@@ -166,7 +166,7 @@ When a new allowance period starts, an outstanding negative balance from the pre
 
 - Before and through payday, the cashier can record a full or partial payment, let the staff member continue and pay later, or select another user.
 - After payday, only an outstanding previous-period debt blocks staff POS transactions until the cashier records payments that fully settle it.
-- Confirmed payments are recorded as allowance debt settlements for the selected allowance period and immediately clear a previous-period block when fully paid.
+- The cashier or administrator must explicitly select Cash or QRIS for every repayment. Confirmed payments store that method as allowance debt settlements for the selected allowance period, appear in the sales transaction journal, and immediately clear a previous-period block when fully paid.
 - When both periods have debt, the cashier can switch between the current- and previous-period payment prompts before checkout.
 - If another cashier or administrator records a payment while the prompt is open, or the allowance period changes, POS Cashier refreshes the complete allowance and both debt statuses before allowing checkout or accepting another payment.
 

@@ -109,20 +109,34 @@ export async function GET(req: NextRequest) {
       personFilter.userId = parsed.data.person.slice(8);
     }
 
+    const rangeCreatedAt = {
+      gte: jakartaDateStart(startValue),
+      lt: jakartaDateStart(addDateOnly(endValue, 1)),
+    };
     const where: Prisma.PosSaleWhereInput = {
       credential: { organizationId },
-      createdAt: {
-        gte: jakartaDateStart(startValue),
-        lt: jakartaDateStart(addDateOnly(endValue, 1)),
-      },
+      createdAt: rangeCreatedAt,
       ...(parsed.data.credentialId ? { credentialId: parsed.data.credentialId } : {}),
       ...(parsed.data.paymentMethod ? { payments: { some: { method: parsed.data.paymentMethod } } } : {}),
       ...(parsed.data.paymentStrategy ? { paymentStrategy: parsed.data.paymentStrategy } : {}),
       ...(parsed.data.itemCode ? { items: { some: { itemCode: parsed.data.itemCode } } } : {}),
       ...personFilter,
     };
+    const settlementPersonFilter: Prisma.PosStaffAllowanceDebtSettlementWhereInput = parsed.data.person?.startsWith("staff:")
+      ? { staffEmail: parsed.data.person.slice(6) }
+      : parsed.data.person?.startsWith("cashier:")
+        ? { createdById: parsed.data.person.slice(8) }
+        : {};
+    const settlementWhere: Prisma.PosStaffAllowanceDebtSettlementWhereInput = {
+      credential: { organizationId },
+      createdAt: rangeCreatedAt,
+      ...(parsed.data.credentialId ? { credentialId: parsed.data.credentialId } : {}),
+      ...(parsed.data.paymentMethod ? { paymentMethod: parsed.data.paymentMethod } : {}),
+      ...settlementPersonFilter,
+    };
+    const includeSettlements = parsed.data.person !== "guest" && !parsed.data.itemCode && !parsed.data.paymentStrategy;
 
-    const [sales, facetSales, facetItems] = await Promise.all([
+    const [sales, debtSettlements, facetSales, facetSettlements, facetItems] = await Promise.all([
       prisma.posSale.findMany({
         where,
         include: {
@@ -134,6 +148,14 @@ export async function GET(req: NextRequest) {
         },
         orderBy: { createdAt: "desc" },
       }),
+      includeSettlements ? prisma.posStaffAllowanceDebtSettlement.findMany({
+        where: settlementWhere,
+        include: {
+          createdBy: { select: { id: true, name: true, email: true } },
+          credential: { select: { id: true, appKey: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }) : Promise.resolve([]),
       prisma.posSale.findMany({
         where: { credential: { organizationId } },
         select: {
@@ -144,6 +166,14 @@ export async function GET(req: NextRequest) {
           staffEmail: true,
           staffName: true,
           user: { select: { id: true, name: true, email: true } },
+        },
+      }),
+      prisma.posStaffAllowanceDebtSettlement.findMany({
+        where: { credential: { organizationId } },
+        select: {
+          paymentMethod: true,
+          staffEmail: true,
+          createdBy: { select: { id: true, name: true, email: true } },
         },
       }),
       prisma.posSaleItem.findMany({
@@ -191,11 +221,12 @@ export async function GET(req: NextRequest) {
     }
 
     const transactionCount = Array.from(periodMap.values()).reduce((sum, row) => sum + row.sales, 0);
-    const transactions = sales.slice(0, MAX_TRANSACTIONS).map((sale) => {
+    const saleTransactions = sales.map((sale) => {
       const total = saleTotal(sale.items);
       const units = sale.items.reduce((sum, item) => sum + item.quantity, 0);
 
       return {
+        entryType: "sale" as const,
         id: sale.id,
         createdAt: sale.createdAt.toISOString(),
         paymentMethod: sale.paymentMethod,
@@ -230,8 +261,49 @@ export async function GET(req: NextRequest) {
           unitPrice: item.unitPrice.toFixed(2),
           subtotal: item.unitPrice.mul(item.quantity).toFixed(2),
         })),
+        debtPeriod: null,
+        note: null,
       };
     });
+    const staffNames = new Map<string, string>();
+    for (const sale of facetSales) {
+      if (sale.staffEmail && sale.staffName) staffNames.set(sale.staffEmail, sale.staffName);
+    }
+    const settlementTransactions = debtSettlements.map((settlement) => ({
+      entryType: "debt_settlement" as const,
+      id: settlement.id,
+      createdAt: settlement.createdAt.toISOString(),
+      paymentMethod: settlement.paymentMethod ?? "unknown",
+      paymentStrategy: "debt_settlement",
+      paymentVersion: 1,
+      payments: settlement.paymentMethod
+        ? [{ method: settlement.paymentMethod, amount: settlement.amount.toFixed(2) }]
+        : [],
+      allowanceBalanceBefore: null,
+      allowanceBalanceAfter: null,
+      status: "recorded",
+      voidReason: null,
+      voidedAt: null,
+      voidedBy: null,
+      voidAccurateId: null,
+      voidSyncError: null,
+      buyerType: "staff",
+      person: { name: staffNames.get(settlement.staffEmail) ?? null, email: settlement.staffEmail },
+      cashier: settlement.createdBy,
+      credential: settlement.credential,
+      warehouseName: "",
+      units: 0,
+      total: settlement.amount.toFixed(2),
+      items: [],
+      debtPeriod: {
+        startsAt: settlement.periodStartsAt.toISOString(),
+        endsAt: settlement.periodEndsAt.toISOString(),
+      },
+      note: settlement.note,
+    }));
+    const journalEntries = [...saleTransactions, ...settlementTransactions]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const transactions = journalEntries.slice(0, MAX_TRANSACTIONS);
 
     const people = new Map<string, { value: string; label: string }>();
     const payments = new Set<string>();
@@ -249,6 +321,19 @@ export async function GET(req: NextRequest) {
       people.set(`cashier:${sale.user.id}`, {
         value: `cashier:${sale.user.id}`,
         label: `Cashier: ${sale.user.name || sale.user.email}`,
+      });
+    }
+    for (const settlement of facetSettlements) {
+      if (settlement.paymentMethod) payments.add(settlement.paymentMethod);
+      people.set(`staff:${settlement.staffEmail}`, {
+        value: `staff:${settlement.staffEmail}`,
+        label: staffNames.get(settlement.staffEmail)
+          ? `${staffNames.get(settlement.staffEmail)} (${settlement.staffEmail})`
+          : settlement.staffEmail,
+      });
+      people.set(`cashier:${settlement.createdBy.id}`, {
+        value: `cashier:${settlement.createdBy.id}`,
+        label: `Cashier: ${settlement.createdBy.name || settlement.createdBy.email}`,
       });
     }
     if (hasGuest) people.set("guest", { value: "guest", label: "Guest" });
@@ -270,7 +355,7 @@ export async function GET(req: NextRequest) {
         total: row.total.toFixed(2),
       })),
       transactions,
-      truncated: sales.length > MAX_TRANSACTIONS,
+      truncated: journalEntries.length > MAX_TRANSACTIONS,
       facets: {
         people: Array.from(people.values()).sort((a, b) => a.label.localeCompare(b.label)),
         items: facetItems.map((item) => ({

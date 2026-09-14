@@ -354,6 +354,7 @@ model PosStaffAllowanceDebtSettlement {
   periodStartsAt DateTime
   periodEndsAt   DateTime
   amount         Decimal  @db.Decimal(14, 2)
+  paymentMethod  String?
   note           String?
   createdById    String
   createdAt      DateTime @default(now())
@@ -363,6 +364,7 @@ model PosStaffAllowanceDebtSettlement {
   createdBy  User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([credentialId, staffEmail, periodStartsAt, periodEndsAt])
+  @@index([credentialId, createdAt])
   @@index([createdById])
 }
 

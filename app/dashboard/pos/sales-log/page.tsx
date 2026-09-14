@@ -78,6 +78,7 @@ interface SalesLogData {
     total: string;
   }>;
   transactions: Array<{
+    entryType: "sale" | "debt_settlement";
     id: string;
     createdAt: string;
     paymentMethod: string;
@@ -106,6 +107,8 @@ interface SalesLogData {
       unitPrice: string;
       subtotal: string;
     }>;
+    debtPeriod: { startsAt: string; endsAt: string } | null;
+    note: string | null;
   }>;
   truncated: boolean;
   facets: {
@@ -190,6 +193,10 @@ export default function PosSalesLogPage() {
     period: "Periode",
     sales: "Penjualan",
     salesLog: "Jurnal transaksi",
+    debtRepayment: "Pembayaran utang",
+    debtPeriod: "Periode utang",
+    recorded: "Tercatat",
+    historicalPaymentUnknown: "Metode historis tidak diketahui",
     time: "Waktu",
     people: "Pembeli / kasir",
     items: "Barang terjual",
@@ -252,6 +259,10 @@ export default function PosSalesLogPage() {
     period: "Period",
     sales: "Sales",
     salesLog: "Transaction journal",
+    debtRepayment: "Debt repayment",
+    debtPeriod: "Debt period",
+    recorded: "Recorded",
+    historicalPaymentUnknown: "Historical method unknown",
     time: "Time",
     people: "Buyer / cashier",
     items: "Items sold",
@@ -492,7 +503,9 @@ export default function PosSalesLogPage() {
 
   const formatPayment = (value: string) => value === "qris"
     ? "QRIS"
-    : value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+    : value === "unknown"
+      ? labels.historicalPaymentUnknown
+      : value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
   const formatPeriod = (value: string) => {
     if (/^\d{4}-\d{2}$/.test(value)) {
@@ -735,7 +748,7 @@ export default function PosSalesLogPage() {
                         <Table.Td>
                           <Text fw={600}>{new Date(sale.createdAt).toLocaleDateString(isId ? "id-ID" : "en-US", { day: "2-digit", month: "short", year: "numeric" })}</Text>
                           <Text size="xs" c="dimmed">{new Date(sale.createdAt).toLocaleTimeString(isId ? "id-ID" : "en-US", { hour: "2-digit", minute: "2-digit" })}</Text>
-                          <Text size="xs" c="dimmed">{sale.credential.appKey} · {sale.warehouseName}</Text>
+                          <Text size="xs" c="dimmed">{sale.credential.appKey}{sale.warehouseName ? ` · ${sale.warehouseName}` : ""}</Text>
                         </Table.Td>
                         <Table.Td>
                           <Text fw={600}>{sale.person.name || sale.person.email || labels.guest}</Text>
@@ -743,28 +756,42 @@ export default function PosSalesLogPage() {
                           <Text size="xs" c="dimmed">{labels.cashier}: {sale.cashier.name || sale.cashier.email}</Text>
                         </Table.Td>
                         <Table.Td>
-                          <Stack gap={4}>
-                            {sale.items.map((item) => (
-                              <Box key={`${sale.id}-${item.itemCode}`}>
-                                <Text size="sm" fw={500}>{item.itemName}</Text>
-                                <Text size="xs" c="dimmed">{item.quantity} × {money.format(Number(item.unitPrice))} · {item.itemCode}</Text>
-                              </Box>
-                            ))}
-                          </Stack>
+                          {sale.entryType === "debt_settlement" ? (
+                            <Stack gap={4}>
+                              <Badge color="orange" variant="light">{labels.debtRepayment}</Badge>
+                              {sale.debtPeriod ? (
+                                <Text size="xs" c="dimmed">
+                                  {labels.debtPeriod}: {formatPeriod(sale.debtPeriod.startsAt.slice(0, 10))} – {formatPeriod(sale.debtPeriod.endsAt.slice(0, 10))}
+                                </Text>
+                              ) : null}
+                              {sale.note ? <Text size="xs" c="dimmed">{sale.note}</Text> : null}
+                            </Stack>
+                          ) : (
+                            <Stack gap={4}>
+                              {sale.items.map((item) => (
+                                <Box key={`${sale.id}-${item.itemCode}`}>
+                                  <Text size="sm" fw={500}>{item.itemName}</Text>
+                                  <Text size="xs" c="dimmed">{item.quantity} × {money.format(Number(item.unitPrice))} · {item.itemCode}</Text>
+                                </Box>
+                              ))}
+                            </Stack>
+                          )}
                         </Table.Td>
                         <Table.Td>
                           <Group gap="xs" wrap="nowrap">
                             <Badge variant="light">{formatPayment(sale.paymentMethod)}</Badge>
-                            <ActionIcon
-                              variant="subtle"
-                              size="sm"
-                              aria-label={labels.editPayment}
-                              title={labels.editPayment}
-                              onClick={() => openPaymentEditor(sale)}
-                              disabled={sale.status === "voiding" || sale.status === "voided"}
-                            >
-                              <IconEdit size={15} />
-                            </ActionIcon>
+                            {sale.entryType === "sale" ? (
+                              <ActionIcon
+                                variant="subtle"
+                                size="sm"
+                                aria-label={labels.editPayment}
+                                title={labels.editPayment}
+                                onClick={() => openPaymentEditor(sale)}
+                                disabled={sale.status === "voiding" || sale.status === "voided"}
+                              >
+                                <IconEdit size={15} />
+                              </ActionIcon>
+                            ) : null}
                           </Group>
                         </Table.Td>
                         <Table.Td>
@@ -772,7 +799,7 @@ export default function PosSalesLogPage() {
                             color={sale.status === "synced" ? "green" : sale.status === "sync_error" || sale.status === "voided" ? "red" : "yellow"}
                             variant="light"
                           >
-                            {formatPayment(sale.status)}
+                            {sale.entryType === "debt_settlement" ? labels.recorded : formatPayment(sale.status)}
                           </Badge>
                           {sale.voidReason ? <Text size="xs" mt={4}>{sale.voidReason}</Text> : null}
                           {sale.voidedAt ? (
@@ -785,19 +812,21 @@ export default function PosSalesLogPage() {
                         </Table.Td>
                         <Table.Td ta="right">
                           <Text fw={700}>{money.format(Number(sale.total))}</Text>
-                          <Text size="xs" c="dimmed">{number.format(sale.units)} {labels.units.toLowerCase()}</Text>
+                          {sale.entryType === "sale" ? <Text size="xs" c="dimmed">{number.format(sale.units)} {labels.units.toLowerCase()}</Text> : null}
                         </Table.Td>
                         <Table.Td ta="right">
-                          <ActionIcon
-                            color={sale.status === "voiding" ? "orange" : "red"}
-                            variant="light"
-                            aria-label={sale.status === "voiding" ? labels.reconcileVoid : labels.voidTransaction}
-                            title={sale.status === "voiding" ? labels.reconcileVoid : labels.voidTransaction}
-                            onClick={() => sale.status === "voiding" ? openReconcileModal(sale) : openVoidModal(sale)}
-                            disabled={sale.status !== "synced" && sale.status !== "voiding"}
-                          >
-                            <IconBan size={16} />
-                          </ActionIcon>
+                          {sale.entryType === "sale" ? (
+                            <ActionIcon
+                              color={sale.status === "voiding" ? "orange" : "red"}
+                              variant="light"
+                              aria-label={sale.status === "voiding" ? labels.reconcileVoid : labels.voidTransaction}
+                              title={sale.status === "voiding" ? labels.reconcileVoid : labels.voidTransaction}
+                              onClick={() => sale.status === "voiding" ? openReconcileModal(sale) : openVoidModal(sale)}
+                              disabled={sale.status !== "synced" && sale.status !== "voiding"}
+                            >
+                              <IconBan size={16} />
+                            </ActionIcon>
+                          ) : null}
                         </Table.Td>
                       </Table.Tr>
                     ))}

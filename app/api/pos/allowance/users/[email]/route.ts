@@ -76,7 +76,7 @@ export async function GET(
     }),
     prisma.posStaffAllowanceDebtSettlement.findMany({
       where: { credentialId: query.data.credentialId, staffEmail },
-      select: { id: true, periodStartsAt: true, periodEndsAt: true, amount: true, note: true, createdAt: true, createdBy: { select: { email: true } } },
+      select: { id: true, periodStartsAt: true, periodEndsAt: true, amount: true, paymentMethod: true, note: true, createdAt: true, createdBy: { select: { email: true } } },
       orderBy: { createdAt: "desc" },
     }),
     getOutstandingPreviousAllowanceDebt(query.data.credentialId, staffEmail, new Date(), requestedPeriod),

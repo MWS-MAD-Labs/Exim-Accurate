@@ -14,6 +14,7 @@ const schema = z.object({
   periodStartsAt: dateOnlySchema,
   periodEndsAt: dateOnlySchema,
   amount: z.number().finite().positive(),
+  paymentMethod: z.enum(["cash", "qris"]),
   note: z.string().trim().max(500).optional(),
 });
 
@@ -69,6 +70,7 @@ export async function POST(
           periodStartsAt: requestedStartsAt,
           periodEndsAt: requestedEndsAt,
           amount: parsed.data.amount,
+          paymentMethod: parsed.data.paymentMethod,
           note: parsed.data.note || null,
           createdById: session.user.id,
         },
