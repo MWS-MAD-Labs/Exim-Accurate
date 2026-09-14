@@ -454,6 +454,11 @@ body {
   color: rgba(255, 255, 255, 0.88);
 }
 
+.cashier-debt-modal__alert .mantine-Alert-title,
+.cashier-debt-modal__alert .mantine-Alert-message {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
 .cashier-debt-modal__alert[data-color="red"] {
   background: rgba(239, 68, 68, 0.11) !important;
   border-color: rgba(248, 113, 113, 0.3);
