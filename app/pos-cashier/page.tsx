@@ -611,6 +611,8 @@ export default function PosCashierPage() {
   const removeItem = (itemCode: string) =>
     setCart((current) => current.filter((line) => line.itemCode !== itemCode));
 
+  const activeAllowanceDebt = (allowance?.currentDebt.outstanding ?? 0) + (allowance?.previousDebt.outstanding ?? 0);
+  const displayedRemainingAllowance = Math.max(0, allowance?.remaining ?? 0);
   const canPayWithAllowance = buyerType === "staff" && !!allowance && !allowance.previousDebt.blocked;
   const canUseAllowanceFirst = canPayWithAllowance && allowance.remaining > 0;
   const allowanceApplied = Math.min(total, Math.max(0, allowance?.remaining ?? 0));
@@ -1620,20 +1622,34 @@ export default function PosCashierPage() {
                 <Text fw={600} mb={8} c="white" className="pos-cashier-heading">
                   {t.dashboard.pos.allowanceBalance}
                 </Text>
-                <Group justify="space-between">
-                  <Text size="sm" c="rgba(255,255,255,0.6)">
-                    {t.dashboard.pos.currentPeriodDebt}
-                  </Text>
-                  <Text fw={700} c={allowance.currentDebt.hasOutstanding ? "orange" : "#7dd3fc"}>
-                    {(allowance.currentDebt.hasOutstanding ? allowance.currentDebt.outstanding : 0).toLocaleString()}
-                  </Text>
-                </Group>
-                <Group justify="space-between">
-                  <Text size="sm" c="rgba(255,255,255,0.6)">
-                    {t.dashboard.pos.allowanceUsed}
-                  </Text>
-                  <Text c="white">{allowance.used.toLocaleString()}</Text>
-                </Group>
+                <Stack gap={6}>
+                  <Group justify="space-between">
+                    <Text size="sm" c="rgba(255,255,255,0.6)">
+                      {t.dashboard.pos.allowanceThisMonth}
+                    </Text>
+                    <Text c="white">{formatMoney(allowance.total)}</Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c="rgba(255,255,255,0.6)">
+                      {t.dashboard.pos.allowanceUsed}
+                    </Text>
+                    <Text c="white">{formatMoney(allowance.used)}</Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c="rgba(255,255,255,0.6)">
+                      {t.dashboard.pos.allowanceRemaining}
+                    </Text>
+                    <Text fw={700} c="#7dd3fc">{formatMoney(displayedRemainingAllowance)}</Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c="rgba(255,255,255,0.6)">
+                      {t.dashboard.pos.activeAllowanceDebt}
+                    </Text>
+                    <Text fw={700} c={activeAllowanceDebt > 0 ? "orange" : "#7dd3fc"}>
+                      {formatMoney(activeAllowanceDebt)}
+                    </Text>
+                  </Group>
+                </Stack>
                 {allowance.previousDebt.hasOutstanding && (
                   <Alert color={allowance.previousDebt.blocked ? "red" : "orange"} mt="md">
                     {t.dashboard.pos.previousNegativeBalance}: {formatMoney(allowance.previousDebt.outstanding)}. {allowance.previousDebt.blocked
