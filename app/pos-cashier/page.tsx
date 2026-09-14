@@ -683,14 +683,16 @@ export default function PosCashierPage() {
           autoClose: 3000,
         });
       } else if (data.code === "ALLOWANCE_CHANGED" || data.code === "ALLOWANCE_DEBT_CHANGED") {
-        if (data.allowance?.currentlyAvailable !== undefined) {
-          setAllowance((current) => current ? { ...current, remaining: Number(data.allowance.currentlyAvailable) } : current);
-        } else if (data.allowance?.currentBalance !== undefined) {
-          setAllowance((current) => current ? { ...current, remaining: Number(data.allowance.currentBalance) } : current);
-        }
         setQrisConfirmed(false);
         setDebtConfirmed(false);
-        notify({ title: t.common.error, message: data.error, color: "orange", autoClose: 5000 });
+        try {
+          setAllowance(await fetchAllowance(staffEmail));
+          notify({ title: t.common.error, message: data.error, color: "orange", autoClose: 5000 });
+        } catch {
+          setAllowance(null);
+          setPaymentMethod(null);
+          notify({ title: t.common.error, message: t.dashboard.pos.unableCheckStaffBalance, color: "red", autoClose: 5000 });
+        }
       } else {
         notify({
           title: t.common.error,
@@ -1620,10 +1622,10 @@ export default function PosCashierPage() {
                 </Text>
                 <Group justify="space-between">
                   <Text size="sm" c="rgba(255,255,255,0.6)">
-                    {t.dashboard.pos.allowanceRemaining}
+                    {t.dashboard.pos.currentPeriodDebt}
                   </Text>
-                  <Text fw={700} c="#7dd3fc">
-                    {allowance.remaining.toLocaleString()}
+                  <Text fw={700} c={allowance.currentDebt.hasOutstanding ? "orange" : "#7dd3fc"}>
+                    {(allowance.currentDebt.hasOutstanding ? allowance.currentDebt.outstanding : 0).toLocaleString()}
                   </Text>
                 </Group>
                 <Group justify="space-between">
