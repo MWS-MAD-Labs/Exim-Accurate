@@ -456,7 +456,7 @@ body {
 
 .cashier-debt-modal__alert .mantine-Alert-title,
 .cashier-debt-modal__alert .mantine-Alert-message {
-  color: rgba(255, 255, 255, 0.92) !important;
+  color: #fff !important;
 }
 
 .cashier-debt-modal__alert[data-color="red"] {
