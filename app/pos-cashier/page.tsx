@@ -894,14 +894,22 @@ export default function PosCashierPage() {
           : staffDebtPrompt?.periodType === "current"
             ? t.dashboard.pos.currentPeriodDebt
             : t.dashboard.pos.previousPeriodDebt}
+        size="lg"
         centered
         closeOnClickOutside={false}
         closeOnEscape={false}
         withCloseButton={false}
+        overlayProps={{ backgroundOpacity: 0.72, blur: 8 }}
+        classNames={{
+          content: "cashier-debt-modal",
+          header: "cashier-debt-modal__header",
+          title: "cashier-debt-modal__title",
+          body: "cashier-debt-modal__body",
+        }}
       >
         {staffDebtPrompt && (
-          <Stack>
-            <Alert
+          <Stack gap="lg">
+            <Alert className="cashier-debt-modal__alert"
               color={staffDebtPrompt.blocked ? "red" : "orange"}
               title={staffDebtPrompt.blocked
                 ? t.dashboard.pos.previousBalanceOverdue
@@ -917,21 +925,21 @@ export default function PosCashierPage() {
                       .replace("{amount}", formatMoney(staffDebtPrompt.outstanding))
                       .replace("{payday}", staffDebtPrompt.payday ? new Date(staffDebtPrompt.payday).toLocaleDateString() : t.dashboard.pos.notConfigured)}
             </Alert>
-            <SimpleGrid cols={3}>
-              <Box>
-                <Text size="xs" c="dimmed">{t.dashboard.pos.originalDebt}</Text>
-                <Text fw={700}>{formatMoney(staffDebtPrompt.debt)}</Text>
+            <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="sm">
+              <Box className="cashier-debt-modal__stat">
+                <Text size="xs" className="cashier-debt-modal__muted">{t.dashboard.pos.originalDebt}</Text>
+                <Text fw={700} c="white">{formatMoney(staffDebtPrompt.debt)}</Text>
               </Box>
-              <Box>
-                <Text size="xs" c="dimmed">{t.dashboard.pos.debtPaid}</Text>
-                <Text fw={700}>{formatMoney(staffDebtPrompt.paid)}</Text>
+              <Box className="cashier-debt-modal__stat">
+                <Text size="xs" className="cashier-debt-modal__muted">{t.dashboard.pos.debtPaid}</Text>
+                <Text fw={700} c="white">{formatMoney(staffDebtPrompt.paid)}</Text>
               </Box>
-              <Box>
-                <Text size="xs" c="dimmed">{t.dashboard.pos.debtOutstanding}</Text>
-                <Text fw={700} c={staffDebtPrompt.blocked ? "red" : "orange"}>{formatMoney(staffDebtPrompt.outstanding)}</Text>
+              <Box className="cashier-debt-modal__stat">
+                <Text size="xs" className="cashier-debt-modal__muted">{t.dashboard.pos.debtOutstanding}</Text>
+                <Text fw={700} c={staffDebtPrompt.blocked ? "red.3" : "orange.3"}>{formatMoney(staffDebtPrompt.outstanding)}</Text>
               </Box>
             </SimpleGrid>
-            {staffDebtPrompt.periodType === "previous" && <Text size="sm">
+            {staffDebtPrompt.periodType === "previous" && <Text size="sm" c="gray.3">
               {t.dashboard.pos.staffSalaryPayday}: {staffDebtPrompt.payday ? new Date(staffDebtPrompt.payday).toLocaleDateString() : t.dashboard.pos.notConfigured}
             </Text>}
             <NumberInput
@@ -944,13 +952,15 @@ export default function PosCashierPage() {
               decimalScale={0}
               allowNegative={false}
               disabled={debtRefreshRequired}
+              styles={inputStyles}
             />
-            <Group grow>
-              <Button variant="default" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setDebtPaymentAmount(""); setDebtRefreshRequired(false); setBuyerType(null); setAllowance(null); setStaffEmail(""); setStaffName(""); requestAnimationFrame(() => badgeInputRef.current?.focus()); }}>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+              <Button className="cashier-debt-modal__action" variant="default" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setDebtPaymentAmount(""); setDebtRefreshRequired(false); setBuyerType(null); setAllowance(null); setStaffEmail(""); setStaffName(""); requestAnimationFrame(() => badgeInputRef.current?.focus()); }}>
                 {t.dashboard.pos.selectAnotherUser}
               </Button>
               {!debtRefreshRequired && !staffDebtPrompt.blocked && allowance?.[staffDebtPrompt.periodType === "previous" ? "currentDebt" : "previousDebt"].hasOutstanding && (
-                <Button variant="light" disabled={confirmingDebtPayment} onClick={() => {
+                <Button className="cashier-debt-modal__action cashier-debt-modal__action--secondary" variant="light" disabled={confirmingDebtPayment} onClick={() => {
+                  if (!allowance) return;
                   const nextPeriod = staffDebtPrompt.periodType === "previous" ? "current" : "previous";
                   const nextDebt = debtPromptFor(allowance, nextPeriod);
                   setStaffDebtPrompt(nextDebt);
@@ -960,12 +970,13 @@ export default function PosCashierPage() {
                 </Button>
               )}
               {!debtRefreshRequired && !staffDebtPrompt.blocked && (
-                <Button variant="light" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setDebtPaymentAmount(""); setStep("shop"); }}>
+                <Button className="cashier-debt-modal__action cashier-debt-modal__action--secondary" variant="light" disabled={confirmingDebtPayment} onClick={() => { setStaffDebtPrompt(null); setDebtPaymentAmount(""); setStep("shop"); }}>
                   {staffDebtPrompt.periodType === "current" ? t.dashboard.pos.continueWithoutDebtPayment : t.dashboard.pos.payLaterBeforePayday}
                 </Button>
               )}
               {debtRefreshRequired ? (
                 <Button
+                  className="cashier-debt-modal__action"
                   color="orange"
                   loading={confirmingDebtPayment}
                   onClick={() => {
@@ -979,6 +990,9 @@ export default function PosCashierPage() {
                 </Button>
               ) : (
                 <Button
+                  className={`cashier-debt-modal__action${
+                    staffDebtPrompt.blocked ? " cashier-debt-modal__action--full-row" : ""
+                  }`}
                   color="green"
                   loading={confirmingDebtPayment}
                   disabled={typeof debtPaymentAmount !== "number" || debtPaymentAmount <= 0 || debtPaymentAmount > staffDebtPrompt.outstanding}
@@ -987,7 +1001,7 @@ export default function PosCashierPage() {
                   {t.dashboard.pos.confirmPaymentReceived}
                 </Button>
               )}
-            </Group>
+            </SimpleGrid>
           </Stack>
         )}
       </Modal>
