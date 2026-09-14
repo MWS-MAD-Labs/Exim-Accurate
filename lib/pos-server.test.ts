@@ -55,3 +55,13 @@ test("allows transactions through payday and blocks unpaid previous debt the nex
   assert.equal(afterPayday.blocked, true);
   assert.equal(afterPayday.outstanding, 75);
 });
+
+test("keeps current-period debt payable without marking it overdue or blocked", () => {
+  const period = { startsAt: new Date(2026, 7, 23), endsAt: new Date(2026, 8, 22) };
+  const debt = buildPreviousAllowanceDebt(-100, 25, period, null, new Date(2026, 8, 30));
+  assert.equal(debt.hasOutstanding, true);
+  assert.equal(debt.outstanding, 75);
+  assert.equal(debt.payday, null);
+  assert.equal(debt.overdue, false);
+  assert.equal(debt.blocked, false);
+});

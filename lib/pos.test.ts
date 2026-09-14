@@ -15,7 +15,19 @@ import {
   toggleHolidayDate,
   saleRequestSchema,
   reservationRequestSchema,
+  selectAllowanceDebtPeriod,
 } from "./pos";
+
+test("selects payable allowance debt periods and honors an outstanding preferred period", () => {
+  const outstanding = { hasOutstanding: true };
+  const settled = { hasOutstanding: false };
+
+  assert.equal(selectAllowanceDebtPeriod(outstanding, settled), "current");
+  assert.equal(selectAllowanceDebtPeriod(settled, outstanding), "previous");
+  assert.equal(selectAllowanceDebtPeriod(outstanding, outstanding), "previous");
+  assert.equal(selectAllowanceDebtPeriod(outstanding, outstanding, "current"), "current");
+  assert.equal(selectAllowanceDebtPeriod(settled, settled), null);
+});
 
 test("normalizes legacy sale payment payloads during the compatibility window", () => {
   const parsed = saleRequestSchema.parse({

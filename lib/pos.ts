@@ -30,6 +30,22 @@ export function jakartaDateKey(value: Date) {
   return new Date(value.getTime() + JAKARTA_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+export interface AllowanceDebtStatus {
+  hasOutstanding: boolean;
+}
+
+export function selectAllowanceDebtPeriod(
+  currentDebt: AllowanceDebtStatus,
+  previousDebt: AllowanceDebtStatus,
+  preferredPeriod?: "current" | "previous",
+) {
+  const debts = { current: currentDebt, previous: previousDebt };
+  if (preferredPeriod && debts[preferredPeriod].hasOutstanding) return preferredPeriod;
+  if (previousDebt.hasOutstanding) return "previous" as const;
+  if (currentDebt.hasOutstanding) return "current" as const;
+  return null;
+}
+
 export function parseDateOnly(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);

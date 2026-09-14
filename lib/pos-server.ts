@@ -184,14 +184,14 @@ export function buildPreviousAllowanceDebt(
   previousRemaining: number,
   paidSum: number,
   period: AllowancePeriod,
-  payday: Date,
+  payday: Date | null,
   now = new Date(),
 ) {
   const debt = Math.max(0, -previousRemaining);
   const paid = Math.max(0, paidSum);
   const outstanding = Math.max(0, debt - paid);
-  const normalizedPayday = startOfDate(payday);
-  const overdue = outstanding > 0 && startOfDate(now) > normalizedPayday;
+  const normalizedPayday = payday ? startOfDate(payday) : null;
+  const overdue = outstanding > 0 && normalizedPayday !== null && startOfDate(now) > normalizedPayday;
   return {
     hasOutstanding: outstanding > 0,
     blocked: overdue,
@@ -199,12 +199,57 @@ export function buildPreviousAllowanceDebt(
     debt,
     paid,
     outstanding,
-    payday: normalizedPayday.toISOString(),
+    payday: normalizedPayday?.toISOString() ?? null,
     period: {
       startsAt: period.startsAt.toISOString(),
       endsAt: period.endsAt.toISOString(),
     },
   };
+}
+
+export async function getOutstandingAllowanceDebtForPeriod(
+  credentialId: string,
+  staffEmail: string,
+  period: AllowancePeriod,
+  now = new Date(),
+  payday: Date | null = null,
+  db: PosDatabaseClient = prisma,
+) {
+  const normalizedEmail = staffEmail.toLowerCase().trim();
+  const allowance = await getStaffAllowance(credentialId, normalizedEmail, now, period, db);
+  const settlements = await db.posStaffAllowanceDebtSettlement.aggregate({
+    where: {
+      credentialId,
+      staffEmail: normalizedEmail,
+      periodStartsAt: startOfDate(period.startsAt),
+      periodEndsAt: startOfDate(period.endsAt),
+    },
+    _sum: { amount: true },
+  });
+  return buildPreviousAllowanceDebt(
+    allowance.remaining,
+    Number(settlements._sum.amount ?? 0),
+    { startsAt: startOfDate(period.startsAt), endsAt: startOfDate(period.endsAt) },
+    payday,
+    now,
+  );
+}
+
+export async function getOutstandingCurrentAllowanceDebt(
+  credentialId: string,
+  staffEmail: string,
+  now = new Date(),
+  currentPeriod?: AllowancePeriod,
+  db: PosDatabaseClient = prisma,
+) {
+  const settings = await db.posSettings.findUnique({
+    where: { credentialId },
+    select: { allowanceCutoffDay: true },
+  });
+  const resolved = currentPeriod
+    ? { period: { startsAt: startOfDate(currentPeriod.startsAt), endsAt: startOfDate(currentPeriod.endsAt) } }
+    : await resolveStaffAllowancePeriod(credentialId, settings?.allowanceCutoffDay ?? 22, now, undefined, db);
+  return getOutstandingAllowanceDebtForPeriod(credentialId, staffEmail, resolved.period, now, null, db);
 }
 
 export async function getOutstandingPreviousAllowanceDebt(
@@ -231,22 +276,13 @@ export async function getOutstandingPreviousAllowanceDebt(
     undefined,
     db,
   );
-  const previousAllowance = await getStaffAllowance(credentialId, normalizedEmail, previousPeriodAnchor, previousPeriod, db);
-  const settlements = await db.posStaffAllowanceDebtSettlement.aggregate({
-    where: {
-      credentialId,
-      staffEmail: normalizedEmail,
-      periodStartsAt: previousPeriod.startsAt,
-      periodEndsAt: previousPeriod.endsAt,
-    },
-    _sum: { amount: true },
-  });
-  return buildPreviousAllowanceDebt(
-    previousAllowance.remaining,
-    Number(settlements._sum.amount ?? 0),
+  return getOutstandingAllowanceDebtForPeriod(
+    credentialId,
+    normalizedEmail,
     previousPeriod,
-    getStaffPaydayForPeriod(resolvedCurrent.period, settings?.staffPaydayDay ?? 28),
     now,
+    getStaffPaydayForPeriod(resolvedCurrent.period, settings?.staffPaydayDay ?? 28),
+    db,
   );
 }
 
