@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   if (!context.settings || !context.accurate) return NextResponse.json({ error: "POS is not configured" }, { status: 409 });
 
   const products = await prisma.posProduct.findMany({
-    where: { credentialId: body.credentialId },
+    where: { credentialId: body.credentialId, isActive: true },
     orderBy: { itemCode: "asc" },
   });
   const results: Array<{ itemCode: string; status: "synced" | "error"; error?: string }> = [];

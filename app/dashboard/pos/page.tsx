@@ -20,8 +20,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   IconBarcode,
   IconCamera,
+  IconArchive,
   IconHistory,
   IconRefresh,
+  IconSearch,
   IconSettings,
 } from "@tabler/icons-react";
 
@@ -86,6 +88,7 @@ export default function PosStockManagementPage() {
   const [history, setHistory] = useState<StockChange[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyTruncated, setHistoryTruncated] = useState(false);
+  const [search, setSearch] = useState("");
 
   const loadCatalog = useCallback(async (id: string) => {
     setCredentialId(id);
@@ -233,10 +236,24 @@ export default function PosStockManagementPage() {
     }
   };
 
-  const removeProduct = async (id: string) => {
-    const response = await fetch(`/api/pos/products/manage?id=${id}`, { method: "DELETE" });
-    if (response.ok && credentialId) await loadCatalog(credentialId);
+  const archiveProduct = async (product: CatalogProduct) => {
+    if (!window.confirm(`Archive ${product.itemName}? It will no longer be available for sale.`)) return;
+    const response = await fetch(`/api/pos/products/manage?id=${product.id}`, { method: "DELETE" });
+    const data = await response.json();
+    if (response.ok && credentialId) {
+      await loadCatalog(credentialId);
+      setMessage("Product archived. You can restore it using the Active switch.");
+      setMessageColor("green");
+    } else {
+      setMessage(data.error || t.common.error);
+      setMessageColor("red");
+    }
   };
+
+  const filteredCatalog = catalog.filter((product) => {
+    const query = search.trim().toLowerCase();
+    return !query || product.itemCode.toLowerCase().includes(query) || product.itemName.toLowerCase().includes(query);
+  });
 
   const syncProducts = async () => {
     if (!credentialId) return;
@@ -296,6 +313,13 @@ export default function PosStockManagementPage() {
           <Group justify="space-between" mb="md">
             <Title order={3}>{t.dashboard.pos.catalog}</Title>
             <Group>
+              <TextInput
+                placeholder="Quick search by item code or name"
+                value={search}
+                onChange={(event) => setSearch(event.currentTarget.value)}
+                leftSection={<IconSearch size={16} />}
+                w={260}
+              />
               <Button
                 variant="light"
                 leftSection={<IconBarcode size={16} />}
@@ -330,7 +354,7 @@ export default function PosStockManagementPage() {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {catalog.map((product) => (
+                {filteredCatalog.map((product) => (
                   <Table.Tr key={product.id}>
                     <Table.Td>{product.itemCode}</Table.Td>
                     <Table.Td>{product.itemName}</Table.Td>
@@ -355,16 +379,24 @@ export default function PosStockManagementPage() {
                     </Table.Td>
                     <Table.Td>{statusBadge(product)}</Table.Td>
                     <Table.Td>
-                      <Switch checked={product.isActive} onChange={(event) => void updateProduct(product.id, { isActive: event.currentTarget.checked })} />
+                      <Switch
+                        checked={product.isActive}
+                        onChange={(event) => void updateProduct(product.id, { isActive: event.currentTarget.checked })}
+                        aria-label={product.isActive ? "Archive product" : "Restore product"}
+                      />
                     </Table.Td>
                     <Table.Td>
                       <Group gap={4} wrap="nowrap">
                         <Button size="xs" variant="subtle" leftSection={<IconHistory size={14} />} onClick={() => void openHistory(product)}>
                           {t.dashboard.pos.history}
                         </Button>
-                        <Button size="xs" color="red" variant="subtle" onClick={() => void removeProduct(product.id)}>
-                          {t.dashboard.pos.remove}
-                        </Button>
+                        {product.isActive ? (
+                          <Button size="xs" color="orange" variant="subtle" leftSection={<IconArchive size={14} />} onClick={() => void archiveProduct(product)}>
+                            Archive
+                          </Button>
+                        ) : (
+                          <Badge color="gray" variant="light">Archived</Badge>
+                        )}
                       </Group>
                     </Table.Td>
                   </Table.Tr>

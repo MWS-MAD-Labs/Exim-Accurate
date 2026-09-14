@@ -139,9 +139,17 @@ Administrators can open **Point of Sales → Stock Management** at `/dashboard/p
 
 - The **Scan product** action accepts USB/Bluetooth scanner input, a typed code, or the device camera. A known code opens a quick stock update dialog; an unknown code offers to create the product with that barcode.
 - Every product row links to a stock history modal showing the latest 200 recorded changes with the source (manual change or sale with payment method), before/change/after quantities, and the acting user.
+- Use the catalog quick search to filter products by item code or name.
+- **Archive** removes a product from sale and stock synchronization without deleting its catalog or audit history. Archived products remain visible to administrators and can be restored with the **Active** switch; items with active reservation holds cannot be archived.
 - Stock changes are written in the same transaction as the stock mutation for manual edits, POS sales, and preorder pickups.
 
 The supporting `GET /api/pos/products/manage/history` endpoint requires an administrator session and scopes products through the administrator's organization.
+
+### POS Cashier Restock Proposal
+
+Administrators and cashiers can select **Restock proposal** in `/pos-cashier` to generate a replenishment list from the previous 30 days of completed local POS sales, including sales that are still pending Accurate synchronization. The proposal targets 14 days of demand coverage and deducts active preorder holds from physical stock when calculating available stock.
+
+Cashiers can deselect items before export. **Export / Print PDF** opens a print-ready proposal listing physical, held, and available stock; proposed quantities; buy prices; line totals; the total proposal value; and proposer/approver signature lines. Choose **Save as PDF** in the browser print dialog to create the PDF.
 
 ### POS Cashier Staff Identification
 

@@ -35,6 +35,7 @@ function allowedRoles(request: NextRequest): AppRole[] {
 
   if (path.startsWith("/dashboard/pos")) return ["admin"];
   if (path.startsWith("/api/pos/settings") || path.startsWith("/api/pos/products/manage")) return ["admin"];
+  if (path.startsWith("/api/pos/restock-proposal")) return ["admin", "cashier"];
   if (path.startsWith("/pos-cashier")) return ["admin", "cashier"];
   if (path.startsWith("/store")) return ["admin", "staff"];
   if (path.startsWith("/api/pos/reservations")) return ["admin", "cashier", "staff"];

@@ -99,6 +99,13 @@ export async function PATCH(req: NextRequest) {
     });
     if (!current) return { status: "not_found" as const };
 
+    if (updates.isActive === false && current.isActive) {
+      const activeHold = await tx.posStockAllocation.findFirst({
+        where: { credentialId: current.credentialId, itemCode: current.itemCode, heldQuantity: { gt: 0 } },
+      });
+      if (activeHold) return { status: "held_stock_conflict" as const };
+    }
+
     if (updates.stock !== undefined) {
       const settings = await tx.posSettings.findUnique({ where: { credentialId: current.credentialId } });
       if (settings) {
@@ -111,16 +118,25 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    const shouldMarkPending = updates.stock !== undefined
+      || updates.itemName !== undefined
+      || updates.unit !== undefined
+      || updates.buyPrice !== undefined
+      || updates.sellPrice !== undefined;
+
     let saved: PosProduct;
     if (updates.stock !== undefined) {
       const changed = await tx.posProduct.updateMany({
         where: { id, stock: current.stock },
-        data: { ...updates, syncStatus: "pending", syncError: null },
+        data: { ...updates, ...(shouldMarkPending ? { syncStatus: "pending", syncError: null } : {}) },
       });
       if (changed.count !== 1) return { status: "stock_changed" as const };
       saved = await tx.posProduct.findUniqueOrThrow({ where: { id } });
     } else {
-      saved = await tx.posProduct.update({ where: { id }, data: { ...updates, syncStatus: "pending", syncError: null } });
+      saved = await tx.posProduct.update({
+        where: { id },
+        data: { ...updates, ...(shouldMarkPending ? { syncStatus: "pending", syncError: null } : {}) },
+      });
     }
     if (updates.stock !== undefined && updates.stock !== current.stock) {
       await tx.posStockChange.create({
@@ -159,12 +175,24 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "Product id is required" }, { status: 400 });
   const organizationId = await getOrganizationIdForUser(session.user.id);
   if (!organizationId) return NextResponse.json({ error: "Organization not found" }, { status: 403 });
-  const product = await prisma.posProduct.findFirst({
-    where: { id, credential: { organizationId } },
-  });
-  if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
-  const activeHold = await prisma.posStockAllocation.findFirst({ where: { credentialId: product.credentialId, itemCode: product.itemCode, heldQuantity: { gt: 0 } } });
-  if (activeHold) return NextResponse.json({ error: "Product has active reservation holds and cannot be removed" }, { status: 409 });
-  await prisma.posProduct.delete({ where: { id } });
-  return NextResponse.json({ success: true });
+  const result = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
+    const product = await tx.posProduct.findFirst({
+      where: { id, credential: { organizationId } },
+    });
+    if (!product) return { status: "not_found" as const };
+
+    const activeHold = await tx.posStockAllocation.findFirst({
+      where: { credentialId: product.credentialId, itemCode: product.itemCode, heldQuantity: { gt: 0 } },
+    });
+    if (activeHold) return { status: "held_stock_conflict" as const };
+
+    await tx.posProduct.update({ where: { id }, data: { isActive: false } });
+    return { status: "archived" as const };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+
+  if (result.status === "not_found") return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  if (result.status === "held_stock_conflict") {
+    return NextResponse.json({ error: "Product has active reservation holds and cannot be archived" }, { status: 409 });
+  }
+  return NextResponse.json({ success: true, archived: true });
 }
