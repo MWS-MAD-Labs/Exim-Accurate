@@ -357,11 +357,13 @@ model PosStaffAllowanceDebtSettlement {
   paymentMethod  String?
   note           String?
   createdById    String
+  saleId         String?  @unique
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
   createdBy  User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  sale       PosSale?            @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
   @@index([credentialId, staffEmail, periodStartsAt, periodEndsAt])
   @@index([credentialId, createdAt])
@@ -431,9 +433,9 @@ model PosReservation {
   staffEmail             String
   staffName              String?
   preferredPaymentMethod String    @default("allowance") // Transitional compatibility projection
-  paymentStrategy         String    @default("allowance_then_external") // external_only, allowance_then_external, allowance_debt
-  externalPaymentMethod   String?   // cash, qris
-  status                  String    @default("active") // active, picked_up, cancelled, expired
+  paymentStrategy        String    @default("allowance_then_external") // external_only, allowance_then_external, allowance_debt
+  externalPaymentMethod  String? // cash, qris
+  status                 String    @default("active") // active, picked_up, cancelled, expired
   expiresAt              DateTime
   pickupAt               DateTime?
   cancelledAt            DateTime?
@@ -483,14 +485,14 @@ model PosSale {
   status                  String    @default("pending_sync") // pending_sync, synced, sync_error, voiding, voided
   accurateId              Int? // Accurate inventory adjustment ID
   syncError               String?
-  syncAttempts             Int       @default(0)
-  lastSyncAttemptAt        DateTime?
-  nextSyncAttemptAt        DateTime?
-  voidReason               String?
-  voidedAt                 DateTime?
-  voidedById               String?
-  voidAccurateId           Int? // Accurate ADJUSTMENT_IN reversal ID
-  voidSyncError            String?
+  syncAttempts            Int       @default(0)
+  lastSyncAttemptAt       DateTime?
+  nextSyncAttemptAt       DateTime?
+  voidReason              String?
+  voidedAt                DateTime?
+  voidedById              String?
+  voidAccurateId          Int? // Accurate ADJUSTMENT_IN reversal ID
+  voidSyncError           String?
   receiptEmailStatus      String    @default("pending") // disabled, pending, processing, sent, failed
   receiptEmailAttemptedAt DateTime?
   receiptEmailSentAt      DateTime?
@@ -504,13 +506,14 @@ model PosSale {
   staffName     String?
   allowanceUsed Decimal @default(0) @db.Decimal(14, 2)
 
-  user         User                @relation("PosSaleCreatedBy", fields: [userId], references: [id], onDelete: Restrict)
-  voidedBy     User?               @relation("PosSaleVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
-  credential   AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
-  reservation  PosReservation?     @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  user             User                             @relation("PosSaleCreatedBy", fields: [userId], references: [id], onDelete: Restrict)
+  voidedBy         User?                            @relation("PosSaleVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  credential       AccurateCredentials              @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  reservation      PosReservation?                  @relation(fields: [reservationId], references: [id], onDelete: SetNull)
   items            PosSaleItem[]
   payments         PosSalePayment[]
   paymentRevisions PosSalePaymentRevision[]
+  debtSettlement   PosStaffAllowanceDebtSettlement?
   stockChanges     PosStockChange[]
 
   @@unique([userId, idempotencyKey])

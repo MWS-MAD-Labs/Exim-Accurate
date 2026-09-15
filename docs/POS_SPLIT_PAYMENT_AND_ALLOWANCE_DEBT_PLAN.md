@@ -2,9 +2,7 @@
 
 ## Status
 
-**Planned.** This document defines the intended product behavior, architecture, migration, API contracts, concurrency controls, reporting semantics, rollout plan, and acceptance criteria for POS split payments and explicit allowance-debt purchases.
-
-No behavior described here is implemented unless another document or the application code says otherwise.
+**Implemented.** This document describes the delivered POS split-payment and allowance-debt behavior, including the settled-debt accounting applied to external remainders.
 
 ## Purpose
 
@@ -12,7 +10,7 @@ The current POS records exactly one payment method for each sale: `allowance`, `
 
 The updated workflow must let the cashier and staff member explicitly choose between:
 
-1. **Split payment:** use the available Rp10,000 allowance and pay the Rp5,000 remainder with Cash or QRIS.
+1. **Split payment:** allocate the actual payment as Rp10,000 allowance plus Rp5,000 Cash/QRIS, charge the full Rp15,000 sale to allowance accounting, and record the Rp5,000 remainder as allowance debt immediately settled by that external payment.
 2. **Allowance debt:** charge the full Rp15,000 to allowance, leaving a Rp5,000 negative balance to be settled under the existing debt workflow.
 3. **External-only payment:** pay the full Rp15,000 with Cash or QRIS and leave allowance unchanged.
 
@@ -29,11 +27,11 @@ Current allowance           Rp10,000
 
 The available choices are:
 
-| Choice | Allowance | Cash/QRIS | Balance after sale |
-|---|---:|---:|---:|
-| Split payment | Rp10,000 | Rp5,000 | Rp0 |
-| Full allowance debt | Rp15,000 | Rp0 | -Rp5,000 |
-| Full Cash/QRIS | Rp0 | Rp15,000 | Rp10,000 |
+| Choice | Actual payment allocation | Allowance charge | Debt | Paid immediately | Outstanding |
+|---|---:|---:|---:|---:|---:|
+| Split payment | Rp10,000 allowance + Rp5,000 Cash/QRIS | Rp15,000 | Rp5,000 | Rp5,000 | Rp0 |
+| Full allowance debt | Rp15,000 allowance | Rp15,000 | Rp5,000 | Rp0 | Rp5,000 |
+| Full Cash/QRIS | Rp15,000 Cash/QRIS | Rp0 | Rp0 | Rp0 | Rp0 |
 
 ### Zero allowance
 
@@ -94,9 +92,29 @@ The initial implementation does not support:
 
 Administrators may need an exact-allocation correction form because they are correcting what was actually collected. That does not make arbitrary allocation entry part of the ordinary cashier workflow.
 
-### Allowance-debt semantics
+### Allowance and settled-debt semantics
 
-`allowance_debt` always assigns the **full authoritative sale total** to allowance.
+Both `allowance_debt` and `allowance_then_external` assign the **full authoritative sale total** to allowance accounting. The normalized `PosSalePayment` rows still describe what was actually collected.
+
+For `allowance_then_external`, the external remainder creates a sale-linked debt settlement in the same database transaction. Example:
+
+```text
+Sale total                         Rp7,000
+Available allowance                Rp6,500
+Actual payment rows     allowance Rp6,500 + cash Rp500
+Allowance used                     Rp7,000
+Balance after charge                 -Rp500
+Debt                                  Rp500
+Paid via Cash                         Rp500
+Outstanding                              Rp0
+```
+
+This keeps Cash and QRIS behavior identical and preserves both views:
+
+- Payment analytics use the actual `PosSalePayment` allocation and do not double-count the linked settlement.
+- Staff allowance reporting shows the full charge, resulting debt, payment received, and zero outstanding balance.
+
+`allowance_debt` assigns the full sale total to allowance without an automatic settlement.
 
 Examples:
 
@@ -106,11 +124,14 @@ Rp15,000 total, Rp0 remaining      → allowance used Rp15,000 → balance -Rp15
 Rp15,000 total, -Rp5,000 remaining → allowance used Rp15,000 → balance -Rp20,000
 ```
 
-The system must not represent only the overspend portion as a separate debt payment. The allowance balance formula already expresses the debt correctly:
+The allowance balance formula expresses the original debt:
 
 ```text
-Remaining Allowance = Total Allowance - Allowance Spent
+Remaining Allowance = Total Allowance - Full Allowance Charge
+Outstanding Debt = max(0, -Remaining Allowance) - Valid Settlements
 ```
+
+Automatic split settlements are linked one-to-one to their sale. Payment corrections update or remove the linked settlement atomically, and voiding a sale removes it. The deployment migration backfills existing non-voided split sales with the same accounting.
 
 ### Debt confirmation
 
@@ -253,15 +274,15 @@ allowanceUsed Decimal
 
 Write them as compatibility projections:
 
-| Payment allocations | `paymentMethod` | `allowanceUsed` |
+| Payment strategy and allocations | `paymentMethod` | `allowanceUsed` |
 |---|---|---:|
-| Allowance only | `allowance` | Allowance allocation |
+| Allowance-only under either allowance strategy | `allowance` | Full sale total |
 | Cash only | `cash` | 0 |
 | QRIS only | `qris` | 0 |
-| Allowance + Cash | `split` | Allowance allocation |
-| Allowance + QRIS | `split` | Allowance allocation |
+| Allowance + Cash | `split` | Full sale total |
+| Allowance + QRIS | `split` | Full sale total |
 
-New accounting and reporting code must use payment rows. It must not infer allocation amounts from `paymentMethod`.
+Allowance accounting must use `PosSale.allowanceUsed`. Tender and payment-method reporting must use `PosSalePayment` rows. Neither calculation may infer amounts from `paymentMethod`.
 
 Do not use combination strings such as `allowance_cash`. They create an expanding classification list and cannot support proper per-method aggregation.
 
@@ -297,15 +318,16 @@ Enforce the following:
 2. A sale has at most one allocation per method.
 3. Payment allocations sum exactly to the authoritative sale-item total.
 4. Allowance allocations are allowed only for staff sales with a normalized staff email.
-5. `allowance_then_external` cannot allocate more than the verified positive remaining allowance.
-6. `allowance_debt` allocates the full sale total to allowance.
-7. `external_only` has exactly one Cash or QRIS allocation.
-8. `allowance_then_external` has either:
+5. `allowance_then_external` allocates exactly the verified positive remaining allowance up to the sale total as tender, while `allowanceUsed` records the full sale total.
+6. A positive external remainder under `allowance_then_external` has exactly one sale-linked debt settlement for the same amount and Cash/QRIS method.
+7. `allowance_debt` allocates and charges the full sale total to allowance without an automatic settlement.
+8. `external_only` has exactly one Cash or QRIS allocation.
+9. `allowance_then_external` has either:
    - Allowance only when allowance covers the total, or
    - Allowance plus exactly one Cash/QRIS remainder.
-9. Cash + QRIS and three-way splits are rejected in the initial implementation.
-10. Voiding does not delete or mutate the original payment rows.
-11. Decimal arithmetic uses `Prisma.Decimal`, never binary floating-point arithmetic.
+10. Cash + QRIS and three-way splits are rejected in the initial implementation.
+11. Voiding does not delete or mutate the original payment rows, but removes the sale-linked automatic settlement so neither side affects allowance debt.
+12. Decimal arithmetic uses `Prisma.Decimal`, never binary floating-point arithmetic.
 
 Cross-table equality between payment totals and item totals cannot be guaranteed by a simple PostgreSQL `CHECK`. It must be validated inside the transaction, optionally backed by a deferred database trigger if strict database enforcement is later required.
 
@@ -397,8 +419,8 @@ const paymentIntentSchema = z.discriminatedUnion("strategy", [
   },
   "allowance": {
     "before": "10000.00",
-    "used": "10000.00",
-    "after": "0.00",
+    "used": "15000.00",
+    "after": "-5000.00",
     "periodStartsAt": "2026-08-23T00:00:00.000Z",
     "periodEndsAt": "2026-09-22T00:00:00.000Z"
   },
@@ -406,7 +428,7 @@ const paymentIntentSchema = z.discriminatedUnion("strategy", [
 }
 ```
 
-An allowance-debt response uses the same structure with `paymentStrategy: "allowance_debt"`, a single allowance allocation equal to the sale total, and a potentially negative `after` balance.
+For a split response, the payment rows remain the actual Rp10,000/Rp5,000 tender allocation while `allowance.used` is the full Rp15,000 charge and `allowance.after` is the saved post-charge balance. The linked Rp5,000 settlement makes outstanding debt zero. An allowance-debt response uses the same allowance snapshot structure without an automatic settlement.
 
 ## Allocation rules
 
@@ -425,11 +447,14 @@ Allowance balance unchanged
 
 ```text
 positive available allowance = max(0, current remaining allowance)
-allowance amount             = min(sale total, positive available allowance)
-external amount              = sale total - allowance amount
+allowance tender amount      = min(sale total, positive available allowance)
+external tender amount       = sale total - allowance tender amount
+allowance used               = sale total
+balance after charge         = balance before - sale total
+immediate debt settlement    = external tender amount via Cash/QRIS
 ```
 
-If allowance covers the sale, store one allowance payment. If allowance is zero or negative, reject this strategy with a structured response that offers `external_only` or `allowance_debt`.
+If allowance covers the sale, store one allowance payment and no automatic settlement. If an external remainder exists, store the actual split payment rows plus the linked automatic settlement in the same transaction. If allowance is zero or negative, reject this strategy with a structured response that offers `external_only` or `allowance_debt`.
 
 ### Allowance debt
 
@@ -639,13 +664,14 @@ After syntax validation and idempotent-record lookup, the endpoint must:
 4. Enter the serializable transaction.
 5. Lock and calculate allowance when needed.
 6. Validate previous-period debt.
-7. Build canonical payment allocations.
+7. Build canonical payment allocations and the authoritative full allowance charge.
 8. Require reconfirmation when displayed payment/debt data is stale.
 9. Create `PosSale` and `PosSalePayment` records.
-10. Save allowance snapshots.
-11. Deduct stock and update stock history.
-12. Commit locally.
-13. Synchronize the stock adjustment with Accurate.
+10. Save allowance snapshots based on the full charge.
+11. When a split remainder exists, create the sale-linked automatic debt settlement.
+12. Deduct stock and update stock history.
+13. Commit all local sale, settlement, and stock changes atomically.
+14. Synchronize the stock adjustment with Accurate.
 
 ### Allowance consumption and sale status
 
@@ -747,7 +773,7 @@ At pickup:
 5. Require QRIS or debt confirmation.
 6. Recalculate and lock allowance inside the pickup transaction.
 7. Require review again if the split remainder or resulting debt changed.
-8. Save the final sale payment rows and allowance snapshots.
+8. Save the final sale payment rows, full-charge allowance snapshots, and any linked immediate settlement.
 
 If a reservation crosses an allowance cutoff, the pickup/sale period is authoritative.
 
@@ -767,18 +793,21 @@ Queries must stop relying on:
 paymentMethod: "allowance"
 ```
 
-Allowance spent becomes the sum of allowance payment allocations in the snapshotted allowance period for non-voided sales.
+Allowance spent becomes the sum of `PosSale.allowanceUsed` in the snapshotted allowance period for non-voided sales.
 
-A split sale contributes only its allowance allocation. An allowance-debt sale contributes its full sale total.
+Both split and allowance-debt sales contribute their full sale total. Payment allocations are aggregated separately only for tender reporting. Automatic settlements linked to voided sales are excluded from debt calculations.
 
 Example allowance history:
 
 ```text
 Purchase total                       Rp15,000
 Payment strategy                     Split payment
-Allowance used                       Rp10,000
-Other payment                        Cash Rp5,000
-Balance after purchase                    Rp0
+Allowance used                       Rp15,000
+Tender allocation         Allowance Rp10,000 + Cash Rp5,000
+Balance after charge                 -Rp5,000
+Debt                                  Rp5,000
+Paid via Cash                         Rp5,000
+Outstanding                                Rp0
 ```
 
 ```text
@@ -808,7 +837,8 @@ Show strategy and allocations:
 
 ```text
 Split payment
-Allowance Rp10,000 + Cash Rp5,000
+Tender: Allowance Rp10,000 + Cash Rp5,000
+Allowance charge Rp15,000 · Debt Rp5,000 · Paid Rp5,000 · Outstanding Rp0
 ```
 
 ```text
@@ -863,8 +893,9 @@ The correction transaction must:
 9. Require a reason.
 10. Save a payment revision.
 11. Replace payment rows.
-12. Update compatibility fields and allowance snapshots.
-13. Increment `paymentVersion`.
+12. Update the full allowance charge and snapshots.
+13. Upsert or remove the sale-linked automatic settlement to match the corrected split.
+14. Increment `paymentVersion`.
 
 Changing a synced sale does not create another Accurate stock adjustment.
 
@@ -877,7 +908,7 @@ Files include:
 - `app/api/analytics/pos/route.ts`
 - `app/dashboard/analytics/pos/page.tsx`
 
-A split payment divides tender revenue, not sale revenue.
+A split payment divides tender revenue, not sale revenue. The sale-linked automatic debt settlement is an accounting offset for that same external tender and must not be added again to payment revenue.
 
 For one Rp15,000 sale paid with Rp10,000 allowance and Rp5,000 Cash:
 
@@ -912,7 +943,7 @@ Count each sale once for:
 
 ### Payment-level metrics
 
-Aggregate payment rows:
+Aggregate `PosSalePayment` rows only. Do not add sale-linked automatic settlements to tender totals:
 
 ```json
 {
@@ -958,8 +989,10 @@ Cash                                  Rp5,000
 Total payment                        Rp15,000
 
 Allowance before                     Rp10,000
-Allowance used                       Rp10,000
-Allowance after                           Rp0
+Allowance charged                    Rp15,000
+Balance after charge                 -Rp5,000
+Debt paid via Cash                    Rp5,000
+Outstanding debt                          Rp0
 ```
 
 ### Allowance-debt receipt
@@ -1033,14 +1066,15 @@ A void remains sale-level:
 3. Mark the sale `voided`.
 4. Preserve original payment rows and strategy for audit.
 5. Exclude all payment allocations from active reports.
-6. Release exactly the original allowance allocation.
-7. Identify any Cash/QRIS refund that must be handled externally.
+6. Release the full `allowanceUsed` charge.
+7. Remove the sale-linked automatic settlement so the charge and payment are both excluded from debt calculations.
+8. Identify any Cash/QRIS refund that must be handled externally.
 
 Split example:
 
 ```json
 {
-  "allowanceRestored": "10000.00",
+  "allowanceRestored": "15000.00",
   "externalRefundsRequired": [
     { "method": "cash", "amount": "5000.00" }
   ]
@@ -1089,6 +1123,16 @@ allowance payment sum = legacy allowanceUsed
 ```
 
 Report inconsistent records for review rather than silently rewriting them.
+
+The later settled-debt migration upgrades existing non-voided `allowance_then_external` splits by:
+
+1. Setting the split sale's `allowanceUsed` to the full sale total.
+2. Creating one sale-linked settlement equal to the external remainder.
+3. Subtracting each migrated remainder from that split sale's `allowanceBalanceAfter`.
+4. Subtracting the cumulative prior migrated remainders from every later non-null `allowanceBalanceBefore` and `allowanceBalanceAfter` snapshot for the same credential, staff email, and allowance period.
+5. Ordering equal timestamps deterministically by sale ID.
+
+This period-wide adjustment keeps historical receipts and sale history consistent with live allowance aggregates. For example, a migrated Rp5,000 split remainder followed by a Rp2,000 allowance-debt sale shifts the later snapshots from `Rp0 / -Rp2,000` to `-Rp5,000 / -Rp7,000`.
 
 ### Phase C: compatibility deployment
 
@@ -1190,7 +1234,7 @@ If the balance changes from Rp0 to -Rp5,000 while the debt confirmation is open,
 
 #### Void
 
-- Split sale restores only its allowance portion.
+- Split sale restores its full `allowanceUsed` charge and removes its linked automatic settlement.
 - Debt sale restores its full allowance debit.
 - Repeated void reconciliation cannot restore allowance twice.
 - Payment rows remain auditable.
@@ -1210,6 +1254,7 @@ A later purchase does not change the saved balance shown on an earlier receipt.
 
 - Every historical sale receives the correct payment sum.
 - Historical revenue and allowance totals reconcile.
+- A split sale followed by later allowance usage has every later snapshot shifted by the cumulative migrated remainder.
 - Ambiguous historical allowance debt is not falsely classified as confirmed intent.
 
 ### Frontend tests
@@ -1345,7 +1390,7 @@ The feature is complete when:
 14. Idempotent retries return the original payment allocation and debt snapshot.
 15. Accurate receives no duplicate stock adjustment and remains inventory-only.
 16. A locally committed synchronization error does not release allowance or debt.
-17. Voiding a split sale restores only its allowance portion.
+17. Voiding a split sale restores its full allowance charge and removes its linked automatic settlement.
 18. Voiding an allowance-debt sale restores the full allowance debit.
 19. Existing historical sales retain their financial totals after migration.
 20. Administrator corrections are validated, versioned, and audited.

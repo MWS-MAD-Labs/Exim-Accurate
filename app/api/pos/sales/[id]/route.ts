@@ -6,7 +6,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { getOrganizationIdForUser } from "@/lib/organization";
 import { externalPaymentMethodSchema, paymentStrategySchema, serializePayments } from "@/lib/pos-payments";
-import { getStaffAllowance, isAdmin, lockStaffAllowancePeriod, resolveStaffAllowancePeriod, saleTotal, withSerializableRetry } from "@/lib/pos-server";
+import { getStaffAllowance, isAdmin, lockStaffAllowancePeriod, reconcileSaleImmediateDebtSettlement, resolveStaffAllowancePeriod, saleTotal, withSerializableRetry } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
 
 const correctionSchema = z.object({
@@ -81,8 +81,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         );
         balanceBefore = new Prisma.Decimal(liveAllowance.remaining).add(sale.allowanceUsed);
         const positiveAvailable = Prisma.Decimal.max(balanceBefore, 0);
-        if (parsed.data.paymentStrategy === "allowance_then_external" && allowancePayment.amount.greaterThan(positiveAvailable)) {
-          throw new Error(`ALLOWANCE_EXCEEDS_AVAILABLE:${positiveAvailable.toFixed(2)}:${allowancePayment.amount.toFixed(2)}`);
+        const expectedAllowancePayment = Prisma.Decimal.min(total, positiveAvailable);
+        if (parsed.data.paymentStrategy === "allowance_then_external" && !allowancePayment.amount.equals(expectedAllowancePayment)) {
+          throw new Error(`ALLOWANCE_SPLIT_MISMATCH:${expectedAllowancePayment.toFixed(2)}:${allowancePayment.amount.toFixed(2)}`);
         }
         balanceAfter = balanceBefore.sub(allowancePayment.amount);
         periodStartsAt = period.startsAt;
@@ -105,12 +106,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       await tx.posSalePayment.deleteMany({ where: { saleId: sale.id } });
       await tx.posSalePayment.createMany({ data: payments.map((payment) => ({ saleId: sale.id, ...payment })) });
       const paymentMethod = payments.length > 1 ? "split" : payments[0].method;
-      return tx.posSale.update({
+      const allowanceUsed = allowancePayment
+        ? parsed.data.paymentStrategy === "allowance_then_external"
+          ? total
+          : allowancePayment.amount
+        : new Prisma.Decimal(0);
+      if (allowancePayment && balanceBefore) balanceAfter = balanceBefore.sub(allowanceUsed);
+      const updatedSale = await tx.posSale.update({
         where: { id: sale.id },
         data: {
           paymentStrategy: parsed.data.paymentStrategy,
           paymentMethod,
-          allowanceUsed: allowancePayment?.amount ?? new Prisma.Decimal(0),
+          allowanceUsed,
           allowancePeriodStartsAt: allowancePayment ? periodStartsAt : null,
           allowancePeriodEndsAt: allowancePayment ? periodEndsAt : null,
           allowanceBalanceBefore: balanceBefore,
@@ -119,17 +126,34 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         },
         include: { payments: true, paymentRevisions: { orderBy: { createdAt: "desc" }, take: 1 } },
       });
+      if (allowancePayment && sale.staffEmail && periodStartsAt && periodEndsAt) {
+        const externalPayment = payments.find((payment) => payment.method === "cash" || payment.method === "qris");
+        await reconcileSaleImmediateDebtSettlement(tx, {
+          saleId: sale.id,
+          credentialId: sale.credentialId,
+          staffEmail: sale.staffEmail,
+          period: { startsAt: periodStartsAt, endsAt: periodEndsAt },
+          createdById: session.user.id,
+          settlement: parsed.data.paymentStrategy === "allowance_then_external" && externalPayment
+            ? { method: externalPayment.method as "cash" | "qris", amount: externalPayment.amount }
+            : null,
+          createdAt: sale.createdAt,
+        });
+      } else {
+        await tx.posStaffAllowanceDebtSettlement.deleteMany({ where: { saleId: sale.id } });
+      }
+      return updatedSale;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
     if (!result) return NextResponse.json({ error: "Sale not found" }, { status: 404 });
     return NextResponse.json({ sale: { ...result, payments: serializePayments(result.payments) } });
   } catch (error) {
     if (error instanceof Error && error.message === "SALE_NOT_EDITABLE") return NextResponse.json({ error: "Voiding or voided sales cannot be edited" }, { status: 409 });
     if (error instanceof Error && error.message === "PAYMENT_VERSION_CONFLICT") return NextResponse.json({ code: "PAYMENT_VERSION_CONFLICT", error: "Payment details changed. Reload before correcting them." }, { status: 409 });
-    if (error instanceof Error && error.message.startsWith("ALLOWANCE_EXCEEDS_AVAILABLE:")) {
+    if (error instanceof Error && error.message.startsWith("ALLOWANCE_SPLIT_MISMATCH:")) {
       const [, available, requested] = error.message.split(":");
       return NextResponse.json({
         code: "ALLOWANCE_EXCEEDS_AVAILABLE",
-        error: `Only ${available} of positive allowance is available for this correction. Use a split allocation or explicitly select allowance debt.`,
+        error: `Allowance-first must use exactly ${available} of available allowance; ${requested} was requested. Use the calculated split or choose another payment strategy.`,
         allowance: { available, requested },
       }, { status: 409 });
     }

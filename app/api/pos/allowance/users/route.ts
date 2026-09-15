@@ -104,20 +104,18 @@ export async function GET(req: NextRequest) {
       },
       select: { staffEmail: true, amount: true },
     }),
-    prisma.posSalePayment.findMany({
+    prisma.posSale.findMany({
       where: {
-        method: "allowance",
-        sale: {
-          credentialId,
-          staffEmail: { in: staffEmails },
-          status: { not: "voided" },
-          OR: [
-            { allowancePeriodStartsAt: period.startsAt, allowancePeriodEndsAt: period.endsAt },
-            { allowancePeriodStartsAt: null, createdAt: { gte: period.startsAt, lt: periodEndExclusive } },
-          ],
-        },
+        credentialId,
+        staffEmail: { in: staffEmails },
+        status: { not: "voided" },
+        allowanceUsed: { gt: 0 },
+        OR: [
+          { allowancePeriodStartsAt: period.startsAt, allowancePeriodEndsAt: period.endsAt },
+          { allowancePeriodStartsAt: null, createdAt: { gte: period.startsAt, lt: periodEndExclusive } },
+        ],
       },
-      select: { amount: true, sale: { select: { staffEmail: true } } },
+      select: { allowanceUsed: true, staffEmail: true },
     }),
     prisma.posStaffDayOff.findMany({
       where: {
@@ -136,29 +134,32 @@ export async function GET(req: NextRequest) {
       },
       select: { staffEmail: true, amount: true },
     }),
-    prisma.posSalePayment.findMany({
+    prisma.posSale.findMany({
       where: {
-        method: "allowance",
-        sale: {
-          credentialId,
-          staffEmail: { in: staffEmails },
-          status: { not: "voided" },
-          OR: [
-            { allowancePeriodStartsAt: previousPeriod.startsAt, allowancePeriodEndsAt: previousPeriod.endsAt },
-            { allowancePeriodStartsAt: null, createdAt: { gte: previousPeriod.startsAt, lt: previousPeriodEndExclusive } },
-          ],
-        },
+        credentialId,
+        staffEmail: { in: staffEmails },
+        status: { not: "voided" },
+        allowanceUsed: { gt: 0 },
+        OR: [
+          { allowancePeriodStartsAt: previousPeriod.startsAt, allowancePeriodEndsAt: previousPeriod.endsAt },
+          { allowancePeriodStartsAt: null, createdAt: { gte: previousPeriod.startsAt, lt: previousPeriodEndExclusive } },
+        ],
       },
-      select: { amount: true, sale: { select: { staffEmail: true } } },
+      select: { allowanceUsed: true, staffEmail: true },
     }),
     prisma.posStaffAllowanceDebtSettlement.groupBy({
       by: ["staffEmail", "periodStartsAt", "periodEndsAt"],
       where: {
         credentialId,
         staffEmail: { in: staffEmails },
-        OR: [
-          { periodStartsAt: period.startsAt, periodEndsAt: period.endsAt },
-          { periodStartsAt: previousPeriod.startsAt, periodEndsAt: previousPeriod.endsAt },
+        AND: [
+          {
+            OR: [
+              { periodStartsAt: period.startsAt, periodEndsAt: period.endsAt },
+              { periodStartsAt: previousPeriod.startsAt, periodEndsAt: previousPeriod.endsAt },
+            ],
+          },
+          { OR: [{ saleId: null }, { sale: { status: { not: "voided" } } }] },
         ],
       },
       _sum: { amount: true },
@@ -174,7 +175,7 @@ export async function GET(req: NextRequest) {
   const adjustmentByStaff = new Map(adjustments.map((entry) => [entry.staffEmail, Number(entry.amount)]));
   const spentMap = new Map<string, number>();
   for (const entry of spentByStaff) {
-    if (entry.sale.staffEmail) spentMap.set(entry.sale.staffEmail, (spentMap.get(entry.sale.staffEmail) ?? 0) + Number(entry.amount));
+    if (entry.staffEmail) spentMap.set(entry.staffEmail, (spentMap.get(entry.staffEmail) ?? 0) + Number(entry.allowanceUsed));
   }
   const previousDaysOffByStaff = new Map<string, Date[]>();
   for (const entry of previousDaysOff) {
@@ -185,7 +186,7 @@ export async function GET(req: NextRequest) {
   const previousAdjustmentByStaff = new Map(previousAdjustments.map((entry) => [entry.staffEmail, Number(entry.amount)]));
   const previousSpentMap = new Map<string, number>();
   for (const entry of previousSpentByStaff) {
-    if (entry.sale.staffEmail) previousSpentMap.set(entry.sale.staffEmail, (previousSpentMap.get(entry.sale.staffEmail) ?? 0) + Number(entry.amount));
+    if (entry.staffEmail) previousSpentMap.set(entry.staffEmail, (previousSpentMap.get(entry.staffEmail) ?? 0) + Number(entry.allowanceUsed));
   }
   const settlementMap = new Map(settlementsByStaff.map((entry) => [
     `${entry.staffEmail}:${entry.periodStartsAt.toISOString()}:${entry.periodEndsAt.toISOString()}`,

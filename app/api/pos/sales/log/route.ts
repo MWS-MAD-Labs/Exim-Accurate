@@ -130,6 +130,7 @@ export async function GET(req: NextRequest) {
     const settlementWhere: Prisma.PosStaffAllowanceDebtSettlementWhereInput = {
       credential: { organizationId },
       createdAt: rangeCreatedAt,
+      OR: [{ saleId: null }, { sale: { status: { not: "voided" } } }],
       ...(parsed.data.credentialId ? { credentialId: parsed.data.credentialId } : {}),
       ...(parsed.data.paymentMethod ? { paymentMethod: parsed.data.paymentMethod } : {}),
       ...settlementPersonFilter,
@@ -169,7 +170,10 @@ export async function GET(req: NextRequest) {
         },
       }),
       prisma.posStaffAllowanceDebtSettlement.findMany({
-        where: { credential: { organizationId } },
+        where: {
+          credential: { organizationId },
+          OR: [{ saleId: null }, { sale: { status: { not: "voided" } } }],
+        },
         select: {
           paymentMethod: true,
           staffEmail: true,

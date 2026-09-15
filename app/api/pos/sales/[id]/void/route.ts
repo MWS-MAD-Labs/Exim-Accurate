@@ -84,6 +84,8 @@ async function finalizeLocalVoid(saleId: string, reversalId: number, userId: str
       });
     }
 
+    await tx.posStaffAllowanceDebtSettlement.deleteMany({ where: { saleId: sale.id } });
+
     return tx.posSale.update({
       where: { id: sale.id },
       data: {

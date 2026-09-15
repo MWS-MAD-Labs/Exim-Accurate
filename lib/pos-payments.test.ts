@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { allocatePayment, PaymentAllocationError } from "./pos-payments";
 
-test("splits positive allowance and cash without creating debt", () => {
+test("splits positive allowance and cash as immediately settled allowance debt", () => {
   const result = allocatePayment({
     buyerType: "staff",
     saleTotal: "15000.00",
@@ -11,7 +11,12 @@ test("splits positive allowance and cash without creating debt", () => {
   });
   assert.equal(result.paymentMethod, "split");
   assert.deepEqual(result.payments.map((payment) => [payment.method, payment.amount.toFixed(2)]), [["allowance", "10000.00"], ["cash", "5000.00"]]);
-  assert.equal(result.allowanceBalanceAfter?.toFixed(2), "0.00");
+  assert.equal(result.allowanceUsed.toFixed(2), "15000.00");
+  assert.equal(result.allowanceBalanceAfter?.toFixed(2), "-5000.00");
+  assert.deepEqual(
+    result.immediateDebtSettlement && [result.immediateDebtSettlement.method, result.immediateDebtSettlement.amount.toFixed(2)],
+    ["cash", "5000.00"],
+  );
 });
 
 test("allowance-first cannot create debt when no positive balance exists", () => {
@@ -56,4 +61,5 @@ test("external-only retains Decimal precision", () => {
   const result = allocatePayment({ buyerType: "guest", saleTotal: "25001.25", intent: { strategy: "external_only", method: "qris" } });
   assert.equal(result.payments[0].amount.toFixed(2), "25001.25");
   assert.equal(result.allowanceUsed.toFixed(2), "0.00");
+  assert.equal(result.immediateDebtSettlement, null);
 });

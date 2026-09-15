@@ -51,7 +51,7 @@ export async function GET(
         credentialId: query.data.credentialId,
         staffEmail,
         status: { not: "voided" },
-        payments: { some: { method: "allowance" } },
+        allowanceUsed: { gt: 0 },
         OR: [
           { allowancePeriodStartsAt: periodStartsAt, allowancePeriodEndsAt: periodEndsAt },
           { allowancePeriodStartsAt: null, createdAt: { gte: periodStartsAt, lt: periodEndExclusive } },
@@ -75,7 +75,11 @@ export async function GET(
       orderBy: { updatedAt: "desc" },
     }),
     prisma.posStaffAllowanceDebtSettlement.findMany({
-      where: { credentialId: query.data.credentialId, staffEmail },
+      where: {
+        credentialId: query.data.credentialId,
+        staffEmail,
+        OR: [{ saleId: null }, { sale: { status: { not: "voided" } } }],
+      },
       select: { id: true, periodStartsAt: true, periodEndsAt: true, amount: true, paymentMethod: true, note: true, createdAt: true, createdBy: { select: { email: true } } },
       orderBy: { createdAt: "desc" },
     }),

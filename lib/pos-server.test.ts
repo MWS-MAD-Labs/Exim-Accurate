@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Prisma } from "@prisma/client";
-import { buildPreviousAllowanceDebt, canonicalizeRequestedItems, getStaffPaydayForPeriod, saleTotal } from "./pos-server";
+import { startOfDate } from "./pos";
+import { buildPreviousAllowanceDebt, canonicalizeRequestedItems, getStaffPaydayForPeriod, reconcileSaleImmediateDebtSettlement, saleTotal } from "./pos-server";
 
 test("canonicalizeRequestedItems merges duplicate item codes into a single line", () => {
   const result = canonicalizeRequestedItems([
@@ -33,6 +34,75 @@ test("saleTotal calculates sale values with Decimal precision", () => {
   assert.equal(total.toFixed(2), "38.95");
 });
 
+
+test("upserts an automatic split settlement linked to its sale", async () => {
+  let payload: unknown;
+  const period = { startsAt: new Date("2026-08-23T00:00:00.000Z"), endsAt: new Date("2026-09-22T00:00:00.000Z") };
+  const tx = {
+    posStaffAllowanceDebtSettlement: {
+      upsert: async (input: unknown) => {
+        payload = input;
+        return { id: "settlement-1" };
+      },
+      deleteMany: async () => ({ count: 0 }),
+    },
+  };
+  await reconcileSaleImmediateDebtSettlement(tx as never, {
+    saleId: "sale-1",
+    credentialId: "credential-1",
+    staffEmail: "STAFF@example.com ",
+    period,
+    createdById: "cashier-1",
+    settlement: { method: "cash", amount: new Prisma.Decimal(500) },
+  });
+  assert.deepEqual(payload, {
+    where: { saleId: "sale-1" },
+    create: {
+      credentialId: "credential-1",
+      staffEmail: "staff@example.com",
+      periodStartsAt: startOfDate(period.startsAt),
+      periodEndsAt: startOfDate(period.endsAt),
+      amount: new Prisma.Decimal(500),
+      paymentMethod: "cash",
+      note: "Automatically settled external remainder from split POS sale",
+      createdById: "cashier-1",
+      saleId: "sale-1",
+    },
+    update: {
+      credentialId: "credential-1",
+      staffEmail: "staff@example.com",
+      periodStartsAt: startOfDate(period.startsAt),
+      periodEndsAt: startOfDate(period.endsAt),
+      amount: new Prisma.Decimal(500),
+      paymentMethod: "cash",
+      note: "Automatically settled external remainder from split POS sale",
+      createdById: "cashier-1",
+    },
+  });
+});
+
+test("removes the automatic settlement when a sale is no longer split", async () => {
+  let deletedSaleId: string | undefined;
+  const tx = {
+    posStaffAllowanceDebtSettlement: {
+      upsert: async () => ({ id: "unused" }),
+      deleteMany: async (input: { where: { saleId: string } }) => {
+        deletedSaleId = input.where.saleId;
+        return { count: 1 };
+      },
+    },
+  };
+  const result = await reconcileSaleImmediateDebtSettlement(tx as never, {
+    saleId: "sale-2",
+    credentialId: "credential-1",
+    staffEmail: "staff@example.com",
+    period: { startsAt: new Date("2026-08-23T00:00:00.000Z"), endsAt: new Date("2026-09-22T00:00:00.000Z") },
+    createdById: "cashier-1",
+    settlement: null,
+  });
+  assert.equal(deletedSaleId, "sale-2");
+  assert.equal(result, null);
+});
 
 test("uses the first staff salary payday on or after the new allowance period starts", () => {
   assert.deepEqual(

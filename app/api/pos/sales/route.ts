@@ -14,6 +14,7 @@ import {
   canonicalSaleItems,
   expireReservations,
   getPosContext,
+  reconcileSaleImmediateDebtSettlement,
   resolveLocalPosProducts,
   saleTotal,
   withSerializableRetry,
@@ -157,6 +158,17 @@ export async function POST(req: NextRequest) {
         },
         include: saleInclude,
       });
+      if (allocation.period && normalizedStaffEmail) {
+        await reconcileSaleImmediateDebtSettlement(tx, {
+          saleId: sale.id,
+          credentialId,
+          staffEmail: normalizedStaffEmail,
+          period: allocation.period,
+          createdById: session.user.id,
+          settlement: allocation.immediateDebtSettlement,
+          createdAt: sale.createdAt,
+        });
+      }
       for (const item of items) {
         const product = await tx.posProduct.findUnique({ where: { credentialId_itemCode: { credentialId, itemCode: item.itemCode } } });
         if (!product?.isActive) throw new Error("INSUFFICIENT_STOCK");

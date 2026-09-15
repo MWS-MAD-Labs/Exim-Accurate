@@ -46,6 +46,13 @@ import { CameraScanner } from "@/components/CameraScanner";
 import { parseReservationQrPayload } from "@/lib/reservation-qr";
 import { selectAllowanceDebtPeriod } from "@/lib/pos";
 import { retryDebtAllowanceRefresh, settleDebtPaymentAndRefresh } from "@/lib/pos-cashier-debt";
+import {
+  canToggleAllowanceFirst,
+  getCashierPaymentBreakdown,
+  selectExternalPaymentMethod,
+  toggleAllowanceFirst as nextAllowanceFirstChoice,
+  type CashierPaymentChoice,
+} from "@/lib/pos-cashier-payment";
 
 interface Credential {
   id: string;
@@ -134,7 +141,7 @@ interface PickupReservation {
 }
 
 type PaymentMethod = "allowance" | "cash" | "qris";
-type PaymentChoice = "cash" | "qris" | "allowance_first_cash" | "allowance_first_qris" | "allowance_debt";
+type PaymentChoice = CashierPaymentChoice;
 type Step = "identify" | "shop" | "pay" | "done";
 
 function formatMoney(value: number) {
@@ -615,11 +622,19 @@ export default function PosCashierPage() {
   const displayedRemainingAllowance = Math.max(0, allowance?.remaining ?? 0);
   const canPayWithAllowance = buyerType === "staff" && !!allowance && !allowance.previousDebt.blocked;
   const canUseAllowanceFirst = canPayWithAllowance && allowance.remaining > 0;
+  const allowanceFirstControlEnabled = canToggleAllowanceFirst(paymentMethod, canUseAllowanceFirst);
   const allowanceApplied = Math.min(total, Math.max(0, allowance?.remaining ?? 0));
   const splitRemainder = Math.max(0, total - allowanceApplied);
   const selectedUsesQris = paymentMethod === "qris" || paymentMethod === "allowance_first_qris";
   const selectedIsDebt = paymentMethod === "allowance_debt";
   const paymentReady = !!paymentMethod && (!selectedUsesQris || qrisConfirmed) && (!selectedIsDebt || debtConfirmed);
+  const paymentBreakdown = paymentMethod
+    ? getCashierPaymentBreakdown({
+        choice: paymentMethod,
+        total,
+        allowanceBalance: allowance?.remaining ?? 0,
+      })
+    : null;
 
   const buildPaymentIntent = (choice: PaymentChoice, balance = allowance?.remaining ?? 0) => {
     if (choice === "cash" || choice === "qris") return { strategy: "external_only" as const, method: choice };
@@ -638,21 +653,13 @@ export default function PosCashierPage() {
   }, []);
 
   const chooseCash = useCallback(() => choosePayment(
-    paymentMethod === "allowance_first_cash"
-      ? "cash"
-      : paymentMethod?.startsWith("allowance_first")
-        ? "allowance_first_cash"
-        : "cash",
-  ), [choosePayment, paymentMethod]);
+    selectExternalPaymentMethod(paymentMethod, "cash", canUseAllowanceFirst),
+  ), [canUseAllowanceFirst, choosePayment, paymentMethod]);
   const chooseQris = useCallback(() => choosePayment(
-    paymentMethod === "allowance_first_qris"
-      ? "qris"
-      : paymentMethod?.startsWith("allowance_first")
-        ? "allowance_first_qris"
-        : "qris",
-  ), [choosePayment, paymentMethod]);
+    selectExternalPaymentMethod(paymentMethod, "qris", canUseAllowanceFirst),
+  ), [canUseAllowanceFirst, choosePayment, paymentMethod]);
   const toggleAllowanceFirst = useCallback(() => choosePayment(
-    paymentMethod?.startsWith("allowance_first") ? null : "allowance_first_cash",
+    nextAllowanceFirstChoice(paymentMethod),
   ), [choosePayment, paymentMethod]);
 
   const submitSale = async () => {
@@ -848,7 +855,7 @@ export default function PosCashierPage() {
       } else if (event.key === "F9" && step === "pay") {
         event.preventDefault();
         chooseQris();
-      } else if (event.key === "F10" && step === "pay" && canUseAllowanceFirst) {
+      } else if (event.key === "F10" && step === "pay" && allowanceFirstControlEnabled) {
         event.preventDefault();
         toggleAllowanceFirst();
       } else if (event.altKey && event.key.toLowerCase() === "d" && step === "pay" && canPayWithAllowance) {
@@ -871,8 +878,8 @@ export default function PosCashierPage() {
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
   }, [
+    allowanceFirstControlEnabled,
     canPayWithAllowance,
-    canUseAllowanceFirst,
     chooseCash,
     choosePayment,
     chooseQris,
@@ -1698,7 +1705,7 @@ export default function PosCashierPage() {
                   size="lg"
                   leftSection={<IconWallet size={18} />}
                   variant={paymentMethod?.startsWith("allowance_first") ? "filled" : "outline"}
-                  disabled={!canUseAllowanceFirst}
+                  disabled={!allowanceFirstControlEnabled}
                   onClick={toggleAllowanceFirst}
                 >
                   Allowance first (F10): {formatMoney(allowanceApplied)} allowance{splitRemainder > 0 ? ` + ${formatMoney(splitRemainder)} Cash/QRIS` : ""}
@@ -1733,6 +1740,33 @@ export default function PosCashierPage() {
               {t.dashboard.pos.payWithQris} (F9)
             </Button>
           </SimpleGrid>
+          {paymentBreakdown && (
+            <Alert color={selectedIsDebt ? "orange" : "blue"} title="Final payment allocation">
+              <Stack gap={4}>
+                {paymentBreakdown.allowanceAmount > 0 && (
+                  <Text size="sm">Allowance: {formatMoney(paymentBreakdown.allowanceAmount)}</Text>
+                )}
+                {paymentBreakdown.externalAmount > 0 && paymentBreakdown.externalMethod && (
+                  <Text size="sm">
+                    {paymentBreakdown.externalMethod === "qris" ? "QRIS" : "Cash"}: {formatMoney(paymentBreakdown.externalAmount)}
+                  </Text>
+                )}
+                {buyerType === "staff" && allowance && (
+                  <Text size="sm" fw={600}>
+                    Allowance balance after charge: {formatMoney(paymentBreakdown.allowanceBalanceAfter)}
+                  </Text>
+                )}
+                {paymentBreakdown.immediatelySettledDebt > 0 && paymentBreakdown.externalMethod && (
+                  <Text size="xs" c="dimmed">
+                    Debt {formatMoney(paymentBreakdown.immediatelySettledDebt)} will be recorded as paid via {paymentBreakdown.externalMethod === "qris" ? "QRIS" : "Cash"}.
+                  </Text>
+                )}
+                {paymentBreakdown.allowanceAmount === 0 && buyerType === "staff" && (
+                  <Text size="xs" c="dimmed">Allowance will not be used for this sale.</Text>
+                )}
+              </Stack>
+            </Alert>
+          )}
           {selectedUsesQris && <Checkbox checked={qrisConfirmed} onChange={(event) => setQrisConfirmed(event.currentTarget.checked)} label="QRIS payment received" styles={{ label: { color: "white" } }} />}
           {selectedIsDebt && allowance && (
             <Alert color="orange" title="Explicit allowance debt confirmation">

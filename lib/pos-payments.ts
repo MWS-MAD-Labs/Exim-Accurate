@@ -45,6 +45,7 @@ export type PaymentAllocationResult = {
   allowanceUsed: Prisma.Decimal;
   allowanceBalanceBefore: Prisma.Decimal | null;
   allowanceBalanceAfter: Prisma.Decimal | null;
+  immediateDebtSettlement: { method: ExternalPaymentMethod; amount: Prisma.Decimal } | null;
   paymentMethod: "allowance" | ExternalPaymentMethod | "split";
 };
 
@@ -83,6 +84,7 @@ export function allocatePayment(input: {
       allowanceUsed: new Prisma.Decimal(0),
       allowanceBalanceBefore: null,
       allowanceBalanceAfter: null,
+      immediateDebtSettlement: null,
       paymentMethod: compatibilityMethod(payments),
     };
   }
@@ -126,9 +128,12 @@ export function allocatePayment(input: {
     return {
       strategy: input.intent.strategy,
       payments,
-      allowanceUsed: allowanceAmount,
+      allowanceUsed: total,
       allowanceBalanceBefore: before,
-      allowanceBalanceAfter: before.sub(allowanceAmount),
+      allowanceBalanceAfter: before.sub(total),
+      immediateDebtSettlement: externalAmount.greaterThan(0)
+        ? { method: input.intent.remainderMethod, amount: externalAmount }
+        : null,
       paymentMethod: compatibilityMethod(payments),
     };
   }
@@ -151,6 +156,7 @@ export function allocatePayment(input: {
     allowanceUsed: total,
     allowanceBalanceBefore: before,
     allowanceBalanceAfter: after,
+    immediateDebtSettlement: null,
     paymentMethod: compatibilityMethod(payments),
   };
 }

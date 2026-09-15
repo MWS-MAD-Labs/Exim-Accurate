@@ -10,7 +10,7 @@ const baseInput = {
   payments: [{ method: "allowance", amount: 10000 }, { method: "cash", amount: 15000 }],
   total: 25000,
   allowanceBalanceBefore: 85000,
-  allowanceBalanceAfter: 75000,
+  allowanceBalanceAfter: 60000,
   purchasedAt: new Date("2026-08-22T03:00:00.000Z"),
 };
 
@@ -21,7 +21,9 @@ test("buildReceiptMessage formats split allocations and allowance snapshots", ()
   assert.match(normalizedText, /Kopi × 2/);
   assert.match(normalizedText, /Allowance Rp10\.000.*Tunai Rp15\.000/);
   assert.match(normalizedText, /Saldo allowance sebelum: Rp85\.000/);
-  assert.match(normalizedText, /Saldo allowance sesudah: Rp75\.000/);
+  assert.match(normalizedText, /Saldo allowance sesudah dibebankan: Rp60\.000/);
+  assert.match(normalizedText, /Utang langsung dibayar via Tunai: Rp15\.000/);
+  assert.match(message.html.replaceAll("\u00a0", ""), /Utang Rp15\.000 langsung dibayar via Tunai/);
 });
 
 test("buildReceiptMessage labels explicit allowance debt", () => {
@@ -33,6 +35,7 @@ test("buildReceiptMessage labels explicit allowance debt", () => {
     allowanceBalanceAfter: -25000,
   });
   assert.match(message.text, /Allowance debt/);
+  assert.doesNotMatch(message.text, /Utang langsung dibayar/);
   assert.match(message.text.replaceAll("\u00a0", ""), /-Rp25\.000|Rp-25\.000/);
   assert.match(message.html, /#fff5f5/);
 });

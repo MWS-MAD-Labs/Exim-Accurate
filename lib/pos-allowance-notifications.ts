@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { sendEmail } from "@/lib/email";
 import { startOfDate, toDateOnlyValue } from "@/lib/pos";
-import { getStaffAllowance, resolveStaffAllowancePeriod } from "@/lib/pos-server";
+import { getOutstandingCurrentAllowanceDebt, getStaffAllowance, resolveStaffAllowancePeriod } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
 
 const RETRY_AFTER_MS = 15 * 60 * 1000;
@@ -17,6 +17,12 @@ const dateFormatter = new Intl.DateTimeFormat("id-ID", {
 });
 
 type NotificationScenario = "debt" | "remaining_balance";
+
+export function classifyAllowanceNotification(remaining: number, outstandingDebt: number) {
+  if (outstandingDebt > 0.005) return { scenario: "debt" as const, amount: outstandingDebt };
+  if (remaining > 0.005) return { scenario: "remaining_balance" as const, amount: remaining };
+  return null;
+}
 type NotificationRecipient = { email: string; name: string | null };
 type ClaimResult =
   | { status: "claimed"; notificationId: string }
@@ -265,14 +271,17 @@ export async function sendPosAllowanceCutoffNotifications(now = new Date()) {
 
       for (const recipient of recipients) {
         try {
-          const allowance = await getStaffAllowance(setting.credentialId, recipient.email, today, period);
-          if (Math.abs(allowance.remaining) < 0.005) {
+          const [allowance, debt] = await Promise.all([
+            getStaffAllowance(setting.credentialId, recipient.email, today, period),
+            getOutstandingCurrentAllowanceDebt(setting.credentialId, recipient.email, today, period),
+          ]);
+          const notification = classifyAllowanceNotification(allowance.remaining, debt.outstanding);
+          if (!notification) {
             summary.zeroBalance += 1;
             continue;
           }
           summary.eligible += 1;
-          const scenario: NotificationScenario = allowance.remaining < 0 ? "debt" : "remaining_balance";
-          const amount = Math.abs(allowance.remaining);
+          const { scenario, amount } = notification;
           const claim = await claimNotification({
             credentialId: setting.credentialId,
             staffEmail: recipient.email,

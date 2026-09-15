@@ -132,23 +132,21 @@ export async function getStaffAllowance(
       },
       select: { amount: true },
     }),
-    db.posSalePayment.aggregate({
+    db.posSale.aggregate({
       where: {
-        method: "allowance",
-        sale: {
-          credentialId,
-          staffEmail: normalizedEmail,
-          status: { not: "voided" },
-          OR: [
-            { allowancePeriodStartsAt: period.startsAt, allowancePeriodEndsAt: period.endsAt },
-            {
-              allowancePeriodStartsAt: null,
-              createdAt: { gte: period.startsAt, lt: periodEndExclusive },
-            },
-          ],
-        },
+        credentialId,
+        staffEmail: normalizedEmail,
+        status: { not: "voided" },
+        allowanceUsed: { gt: 0 },
+        OR: [
+          { allowancePeriodStartsAt: period.startsAt, allowancePeriodEndsAt: period.endsAt },
+          {
+            allowancePeriodStartsAt: null,
+            createdAt: { gte: period.startsAt, lt: periodEndExclusive },
+          },
+        ],
       },
-      _sum: { amount: true },
+      _sum: { allowanceUsed: true },
     }),
   ]);
 
@@ -159,7 +157,7 @@ export async function getStaffAllowance(
     holidayDates,
     daysOff.map((entry) => entry.date),
     Number(adjustment?.amount ?? 0),
-    Number(spent._sum.amount ?? 0),
+    Number(spent._sum.allowanceUsed ?? 0),
   );
 
   return {
@@ -223,6 +221,7 @@ export async function getOutstandingAllowanceDebtForPeriod(
       staffEmail: normalizedEmail,
       periodStartsAt: startOfDate(period.startsAt),
       periodEndsAt: startOfDate(period.endsAt),
+      OR: [{ saleId: null }, { sale: { status: { not: "voided" } } }],
     },
     _sum: { amount: true },
   });
@@ -294,6 +293,49 @@ export async function lockStaffAllowancePeriod(
 ) {
   const lockKey = `${credentialId}:${staffEmail.toLowerCase().trim()}:${period.startsAt.toISOString()}:${period.endsAt.toISOString()}`;
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+}
+
+export async function reconcileSaleImmediateDebtSettlement(
+  tx: Prisma.TransactionClient,
+  input: {
+    saleId: string;
+    credentialId: string;
+    staffEmail: string;
+    period: AllowancePeriod;
+    createdById: string;
+    settlement: { method: "cash" | "qris"; amount: Prisma.Decimal } | null;
+    createdAt?: Date;
+  },
+) {
+  if (!input.settlement) {
+    await tx.posStaffAllowanceDebtSettlement.deleteMany({ where: { saleId: input.saleId } });
+    return null;
+  }
+  return tx.posStaffAllowanceDebtSettlement.upsert({
+    where: { saleId: input.saleId },
+    create: {
+      credentialId: input.credentialId,
+      staffEmail: input.staffEmail.toLowerCase().trim(),
+      periodStartsAt: startOfDate(input.period.startsAt),
+      periodEndsAt: startOfDate(input.period.endsAt),
+      amount: input.settlement.amount,
+      paymentMethod: input.settlement.method,
+      note: "Automatically settled external remainder from split POS sale",
+      createdById: input.createdById,
+      saleId: input.saleId,
+      ...(input.createdAt ? { createdAt: input.createdAt } : {}),
+    },
+    update: {
+      credentialId: input.credentialId,
+      staffEmail: input.staffEmail.toLowerCase().trim(),
+      periodStartsAt: startOfDate(input.period.startsAt),
+      periodEndsAt: startOfDate(input.period.endsAt),
+      amount: input.settlement.amount,
+      paymentMethod: input.settlement.method,
+      note: "Automatically settled external remainder from split POS sale",
+      createdById: input.createdById,
+    },
+  });
 }
 
 export async function allocateSalePayment(

@@ -8,7 +8,7 @@ import { canOperatePos } from "@/lib/access-control";
 import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { legacyPaymentIntent, legacyPaymentMethodSchema, paymentIntentSchema, PaymentAllocationError, serializePayments } from "@/lib/pos-payments";
-import { allocateSalePayment, getPosContext, saleTotal, withSerializableRetry } from "@/lib/pos-server";
+import { allocateSalePayment, getPosContext, reconcileSaleImmediateDebtSettlement, saleTotal, withSerializableRetry } from "@/lib/pos-server";
 import { sendPosSaleReceipt } from "@/lib/pos-sale-receipt";
 import { prisma } from "@/lib/prisma";
 
@@ -92,6 +92,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
         include: saleInclude,
       });
+      if (allocation.period) {
+        await reconcileSaleImmediateDebtSettlement(tx, {
+          saleId: createdSale.id,
+          credentialId: reservation.credentialId,
+          staffEmail: reservation.staffEmail,
+          period: allocation.period,
+          createdById: session.user.id,
+          settlement: allocation.immediateDebtSettlement,
+          createdAt: createdSale.createdAt,
+        });
+      }
       for (const item of reservation.items) {
         const stockAllocation = await tx.posStockAllocation.findUnique({ where: { credentialId_warehouseId_itemCode: { credentialId: reservation.credentialId, warehouseId: reservation.warehouseId, itemCode: item.itemCode } } });
         if (!stockAllocation || stockAllocation.heldQuantity < item.quantity) throw new Error("ALLOCATION_CONFLICT");
