@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Prisma } from "@prisma/client";
 import { startOfDate } from "./pos";
-import { buildPreviousAllowanceDebt, canonicalizeRequestedItems, getStaffPaydayForPeriod, reconcileSaleImmediateDebtSettlement, saleTotal } from "./pos-server";
+import { buildPreviousAllowanceDebt, canonicalizeRequestedItems, getStaffPaydayForPeriod, hasOutstandingPosSaleForProduct, reconcileSaleImmediateDebtSettlement, saleTotal } from "./pos-server";
 
 test("canonicalizeRequestedItems merges duplicate item codes into a single line", () => {
   const result = canonicalizeRequestedItems([
@@ -24,6 +24,32 @@ test("canonicalizeRequestedItems returns unique-length output shorter than dupli
   const result = canonicalizeRequestedItems(requested);
   assert.equal(result.length, 1);
   assert.notEqual(result.length, requested.length);
+});
+
+test("product snapshot sync is blocked by a queued sale adjustment for the same item", async () => {
+  let where: unknown;
+  const tx = {
+    posSale: {
+      findFirst: async (input: { where: unknown }) => {
+        where = input.where;
+        return { id: "sale-queued" };
+      },
+    },
+  };
+
+  const blocked = await hasOutstandingPosSaleForProduct(tx as never, "credential-1", "ITEM-1");
+
+  assert.equal(blocked, true);
+  assert.deepEqual(where, {
+    credentialId: "credential-1",
+    status: { in: ["pending_sync", "sync_error", "voiding"] },
+    items: { some: { itemCode: "ITEM-1" } },
+  });
+});
+
+test("product snapshot sync can continue when no queued sale uses the item", async () => {
+  const tx = { posSale: { findFirst: async () => null } };
+  assert.equal(await hasOutstandingPosSaleForProduct(tx as never, "credential-1", "ITEM-1"), false);
 });
 
 test("saleTotal calculates sale values with Decimal precision", () => {

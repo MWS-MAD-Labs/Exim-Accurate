@@ -3,12 +3,11 @@ import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-import { syncPosSale } from "@/lib/accurate/pos";
 import { canOperatePos } from "@/lib/access-control";
 import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { legacyPaymentIntent, legacyPaymentMethodSchema, paymentIntentSchema, PaymentAllocationError, serializePayments } from "@/lib/pos-payments";
-import { allocateSalePayment, getPosContext, reconcileSaleImmediateDebtSettlement, saleTotal, withSerializableRetry } from "@/lib/pos-server";
+import { allocateSalePayment, getPosContext, lockPosSynchronization, reconcileSaleImmediateDebtSettlement, saleTotal, withSerializableRetry } from "@/lib/pos-server";
 import { sendPosSaleReceipt } from "@/lib/pos-sale-receipt";
 import { prisma } from "@/lib/prisma";
 
@@ -59,6 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let sale: Prisma.PosSaleGetPayload<{ include: typeof saleInclude }> | null;
   try {
     sale = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
+      await lockPosSynchronization(tx, reservation.credentialId);
       const allocation = await allocateSalePayment(tx, {
         credentialId: reservation.credentialId,
         buyerType: "staff",
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         });
       }
       return createdSale;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch((error: unknown) => {
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10_000, timeout: 120_000 }).catch((error: unknown) => {
       if (error instanceof Error && ["RESERVATION_CONFLICT", "ALLOCATION_CONFLICT"].includes(error.message)) return null;
       throw error;
     }));
@@ -147,20 +147,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   if (!sale) return NextResponse.json({ error: "Reservation changed by another request" }, { status: 409 });
 
-  const attemptAt = new Date();
-  await prisma.posSale.update({ where: { id: sale.id }, data: { syncAttempts: { increment: 1 }, lastSyncAttemptAt: attemptAt, nextSyncAttemptAt: null } });
-  if (!context.accurate) {
-    const failed = await prisma.posSale.update({ where: { id: sale.id }, data: { status: "sync_error", syncError: "Accurate session is not ready", nextSyncAttemptAt: new Date(attemptAt.getTime() + 5 * 60 * 1000) }, include: saleInclude });
-    return NextResponse.json({ ...responseFor(failed), error: "Pickup was saved locally but Accurate is not connected" }, { status: 502 });
-  }
-  try {
-    const adjustment = await syncPosSale(context.accurate, sale);
-    const completed = await prisma.posSale.update({ where: { id: sale.id }, data: { status: "synced", accurateId: adjustment.id, syncedAt: new Date(), syncError: null }, include: saleInclude });
-    after(() => sendPosSaleReceipt(completed.id));
-    return NextResponse.json(responseFor(completed, adjustment.number), { status: 201 });
-  } catch (error) {
-    const syncError = error instanceof Error ? error.message : "Unknown Accurate synchronization error";
-    const failed = await prisma.posSale.update({ where: { id: sale.id }, data: { status: "sync_error", syncError, nextSyncAttemptAt: new Date(attemptAt.getTime() + 5 * 60 * 1000) }, include: saleInclude });
-    return NextResponse.json({ ...responseFor(failed), error: "Pickup was saved locally but Accurate inventory adjustment could not be confirmed" }, { status: 502 });
-  }
+  return NextResponse.json({
+    ...responseFor(sale),
+    synchronization: {
+      status: "queued",
+      message: "Pickup completed using local POS data and queued for Accurate synchronization.",
+    },
+  }, { status: 202 });
 }

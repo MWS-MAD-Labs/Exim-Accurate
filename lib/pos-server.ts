@@ -6,6 +6,25 @@ import { allocatePayment, PaymentAllocationError, type PaymentIntent } from "@/l
 
 export type PosDatabaseClient = typeof prisma | Prisma.TransactionClient;
 
+export async function lockPosSynchronization(tx: Prisma.TransactionClient, credentialId: string) {
+  await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`pos-sync:${credentialId}`}, 0))::text AS lock_result`);
+}
+
+export async function hasOutstandingPosSaleForProduct(
+  tx: PosDatabaseClient,
+  credentialId: string,
+  itemCode: string,
+) {
+  return !!await tx.posSale.findFirst({
+    where: {
+      credentialId,
+      status: { in: ["pending_sync", "sync_error", "voiding"] },
+      items: { some: { itemCode } },
+    },
+    select: { id: true },
+  });
+}
+
 async function getOwnedCredential(userId: string, credentialId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },

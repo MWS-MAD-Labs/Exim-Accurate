@@ -191,9 +191,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     reversal = await reversePosSale(context.accurate, {
       id: claimed.id,
+      createdAt: claimed.createdAt,
       accurateId: claimed.accurateId!,
       warehouseName: claimed.warehouseName,
-
       voidReason: parsed.data.reason,
       items: claimed.items.map((item) => ({ itemCode: item.itemCode, quantity: item.quantity })),
     });

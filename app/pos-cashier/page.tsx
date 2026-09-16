@@ -683,13 +683,16 @@ export default function PosCashierPage() {
       const data = await response.json();
       const committedLocally = !!data.sale?.id;
       if (response.ok || committedLocally) {
+        const queuedForSync = data.synchronization?.status === "queued" || data.sale?.status !== "synced";
         setAdjustmentNumber(data.adjustmentNumber || null);
         setStep("done");
         notify({
           title: t.dashboard.pos.saleCompleted,
-          message: response.ok ? (data.adjustmentNumber || "") : (data.error || "Sale saved locally; do not collect payment again."),
-          color: response.ok ? "green" : "orange",
-          autoClose: 3000,
+          message: queuedForSync
+            ? (data.synchronization?.message || "Sale saved locally and queued for Accurate synchronization.")
+            : (data.adjustmentNumber || ""),
+          color: queuedForSync ? "orange" : "green",
+          autoClose: queuedForSync ? 5000 : 3000,
         });
       } else if (data.code === "ALLOWANCE_CHANGED" || data.code === "ALLOWANCE_DEBT_CHANGED") {
         setQrisConfirmed(false);
@@ -783,11 +786,14 @@ export default function PosCashierPage() {
         }
         throw new Error(data.error || "Unable to confirm pickup");
       }
+      const queuedForSync = data.synchronization?.status === "queued" || data.sale?.status !== "synced";
       notify({
         title: "Preorder picked up",
-        message: data.adjustmentNumber || pickupReservation.reference,
-        color: data.error ? "orange" : "green",
-        autoClose: 4000,
+        message: queuedForSync
+          ? (data.synchronization?.message || "Pickup saved locally and queued for Accurate synchronization.")
+          : (data.adjustmentNumber || pickupReservation.reference),
+        color: queuedForSync ? "orange" : "green",
+        autoClose: queuedForSync ? 5000 : 4000,
       });
       setPickupOpened(false);
       setPickupReservation(null);

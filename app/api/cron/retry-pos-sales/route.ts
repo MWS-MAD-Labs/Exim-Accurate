@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { syncPosSale } from "@/lib/accurate/pos";
+import { sendPosSaleReceipt } from "@/lib/pos-sale-receipt";
+
+export const maxDuration = 120;
 
 export async function GET(req: NextRequest) {
   const expected = process.env.CRON_SECRET;
@@ -16,17 +19,23 @@ export async function GET(req: NextRequest) {
     },
     include: { items: true, credential: true },
     orderBy: { createdAt: "asc" },
-    take: 20,
+    take: 3,
   });
 
   let synced = 0;
   let failed = 0;
   for (const sale of candidates) {
     const attemptAt = new Date();
-    await prisma.posSale.updateMany({
-      where: { id: sale.id, status: { in: ["pending_sync", "sync_error"] } },
-      data: { syncAttempts: { increment: 1 }, lastSyncAttemptAt: attemptAt, nextSyncAttemptAt: null },
+    const leaseUntil = new Date(attemptAt.getTime() + 5 * 60 * 1000);
+    const claim = await prisma.posSale.updateMany({
+      where: {
+        id: sale.id,
+        status: { in: ["pending_sync", "sync_error"] },
+        OR: [{ nextSyncAttemptAt: null }, { nextSyncAttemptAt: { lte: attemptAt } }],
+      },
+      data: { syncAttempts: { increment: 1 }, lastSyncAttemptAt: attemptAt, nextSyncAttemptAt: leaseUntil },
     });
+    if (claim.count !== 1) continue;
 
     if (!sale.credential.host || !sale.credential.session) {
       failed += 1;
@@ -55,6 +64,7 @@ export async function GET(req: NextRequest) {
         where: { id: sale.id },
         data: { status: "synced", accurateId: adjustment.id, syncedAt: new Date(), syncError: null, nextSyncAttemptAt: null },
       });
+      after(() => sendPosSaleReceipt(sale.id));
       synced += 1;
     } catch (error) {
       failed += 1;

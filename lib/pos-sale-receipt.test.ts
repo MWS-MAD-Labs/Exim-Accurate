@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildReceiptMessage, POS_SALE_RECEIPT_RETRY_ORDER_BY } from "./pos-sale-receipt";
+import { buildReceiptMessage, POS_SALE_RECEIPT_RETRY_ORDER_BY, receiptPurchasedAt } from "./pos-sale-receipt";
 
 const baseInput = {
   saleId: "sale-123",
@@ -49,6 +49,12 @@ test("buildReceiptMessage escapes customer and item HTML", () => {
   assert.doesNotMatch(message.html, /<script>alert/);
   assert.match(message.html, /&lt;Admin &amp; Staff&gt;/);
   assert.match(message.html, /&lt;script&gt;alert\(&#39;x&#39;\)&lt;\/script&gt;/);
+});
+
+test("receipt purchase time remains the local sale creation time after delayed synchronization", () => {
+  const createdAt = new Date("2026-09-15T16:59:00.000Z");
+  const syncedAt = new Date("2026-09-15T18:01:00.000Z");
+  assert.equal(receiptPurchasedAt({ createdAt, syncedAt }), createdAt);
 });
 
 test("retryPosSaleReceipts query order prioritizes never-attempted pending rows before failed rows", () => {

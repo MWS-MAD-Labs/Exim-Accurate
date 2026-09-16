@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPosContext, isAdmin } from "@/lib/pos-server";
+import { getPosContext, hasOutstandingPosSaleForProduct, isAdmin, lockPosSynchronization } from "@/lib/pos-server";
 import { syncPosProduct } from "@/lib/accurate/pos";
 
 export async function POST(req: NextRequest) {
@@ -17,42 +17,59 @@ export async function POST(req: NextRequest) {
 
   const products = await prisma.posProduct.findMany({
     where: { credentialId: body.credentialId, isActive: true },
+    select: { id: true, itemCode: true },
     orderBy: { itemCode: "asc" },
   });
   const results: Array<{ itemCode: string; status: "synced" | "error"; error?: string }> = [];
 
-  for (const product of products) {
+  for (const candidate of products) {
     try {
-      const synced = await syncPosProduct(
-        context.accurate,
-        { id: context.settings.warehouseId, name: context.settings.warehouseName },
-        {
-          accurateItemId: product.accurateItemId,
-          itemCode: product.itemCode,
-          itemName: product.itemName,
-          unit: product.unit || "PCS",
-          stock: product.stock,
-          buyPrice: Number(product.buyPrice),
-          sellPrice: Number(product.sellPrice),
-        },
-      );
-      await prisma.posProduct.update({
-        where: { id: product.id },
-        data: {
-          accurateItemId: synced.accurateItemId,
-          syncStatus: "synced",
-          syncError: null,
-          lastSyncedAt: new Date(),
-        },
-      });
-      results.push({ itemCode: product.itemCode, status: "synced" });
+      const result = await prisma.$transaction(async (tx) => {
+        await lockPosSynchronization(tx, body.credentialId!);
+        const product = await tx.posProduct.findUnique({ where: { id: candidate.id } });
+        if (!product?.isActive) return { status: "skipped" as const };
+        if (await hasOutstandingPosSaleForProduct(tx, body.credentialId!, product.itemCode)) {
+          return { status: "blocked" as const };
+        }
+
+        const synced = await syncPosProduct(
+          context.accurate!,
+          { id: context.settings!.warehouseId, name: context.settings!.warehouseName },
+          {
+            accurateItemId: product.accurateItemId,
+            itemCode: product.itemCode,
+            itemName: product.itemName,
+            unit: product.unit || "PCS",
+            stock: product.stock,
+            buyPrice: Number(product.buyPrice),
+            sellPrice: Number(product.sellPrice),
+          },
+        );
+        await tx.posProduct.update({
+          where: { id: product.id },
+          data: {
+            accurateItemId: synced.accurateItemId,
+            syncStatus: "synced",
+            syncError: null,
+            lastSyncedAt: new Date(),
+          },
+        });
+        return { status: "synced" as const };
+      }, { maxWait: 10_000, timeout: 120_000 });
+
+      if (result.status === "blocked") {
+        const message = "Product snapshot sync is blocked until queued POS sales for this item are reconciled with Accurate";
+        results.push({ itemCode: candidate.itemCode, status: "error", error: message });
+      } else if (result.status === "synced") {
+        results.push({ itemCode: candidate.itemCode, status: "synced" });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown synchronization error";
       await prisma.posProduct.update({
-        where: { id: product.id },
+        where: { id: candidate.id },
         data: { syncStatus: "error", syncError: message },
       });
-      results.push({ itemCode: product.itemCode, status: "error", error: message });
+      results.push({ itemCode: candidate.itemCode, status: "error", error: message });
     }
   }
 

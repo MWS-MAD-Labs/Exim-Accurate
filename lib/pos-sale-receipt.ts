@@ -99,6 +99,10 @@ export function buildReceiptMessage(input: {
   };
 }
 
+export function receiptPurchasedAt(sale: { createdAt: Date; syncedAt?: Date | null }) {
+  return sale.createdAt;
+}
+
 export async function sendPosSaleReceipt(saleId: string) {
   let claimed = false;
   try {
@@ -173,7 +177,7 @@ export async function sendPosSaleReceipt(saleId: string) {
         total,
         allowanceBalanceBefore: sale.allowanceBalanceBefore === null ? null : Number(sale.allowanceBalanceBefore),
         allowanceBalanceAfter: sale.allowanceBalanceAfter === null ? null : Number(sale.allowanceBalanceAfter),
-        purchasedAt: sale.syncedAt ?? sale.createdAt,
+        purchasedAt: receiptPurchasedAt(sale),
       }),
     });
     await prisma.posSale.update({

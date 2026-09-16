@@ -1,3 +1,4 @@
+import { jakartaDateKey } from "@/lib/pos";
 import { accurateFetch } from "./client";
 import {
   findInventoryAdjustmentByDescription,
@@ -75,6 +76,7 @@ export async function syncPosProduct(
 
 export interface PosSaleForAdjustment {
   id: string;
+  createdAt: Date;
   warehouseName: string;
   items: Array<{ itemCode: string; quantity: number; unitCost?: unknown }>;
 }
@@ -84,12 +86,9 @@ export interface PosSaleForAdjustment {
  * not as a Sales Invoice. The local sale remains the source for payment and
  * revenue data until a verified Sales Invoice integration is introduced.
  */
-export async function syncPosSale(
-  credentials: PosAccurateCredentials,
-  sale: PosSaleForAdjustment,
-): Promise<{ id: number; number: string }> {
-  const payload = {
-    transDate: new Date().toISOString().slice(0, 10),
+export function buildPosSaleAdjustmentPayload(sale: PosSaleForAdjustment) {
+  return {
+    transDate: jakartaDateKey(sale.createdAt),
     description: `POS Sale ${sale.id}`,
     detailItem: sale.items.map((item) => ({
       itemNo: item.itemCode,
@@ -99,13 +98,19 @@ export async function syncPosSale(
       warehouseName: sale.warehouseName,
     })),
   };
+}
+
+export async function syncPosSale(
+  credentials: PosAccurateCredentials,
+  sale: PosSaleForAdjustment,
+): Promise<{ id: number; number: string }> {
+  const payload = buildPosSaleAdjustmentPayload(sale);
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const existing = await findInventoryAdjustmentByDescription(
         credentials,
         `POS Sale ${sale.id}`,
-        payload.transDate,
       );
       if (existing) return { id: existing.id, number: existing.number };
 

@@ -3,7 +3,6 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
 
-import { syncPosSale } from "@/lib/accurate/pos";
 import { canOperatePos } from "@/lib/access-control";
 import { authOptions } from "@/lib/auth";
 import { calculateTotals, saleRequestSchema } from "@/lib/pos";
@@ -14,6 +13,7 @@ import {
   canonicalSaleItems,
   expireReservations,
   getPosContext,
+  lockPosSynchronization,
   reconcileSaleImmediateDebtSettlement,
   resolveLocalPosProducts,
   saleTotal,
@@ -122,12 +122,19 @@ export async function POST(req: NextRequest) {
       after(() => sendPosSaleReceipt(existing.id));
       return NextResponse.json(saleResponse(existing));
     }
-    return NextResponse.json({ ...saleResponse(existing), error: "This sale is already committed locally and is awaiting Accurate reconciliation." }, { status: 409 });
+    return NextResponse.json({
+      ...saleResponse(existing),
+      synchronization: {
+        status: "queued",
+        message: "Sale is saved locally and queued for Accurate synchronization.",
+      },
+    }, { status: 202 });
   }
 
   let created: { sale: Prisma.PosSaleGetPayload<{ include: typeof saleInclude }>; created: boolean } | null;
   try {
     created = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
+      await lockPosSynchronization(tx, credentialId);
       const allocation = await allocateSalePayment(tx, {
         credentialId,
         buyerType,
@@ -199,7 +206,7 @@ export async function POST(req: NextRequest) {
         });
       }
       return { sale, created: true };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch(async (error: unknown) => {
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10_000, timeout: 120_000 }).catch(async (error: unknown) => {
       if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") return null;
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         const duplicate = await prisma.posSale.findUnique({
@@ -220,37 +227,24 @@ export async function POST(req: NextRequest) {
 
   if (!created) return NextResponse.json({ error: "Insufficient available stock" }, { status: 409 });
   if (!created.created) {
-    if (created.sale.status === "synced") after(() => sendPosSaleReceipt(created.sale.id));
-    return NextResponse.json({ ...saleResponse(created.sale), error: "This sale is already being processed or requires manual reconciliation." }, { status: 409 });
+    if (created.sale.status === "synced") {
+      after(() => sendPosSaleReceipt(created.sale.id));
+      return NextResponse.json(saleResponse(created.sale));
+    }
+    return NextResponse.json({
+      ...saleResponse(created.sale),
+      synchronization: {
+        status: "queued",
+        message: "Sale is saved locally and queued for Accurate synchronization.",
+      },
+    }, { status: 202 });
   }
 
-  const sale = created.sale;
-  const attemptAt = new Date();
-  await prisma.posSale.update({ where: { id: sale.id }, data: { syncAttempts: { increment: 1 }, lastSyncAttemptAt: attemptAt, nextSyncAttemptAt: null } });
-  if (!context.accurate) {
-    const failed = await prisma.posSale.update({
-      where: { id: sale.id },
-      data: { status: "sync_error", syncError: "Accurate session is not ready", nextSyncAttemptAt: new Date(attemptAt.getTime() + 5 * 60 * 1000) },
-      include: saleInclude,
-    });
-    return NextResponse.json({ ...saleResponse(failed), error: "Sale was saved locally but Accurate is not connected" }, { status: 502 });
-  }
-  try {
-    const adjustment = await syncPosSale(context.accurate, sale);
-    const completed = await prisma.posSale.update({
-      where: { id: sale.id },
-      data: { status: "synced", accurateId: adjustment.id, syncedAt: new Date(), syncError: null },
-      include: saleInclude,
-    });
-    after(() => sendPosSaleReceipt(completed.id));
-    return NextResponse.json(saleResponse(completed, adjustment.number), { status: 201 });
-  } catch (error) {
-    const syncError = error instanceof Error ? error.message : "Unknown Accurate synchronization error";
-    const failed = await prisma.posSale.update({
-      where: { id: sale.id },
-      data: { status: "sync_error", syncError, nextSyncAttemptAt: new Date(attemptAt.getTime() + 5 * 60 * 1000) },
-      include: saleInclude,
-    });
-    return NextResponse.json({ ...saleResponse(failed), error: "Sale was saved locally but Accurate inventory adjustment could not be confirmed" }, { status: 502 });
-  }
+  return NextResponse.json({
+    ...saleResponse(created.sale),
+    synchronization: {
+      status: "queued",
+      message: "Sale completed using local POS data and queued for Accurate synchronization.",
+    },
+  }, { status: 202 });
 }
