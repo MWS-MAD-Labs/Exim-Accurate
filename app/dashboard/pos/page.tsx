@@ -1,27 +1,37 @@
 "use client";
 
 import {
+  Alert,
   Badge,
+  Box,
   Button,
+  Center,
+  Checkbox,
   Group,
+  Loader,
   Modal,
   NumberInput,
   Paper,
   ScrollArea,
   Select,
+  SimpleGrid,
   Stack,
   Switch,
   Table,
   Text,
   TextInput,
+  ThemeIcon,
   Title,
 } from "@mantine/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  IconArchive,
   IconBarcode,
   IconCamera,
-  IconArchive,
+  IconCheck,
+  IconClipboardList,
   IconHistory,
+  IconPrinter,
   IconRefresh,
   IconSearch,
   IconSettings,
@@ -60,6 +70,35 @@ interface StockChange {
   sale: { id: string; paymentMethod: string } | null;
 }
 
+interface RestockProposalItem {
+  itemCode: string;
+  itemName: string;
+  unit: string | null;
+  currentStock: number;
+  heldQuantity: number;
+  availableStock: number;
+  soldUnits: number;
+  proposedQuantity: number;
+  buyPrice: number;
+  lineTotal: number;
+}
+
+interface RestockProposal {
+  lookbackDays: number;
+  targetCoverDays: number;
+  proposer: { name: string | null; email: string | null };
+  generatedAt: string;
+  items: RestockProposalItem[];
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 export default function PosStockManagementPage() {
   const { t, language } = useLanguage();
   const isId = language === "id";
@@ -89,6 +128,25 @@ export default function PosStockManagementPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyTruncated, setHistoryTruncated] = useState(false);
   const [search, setSearch] = useState("");
+  const [restockOpened, setRestockOpened] = useState(false);
+  const [restockProposal, setRestockProposal] = useState<RestockProposal | null>(null);
+  const [restockSelected, setRestockSelected] = useState<Set<string>>(new Set());
+  const [restockLoading, setRestockLoading] = useState(false);
+  const [restockError, setRestockError] = useState("");
+  const [restockExportError, setRestockExportError] = useState("");
+
+  const selectedRestockItems = useMemo(
+    () => restockProposal?.items.filter((item) => restockSelected.has(item.itemCode)) ?? [],
+    [restockProposal, restockSelected],
+  );
+  const restockTotal = useMemo(
+    () => selectedRestockItems.reduce((sum, item) => sum + item.lineTotal, 0),
+    [selectedRestockItems],
+  );
+  const restockUnits = useMemo(
+    () => selectedRestockItems.reduce((sum, item) => sum + item.proposedQuantity, 0),
+    [selectedRestockItems],
+  );
 
   const loadCatalog = useCallback(async (id: string) => {
     setCredentialId(id);
@@ -255,6 +313,52 @@ export default function PosStockManagementPage() {
     return !query || product.itemCode.toLowerCase().includes(query) || product.itemName.toLowerCase().includes(query);
   });
 
+  const openRestockProposal = async () => {
+    if (!credentialId) return;
+    setRestockOpened(true);
+    setRestockProposal(null);
+    setRestockSelected(new Set());
+    setRestockLoading(true);
+    setRestockError("");
+    setRestockExportError("");
+    try {
+      const response = await fetch(`/api/pos/restock-proposal?credentialId=${credentialId}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) {
+        setRestockError(data.error || "Unable to generate the restock proposal.");
+        return;
+      }
+      setRestockProposal(data);
+      setRestockSelected(new Set(data.items.map((item: RestockProposalItem) => item.itemCode)));
+    } catch {
+      setRestockError("Unable to generate the restock proposal.");
+    } finally {
+      setRestockLoading(false);
+    }
+  };
+
+  const toggleAllRestockItems = (checked: boolean) => {
+    setRestockSelected(new Set(checked ? restockProposal?.items.map((item) => item.itemCode) ?? [] : []));
+  };
+
+  const printRestockProposal = () => {
+    if (!restockProposal || selectedRestockItems.length === 0) return;
+    setRestockExportError("");
+    const escapeHtml = (value: string | number | null) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#39;" })[character] || character);
+    const proposer = restockProposal.proposer.name || restockProposal.proposer.email || "Administrator";
+    const rows = selectedRestockItems.map((item, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(item.itemCode)}</td><td>${escapeHtml(item.itemName)}</td><td>${item.soldUnits}</td><td>${item.currentStock}</td><td>${item.heldQuantity}</td><td>${item.availableStock}</td><td>${item.proposedQuantity} ${escapeHtml(item.unit || "pcs")}</td><td>Rp ${item.buyPrice.toLocaleString("id-ID")}</td><td>Rp ${item.lineTotal.toLocaleString("id-ID")}</td></tr>`).join("");
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      setRestockExportError("Allow pop-ups for this site, then try exporting the proposal again.");
+      return;
+    }
+    printWindow.opener = null;
+    printWindow.document.write(`<!doctype html><html><head><title>Restock Proposal</title><style>@page{size:landscape;margin:16mm}body{font-family:Arial,sans-serif;color:#111;margin:0}header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:16px}h1{font-size:24px;margin:0 0 6px}.meta{text-align:right}.meta p,p{margin:4px 0;color:#444;font-size:12px}.summary{display:flex;gap:28px;margin:18px 0}.summary strong{display:block;font-size:18px;color:#111}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #aaa;padding:7px;text-align:left}th{background:#eee;text-transform:uppercase;font-size:9px}.number{text-align:right}.total{margin-top:16px;text-align:right;font-size:16px;font-weight:700}.signatures{display:flex;justify-content:space-between;margin-top:64px;text-align:center}.signature{width:220px;border-top:1px solid #222;padding-top:8px}</style></head><body><header><div><h1>RESTOCK PROPOSAL</h1><p>Inventory replenishment recommendation</p></div><div class="meta"><p>Generated: ${new Date(restockProposal.generatedAt).toLocaleString("id-ID")}</p><p>30-day sales analysis · ${restockProposal.targetCoverDays}-day target coverage</p></div></header><div class="summary"><div><strong>${selectedRestockItems.length}</strong><p>Product lines</p></div><div><strong>${restockUnits}</strong><p>Units proposed</p></div><div><strong>Rp ${restockTotal.toLocaleString("id-ID")}</strong><p>Estimated value</p></div></div><table><thead><tr><th>No.</th><th>Item code</th><th>Item name</th><th>Sold</th><th>Physical</th><th>Held</th><th>Available</th><th>Proposed</th><th>Buy price</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total proposal value: Rp ${restockTotal.toLocaleString("id-ID")}</div><div class="signatures"><div class="signature">Proposed by<br/><strong>${escapeHtml(proposer)}</strong></div><div class="signature">Approved by</div></div></body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   const syncProducts = async () => {
     if (!credentialId) return;
     setSyncing(true);
@@ -326,6 +430,15 @@ export default function PosStockManagementPage() {
                 onClick={() => setScannerOpen(true)}
               >
                 {t.dashboard.pos.scanProduct}
+              </Button>
+              <Button
+                variant="light"
+                color="teal"
+                leftSection={<IconClipboardList size={16} />}
+                onClick={() => void openRestockProposal()}
+                loading={restockLoading}
+              >
+                Restock proposal
               </Button>
               <Button component="a" href="/dashboard/pos/settings" variant="subtle" leftSection={<IconSettings size={16} />}>
                 POS Settings
@@ -408,6 +521,177 @@ export default function PosStockManagementPage() {
       )}
 
       {message && <Text c={messageColor}>{message}</Text>}
+
+      <Modal
+        opened={restockOpened}
+        onClose={() => { setRestockOpened(false); setRestockProposal(null); setRestockError(""); setRestockExportError(""); }}
+        title={null}
+        size="calc(100vw - 48px)"
+        centered
+        padding={0}
+        styles={{
+          content: { overflowX: "hidden", overflowY: "auto" },
+          body: { padding: 0 },
+        }}
+      >
+        <Box p={{ base: "lg", md: "xl" }} bg="var(--mantine-color-gray-0)" style={{ borderBottom: "1px solid var(--mantine-color-gray-3)" }}>
+          <Group justify="space-between" align="flex-start" wrap="wrap" gap="lg">
+            <Group align="flex-start" gap="md">
+              <ThemeIcon size={48} radius="md" color="teal" variant="light">
+                <IconClipboardList size={26} />
+              </ThemeIcon>
+              <Box>
+                <Title order={2}>Restock proposal</Title>
+                <Text c="dimmed" size="sm" mt={4}>
+                  Review demand, available inventory, and estimated purchase cost before exporting.
+                </Text>
+              </Box>
+            </Group>
+            {restockProposal ? (
+              <Box ta={{ base: "left", sm: "right" }}>
+                <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Generated</Text>
+                <Text size="sm" fw={600}>{new Date(restockProposal.generatedAt).toLocaleString(isId ? "id-ID" : "en-US")}</Text>
+                <Text size="xs" c="dimmed">{restockProposal.lookbackDays}-day sales · {restockProposal.targetCoverDays}-day coverage target</Text>
+              </Box>
+            ) : null}
+          </Group>
+        </Box>
+
+        <Box p={{ base: "lg", md: "xl" }}>
+          {restockLoading ? (
+            <Center py={80}>
+              <Stack align="center" gap="sm">
+                <Loader color="teal" />
+                <Text c="dimmed">Analyzing recent sales and available stock…</Text>
+              </Stack>
+            </Center>
+          ) : restockError ? (
+            <Alert color="red" title="Could not generate proposal">{restockError}</Alert>
+          ) : restockProposal ? (
+            <Stack gap="lg">
+              {restockExportError ? (
+                <Alert color="orange" title="PDF export was blocked" withCloseButton onClose={() => setRestockExportError("")}>
+                  {restockExportError}
+                </Alert>
+              ) : null}
+
+              <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }} spacing="md">
+                <Paper withBorder p="md" radius="md">
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Recommended products</Text>
+                  <Text fz={28} fw={700} mt={4}>{restockProposal.items.length}</Text>
+                  <Text size="xs" c="dimmed">Products below target coverage</Text>
+                </Paper>
+                <Paper withBorder p="md" radius="md">
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Selected lines</Text>
+                  <Text fz={28} fw={700} mt={4}>{selectedRestockItems.length}</Text>
+                  <Text size="xs" c="dimmed">Included in the exported proposal</Text>
+                </Paper>
+                <Paper withBorder p="md" radius="md">
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Units to order</Text>
+                  <Text fz={28} fw={700} mt={4}>{restockUnits}</Text>
+                  <Text size="xs" c="dimmed">Across selected product lines</Text>
+                </Paper>
+                <Paper withBorder p="md" radius="md">
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Estimated value</Text>
+                  <Text fz={24} fw={700} mt={7} c="teal.8">{formatMoney(restockTotal)}</Text>
+                  <Text size="xs" c="dimmed">Based on current buy prices</Text>
+                </Paper>
+              </SimpleGrid>
+
+              {restockProposal.items.length === 0 ? (
+                <Alert color="teal" icon={<IconCheck size={18} />} title="Stock coverage looks healthy">
+                  No active products need restocking based on sales from the previous {restockProposal.lookbackDays} days.
+                </Alert>
+              ) : (
+                <Paper withBorder radius="md" style={{ overflow: "hidden" }}>
+                  <Group justify="space-between" p="md" bg="var(--mantine-color-gray-0)" style={{ borderBottom: "1px solid var(--mantine-color-gray-3)" }}>
+                    <Box>
+                      <Text fw={700}>Recommended order lines</Text>
+                      <Text size="xs" c="dimmed">Reserved stock is excluded from available inventory.</Text>
+                    </Box>
+                    <Checkbox
+                      label="Select all"
+                      checked={restockSelected.size === restockProposal.items.length}
+                      indeterminate={restockSelected.size > 0 && restockSelected.size < restockProposal.items.length}
+                      onChange={(event) => toggleAllRestockItems(event.currentTarget.checked)}
+                    />
+                  </Group>
+                  <Table.ScrollContainer minWidth={1050} maxHeight={460}>
+                    <Table verticalSpacing="sm" highlightOnHover stickyHeader>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th w={48}></Table.Th>
+                          <Table.Th>Product</Table.Th>
+                          <Table.Th ta="right">30-day sales</Table.Th>
+                          <Table.Th ta="right">Physical</Table.Th>
+                          <Table.Th ta="right">Held</Table.Th>
+                          <Table.Th ta="right">Available</Table.Th>
+                          <Table.Th ta="right">Proposed</Table.Th>
+                          <Table.Th ta="right">Buy price</Table.Th>
+                          <Table.Th ta="right">Subtotal</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {restockProposal.items.map((item) => {
+                          const selected = restockSelected.has(item.itemCode);
+                          return (
+                            <Table.Tr key={item.itemCode} bg={selected ? "var(--mantine-color-teal-0)" : undefined}>
+                              <Table.Td>
+                                <Checkbox
+                                  aria-label={`Include ${item.itemName}`}
+                                  checked={selected}
+                                  onChange={(event) => setRestockSelected((current) => {
+                                    const next = new Set(current);
+                                    if (event.currentTarget.checked) next.add(item.itemCode);
+                                    else next.delete(item.itemCode);
+                                    return next;
+                                  })}
+                                />
+                              </Table.Td>
+                              <Table.Td>
+                                <Text fw={600} size="sm">{item.itemName}</Text>
+                                <Text size="xs" c="dimmed">{item.itemCode} · {item.unit || "PCS"}</Text>
+                              </Table.Td>
+                              <Table.Td ta="right" fw={600}>{item.soldUnits}</Table.Td>
+                              <Table.Td ta="right">{item.currentStock}</Table.Td>
+                              <Table.Td ta="right"><Text c={item.heldQuantity > 0 ? "orange.7" : "dimmed"}>{item.heldQuantity}</Text></Table.Td>
+                              <Table.Td ta="right" fw={600}>{item.availableStock}</Table.Td>
+                              <Table.Td ta="right"><Badge color="teal" variant="light" size="lg">+{item.proposedQuantity} {item.unit || "PCS"}</Badge></Table.Td>
+                              <Table.Td ta="right">{formatMoney(item.buyPrice)}</Table.Td>
+                              <Table.Td ta="right" fw={700}>{formatMoney(item.lineTotal)}</Table.Td>
+                            </Table.Tr>
+                          );
+                        })}
+                      </Table.Tbody>
+                    </Table>
+                  </Table.ScrollContainer>
+                </Paper>
+              )}
+
+              <Paper withBorder p="md" radius="md">
+                <Group justify="space-between" align="center" wrap="wrap" gap="md">
+                  <Box>
+                    <Text size="sm" c="dimmed">Selected proposal total</Text>
+                    <Text fz={24} fw={700}>{formatMoney(restockTotal)}</Text>
+                    <Text size="xs" c="dimmed">{selectedRestockItems.length} lines · {restockUnits} units</Text>
+                  </Box>
+                  <Group>
+                    <Button variant="default" onClick={() => setRestockOpened(false)}>Close</Button>
+                    <Button
+                      color="teal"
+                      leftSection={<IconPrinter size={17} />}
+                      onClick={printRestockProposal}
+                      disabled={selectedRestockItems.length === 0}
+                    >
+                      Export / Print PDF
+                    </Button>
+                  </Group>
+                </Group>
+              </Paper>
+            </Stack>
+          ) : null}
+        </Box>
+      </Modal>
 
       <Modal
         opened={scannerOpen}

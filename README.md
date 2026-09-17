@@ -145,11 +145,11 @@ Administrators can open **Point of Sales → Stock Management** at `/dashboard/p
 
 The supporting `GET /api/pos/products/manage/history` endpoint requires an administrator session and scopes products through the administrator's organization.
 
-### POS Cashier Restock Proposal
+### POS Stock Management Restock Proposal
 
-Administrators and cashiers can select **Restock proposal** in `/pos-cashier` to generate a replenishment list from the previous 30 days of completed local POS sales, including sales that are still pending Accurate synchronization. The proposal targets 14 days of demand coverage and deducts active preorder holds from physical stock when calculating available stock.
+Administrators can select **Restock proposal** in **Point of Sales → Stock Management** (`/dashboard/pos`) to generate a replenishment list from the previous 30 days of completed local POS sales, including sales that are still pending Accurate synchronization. The proposal targets 14 days of demand coverage and deducts active preorder holds from physical stock when calculating available stock.
 
-Cashiers can deselect items before export. **Export / Print PDF** opens a print-ready proposal listing physical, held, and available stock; proposed quantities; buy prices; line totals; the total proposal value; and proposer/approver signature lines. Choose **Save as PDF** in the browser print dialog to create the PDF.
+The review workspace summarizes recommended products, selected lines, units to order, and estimated purchase value. Administrators can review demand and stock figures in a table, deselect items, and use **Export / Print PDF** to open a signature-ready proposal. Choose **Save as PDF** in the browser print dialog to create the PDF.
 
 ### POS Cashier Staff Identification
 

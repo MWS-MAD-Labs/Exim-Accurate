@@ -67,26 +67,6 @@ interface CatalogProduct {
   unitCost: number;
 }
 
-interface RestockProposalItem {
-  itemCode: string;
-  itemName: string;
-  unit: string | null;
-  currentStock: number;
-  heldQuantity: number;
-  availableStock: number;
-  soldUnits: number;
-  proposedQuantity: number;
-  buyPrice: number;
-  lineTotal: number;
-}
-
-interface RestockProposal {
-  lookbackDays: number;
-  targetCoverDays: number;
-  proposer: { name: string | null; email: string | null };
-  generatedAt: string;
-  items: RestockProposalItem[];
-}
 
 interface CartLine extends CatalogProduct {
   quantity: number;
@@ -194,11 +174,6 @@ export default function PosCashierPage() {
   const [adjustmentNumber, setAdjustmentNumber] = useState<string | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
   const [pickupOpened, setPickupOpened] = useState(false);
-  const [restockOpened, setRestockOpened] = useState(false);
-  const [restockProposal, setRestockProposal] = useState<RestockProposal | null>(null);
-  const [restockSelected, setRestockSelected] = useState<Set<string>>(new Set());
-  const [restockLoading, setRestockLoading] = useState(false);
-  const [restockError, setRestockError] = useState("");
   const [pickupReservation, setPickupReservation] = useState<PickupReservation | null>(null);
   const [pickupPaymentMethod, setPickupPaymentMethod] = useState<PaymentChoice | null>(null);
   const [pickupAllowance, setPickupAllowance] = useState<Allowance | null>(null);
@@ -235,14 +210,6 @@ export default function PosCashierPage() {
     [cart],
   );
 
-  const selectedRestockItems = useMemo(
-    () => restockProposal?.items.filter((item) => restockSelected.has(item.itemCode)) ?? [],
-    [restockProposal, restockSelected],
-  );
-  const restockTotal = useMemo(
-    () => selectedRestockItems.reduce((sum, item) => sum + item.lineTotal, 0),
-    [selectedRestockItems],
-  );
 
   const glassStyle = {
     background: "var(--cashier-panel)",
@@ -268,44 +235,6 @@ export default function PosCashierPage() {
   const notify = (opts: Parameters<typeof notifications.show>[0]) =>
     notifications.show(opts, kioskNotificationsStore);
 
-  const openRestockProposal = async () => {
-    if (!credentialId) return;
-    setRestockOpened(true);
-    setRestockProposal(null);
-    setRestockLoading(true);
-    setRestockError("");
-    try {
-      const response = await fetch(`/api/pos/restock-proposal?credentialId=${credentialId}`, { cache: "no-store" });
-      const data = await response.json();
-      if (!response.ok) {
-        setRestockError(data.error || "Unable to generate restock proposal.");
-        return;
-      }
-      setRestockProposal(data);
-      setRestockSelected(new Set(data.items.map((item: RestockProposalItem) => item.itemCode)));
-    } catch {
-      setRestockError("Unable to generate restock proposal.");
-    } finally {
-      setRestockLoading(false);
-    }
-  };
-
-  const printRestockProposal = () => {
-    if (!restockProposal || selectedRestockItems.length === 0) return;
-    const escapeHtml = (value: string | number | null) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#39;" })[character] || character);
-    const proposer = restockProposal.proposer.name || restockProposal.proposer.email || "Cashier";
-    const rows = selectedRestockItems.map((item, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(item.itemCode)}</td><td>${escapeHtml(item.itemName)}</td><td>${item.currentStock}</td><td>${item.heldQuantity}</td><td>${item.availableStock}</td><td>${item.proposedQuantity} ${escapeHtml(item.unit || "pcs")}</td><td>Rp ${item.buyPrice.toLocaleString("id-ID")}</td><td>Rp ${item.lineTotal.toLocaleString("id-ID")}</td></tr>`).join("");
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      setRestockError("Allow pop-ups to export the proposal as a PDF.");
-      return;
-    }
-    printWindow.opener = null;
-    printWindow.document.write(`<!doctype html><html><head><title>Restock Proposal</title><style>body{font-family:Arial,sans-serif;color:#111;margin:36px}h1{font-size:22px;margin:0 0 6px}p{margin:4px 0;color:#444}table{width:100%;border-collapse:collapse;margin-top:24px;font-size:12px}th,td{border:1px solid #333;padding:8px;text-align:left}th{background:#eee}.total{margin-top:16px;text-align:right;font-size:16px;font-weight:700}.signatures{display:flex;justify-content:space-between;margin-top:80px;text-align:center}.signature{width:220px;border-top:1px solid #222;padding-top:8px}</style></head><body><h1>RESTOCK PROPOSAL</h1><p>Generated: ${new Date(restockProposal.generatedAt).toLocaleString("id-ID")}</p><p>Basis: sales in the past ${restockProposal.lookbackDays} days; proposed stock coverage: ${restockProposal.targetCoverDays} days.</p><table><thead><tr><th>No.</th><th>Item code</th><th>Item name</th><th>Physical stock</th><th>Held</th><th>Available stock</th><th>Proposed qty</th><th>Buy price</th><th>Line total</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total proposal value: Rp ${restockTotal.toLocaleString("id-ID")}</div><div class="signatures"><div class="signature">Proposed by<br/><strong>${escapeHtml(proposer)}</strong></div><div class="signature">Approved by</div></div></body></html>`);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  };
 
   const debtPromptFor = (staffAllowance: Allowance, preferredPeriod?: DebtPrompt["periodType"]): DebtPrompt | null => {
     const periodType = selectAllowanceDebtPeriod(staffAllowance.currentDebt, staffAllowance.previousDebt, preferredPeriod);
@@ -969,9 +898,7 @@ export default function PosCashierPage() {
           >
             Preorder pickup
           </Button>
-          <Button variant="light" loading={restockLoading} onClick={() => void openRestockProposal()}>
-            Restock proposal
-          </Button>
+
           {step !== "identify" && (
             <Button
               variant="subtle"
@@ -1118,48 +1045,6 @@ export default function PosCashierPage() {
         )}
       </Modal>
 
-      <Modal
-        opened={restockOpened}
-        onClose={() => { setRestockOpened(false); setRestockProposal(null); setRestockError(""); }}
-        title="Restock proposal"
-        size="xl"
-        centered
-      >
-        <Stack gap="md">
-          {restockLoading && <Center py="xl"><Loader /></Center>}
-          {restockError && <Alert color="red">{restockError}</Alert>}
-          {restockProposal && (
-            <>
-              <Text size="sm" c="dimmed">
-                Suggested quantities cover the next {restockProposal.targetCoverDays} days based on sales during the previous {restockProposal.lookbackDays} days. Deselect items not needed before exporting.
-              </Text>
-              {restockProposal.items.length === 0 ? (
-                <Alert color="blue">No products need restocking based on recent sales.</Alert>
-              ) : (
-                <Stack gap="xs">
-                  {restockProposal.items.map((item) => (
-                    <Checkbox
-                      key={item.itemCode}
-                      checked={restockSelected.has(item.itemCode)}
-                      onChange={(event) => setRestockSelected((current) => {
-                        const next = new Set(current);
-                        if (event.currentTarget.checked) next.add(item.itemCode);
-                        else next.delete(item.itemCode);
-                        return next;
-                      })}
-                      label={<Group justify="space-between" wrap="nowrap" w="100%"><Box><Text fw={600}>{item.itemName}</Text><Text size="xs" c="dimmed">{item.itemCode} · Available: {item.availableStock} (held: {item.heldQuantity}) · Sold: {item.soldUnits}</Text></Box><Text ta="right" size="sm">{item.proposedQuantity} {item.unit || "pcs"}<br />{formatMoney(item.lineTotal)}</Text></Group>}
-                    />
-                  ))}
-                </Stack>
-              )}
-              <Group justify="space-between" mt="sm">
-                <Text fw={700}>Total proposal value: {formatMoney(restockTotal)}</Text>
-                <Button onClick={printRestockProposal} disabled={selectedRestockItems.length === 0}>Export / Print PDF</Button>
-              </Group>
-            </>
-          )}
-        </Stack>
-      </Modal>
 
       <Modal
         opened={pickupOpened}
