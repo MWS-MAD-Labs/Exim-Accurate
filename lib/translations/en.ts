@@ -81,6 +81,8 @@ export const en = {
     forgotPassword: "Forgot password?",
     submit: "Login",
     googleSubmit: "Continue with Google",
+    useCredentials: "Sign in with email and password",
+    hideCredentials: "Hide email and password form",
     errorTitle: "Login failed",
     errorInvalid: "Invalid email or password",
     errorGeneric: "An error occurred. Please try again.",

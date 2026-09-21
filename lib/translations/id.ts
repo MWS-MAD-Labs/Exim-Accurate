@@ -81,6 +81,8 @@ export const id = {
     forgotPassword: "Lupa password?",
     submit: "Masuk",
     googleSubmit: "Lanjutkan dengan Google",
+    useCredentials: "Masuk dengan email & password",
+    hideCredentials: "Sembunyikan login email & password",
     errorTitle: "Login gagal",
     errorInvalid: "Email atau password tidak valid",
     errorGeneric: "Terjadi kesalahan. Silakan coba lagi.",

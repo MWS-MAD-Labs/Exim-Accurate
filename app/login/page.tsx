@@ -15,6 +15,7 @@ import {
   ThemeIcon,
   Divider,
   Anchor,
+  Collapse,
   useMantineColorScheme,
   rem,
 } from "@mantine/core";
@@ -70,6 +71,7 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
   const [error, setError] = useState("");
 
   const requestedCallbackUrl = searchParams.get("callbackUrl");
@@ -77,6 +79,12 @@ function LoginContent() {
     requestedCallbackUrl?.startsWith("/") && !requestedCallbackUrl.startsWith("//")
       ? requestedCallbackUrl
       : "/dashboard";
+
+  useEffect(() => {
+    if (searchParams.get("credentials") === "true" || searchParams.get("password") === "true") {
+      setShowCredentials(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const oauthError = searchParams.get("error");
@@ -367,7 +375,7 @@ function LoginContent() {
                   </Alert>
                 )}
 
-                {googleEnabled && (
+                {googleEnabled ? (
                   <>
                     <Button
                       type="button"
@@ -383,86 +391,175 @@ function LoginContent() {
                       {t.login.googleSubmit}
                     </Button>
 
-                    <Divider
-                      label={t.login.or}
-                      labelPosition="center"
-                      color={isDark ? "dark.4" : "gray.3"}
-                    />
-                  </>
-                )}
-
-                <form onSubmit={handleSubmit}>
-                  <Stack gap="md">
-                    <TextInput
-                      label={t.login.email}
-                      placeholder={t.login.placeholderEmail}
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.currentTarget.value)}
-                      size="md"
-                      radius="md"
-                      styles={{
-                        label: {
-                          marginBottom: 6,
-                          fontWeight: 500,
-                        },
-                      }}
-                    />
-
-                    <PasswordInput
-                      label={t.login.password}
-                      placeholder={t.login.placeholderPassword}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.currentTarget.value)}
-                      size="md"
-                      radius="md"
-                      styles={{
-                        label: {
-                          marginBottom: 6,
-                          fontWeight: 500,
-                        },
-                      }}
-                    />
-
-                    <Group justify="flex-end">
+                    <Group justify="center" mt="xs">
                       <Anchor
                         component="button"
                         type="button"
-                        c="brand"
-                        size="sm"
-                        fw={500}
+                        size="xs"
+                        c="dimmed"
+                        onClick={() => setShowCredentials((prev) => !prev)}
                       >
-                        {t.login.forgotPassword}
+                        {showCredentials ? t.login.hideCredentials : t.login.useCredentials}
                       </Anchor>
                     </Group>
 
-                    <Button
-                      type="submit"
-                      fullWidth
-                      loading={loading}
-                      disabled={googleLoading}
-                      size="md"
-                      radius="md"
-                      rightSection={!loading && <IconArrowRight size={18} />}
-                      style={{
-                        background:
-                          "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                        boxShadow: "0 4px 14px rgba(34, 139, 230, 0.3)",
-                        transition: "all 0.2s ease",
-                      }}
-                      styles={{
-                        root: {
-                          "&:hover": {
-                            boxShadow: "0 6px 20px rgba(34, 139, 230, 0.4)",
+                    <Collapse in={showCredentials}>
+                      <Stack gap="md" mt="sm">
+                        <Divider
+                          label={t.login.or}
+                          labelPosition="center"
+                          color={isDark ? "dark.4" : "gray.3"}
+                        />
+
+                        <form onSubmit={handleSubmit}>
+                          <Stack gap="md">
+                            <TextInput
+                              label={t.login.email}
+                              placeholder={t.login.placeholderEmail}
+                              required
+                              value={email}
+                              onChange={(e) => setEmail(e.currentTarget.value)}
+                              size="md"
+                              radius="md"
+                              styles={{
+                                label: {
+                                  marginBottom: 6,
+                                  fontWeight: 500,
+                                },
+                              }}
+                            />
+
+                            <PasswordInput
+                              label={t.login.password}
+                              placeholder={t.login.placeholderPassword}
+                              required
+                              value={password}
+                              onChange={(e) => setPassword(e.currentTarget.value)}
+                              size="md"
+                              radius="md"
+                              styles={{
+                                label: {
+                                  marginBottom: 6,
+                                  fontWeight: 500,
+                                },
+                              }}
+                            />
+
+                            <Group justify="flex-end">
+                              <Anchor
+                                component="button"
+                                type="button"
+                                c="brand"
+                                size="sm"
+                                fw={500}
+                              >
+                                {t.login.forgotPassword}
+                              </Anchor>
+                            </Group>
+
+                            <Button
+                              type="submit"
+                              fullWidth
+                              loading={loading}
+                              disabled={googleLoading}
+                              size="md"
+                              radius="md"
+                              rightSection={!loading && <IconArrowRight size={18} />}
+                              style={{
+                                background:
+                                  "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
+                                boxShadow: "0 4px 14px rgba(34, 139, 230, 0.3)",
+                                transition: "all 0.2s ease",
+                              }}
+                              styles={{
+                                root: {
+                                  "&:hover": {
+                                    boxShadow: "0 6px 20px rgba(34, 139, 230, 0.4)",
+                                  },
+                                },
+                              }}
+                            >
+                              {loading ? t.common.processing : t.login.submit}
+                            </Button>
+                          </Stack>
+                        </form>
+                      </Stack>
+                    </Collapse>
+                  </>
+                ) : (
+                  <form onSubmit={handleSubmit}>
+                    <Stack gap="md">
+                      <TextInput
+                        label={t.login.email}
+                        placeholder={t.login.placeholderEmail}
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.currentTarget.value)}
+                        size="md"
+                        radius="md"
+                        styles={{
+                          label: {
+                            marginBottom: 6,
+                            fontWeight: 500,
                           },
-                        },
-                      }}
-                    >
-                      {loading ? t.common.processing : t.login.submit}
-                    </Button>
-                  </Stack>
-                </form>
+                        }}
+                      />
+
+                      <PasswordInput
+                        label={t.login.password}
+                        placeholder={t.login.placeholderPassword}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.currentTarget.value)}
+                        size="md"
+                        radius="md"
+                        styles={{
+                          label: {
+                            marginBottom: 6,
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+
+                      <Group justify="flex-end">
+                        <Anchor
+                          component="button"
+                          type="button"
+                          c="brand"
+                          size="sm"
+                          fw={500}
+                        >
+                          {t.login.forgotPassword}
+                        </Anchor>
+                      </Group>
+
+                      <Button
+                        type="submit"
+                        fullWidth
+                        loading={loading}
+                        disabled={googleLoading}
+                        size="md"
+                        radius="md"
+                        rightSection={!loading && <IconArrowRight size={18} />}
+                        style={{
+                          background:
+                            "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
+                          boxShadow: "0 4px 14px rgba(34, 139, 230, 0.3)",
+                          transition: "all 0.2s ease",
+                        }}
+                        styles={{
+                          root: {
+                            "&:hover": {
+                              boxShadow: "0 6px 20px rgba(34, 139, 230, 0.4)",
+                            },
+                          },
+                        }}
+                      >
+                        {loading ? t.common.processing : t.login.submit}
+                      </Button>
+                    </Stack>
+                  </form>
+                )}
               </Stack>
             </Paper>
 
