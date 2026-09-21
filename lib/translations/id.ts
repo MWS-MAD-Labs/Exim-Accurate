@@ -80,9 +80,13 @@ export const id = {
     placeholderPassword: "Masukkan password",
     forgotPassword: "Lupa password?",
     submit: "Masuk",
+    googleSubmit: "Lanjutkan dengan Google",
     errorTitle: "Login gagal",
     errorInvalid: "Email atau password tidak valid",
     errorGeneric: "Terjadi kesalahan. Silakan coba lagi.",
+    errorGoogleAccessDenied:
+      "Akun Google ini belum diizinkan. Minta administrator menambahkan emailnya terlebih dahulu.",
+    errorGoogleGeneric: "Login dengan Google gagal. Silakan coba lagi.",
     or: "atau",
     noAccount: "Belum punya akun?",
     register: "Daftar di sini",

@@ -80,9 +80,13 @@ export const en = {
     placeholderPassword: "Enter password",
     forgotPassword: "Forgot password?",
     submit: "Login",
+    googleSubmit: "Continue with Google",
     errorTitle: "Login failed",
     errorInvalid: "Invalid email or password",
     errorGeneric: "An error occurred. Please try again.",
+    errorGoogleAccessDenied:
+      "This Google account is not authorized. Ask an administrator to add its email first.",
+    errorGoogleGeneric: "Google sign-in failed. Please try again.",
     or: "or",
     noAccount: "Don't have an account?",
     register: "Register here",

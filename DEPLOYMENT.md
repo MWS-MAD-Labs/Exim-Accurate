@@ -16,6 +16,8 @@ Copy `.env.example` to `.env` and configure at least:
 DATABASE_URL=postgresql://postgres:password@postgres:5432/exim_accurate?schema=public
 NEXTAUTH_URL=https://your-domain.example
 NEXTAUTH_SECRET=replace-with-a-strong-random-secret
+WOKO_GOOGLE_OAUTH_CLIENT_ID=...
+WOKO_GOOGLE_OAUTH_CLIENT_SECRET=...
 
 ACCURATE_APP_KEY=...
 ACCURATE_SIGNATURE_SECRET=...
@@ -35,6 +37,8 @@ SMTP_FROM=Exima Notifications <notifications@example.com>
 ```
 
 Never commit `.env` or expose OAuth secrets, SMTP passwords, tokens, session values, or database credentials in logs. For Google SMTP, use an App Password rather than the account's normal password whenever possible.
+
+For Google Sign-In, configure the Google OAuth web application's authorized redirect URI as `https://your-domain.example/api/auth/callback/google`. Google authentication is intentionally limited to existing Exima users: an administrator must provision the user's email and role first, and the verified Google email must match that account.
 
 Both Compose stacks include an `allowance-notification-scheduler` service and a `pos-sale-sync-scheduler` service. After the app becomes healthy, the first sidecar calls the protected allowance-notification and POS receipt-retry endpoints hourly, while the sale-sync sidecar retries locally queued Accurate inventory adjustments every minute over the internal Docker network. Allowance notifications only process day -1 and day 0 of each active POS store's cutoff date, and `PosAllowanceNotification` prevents duplicate delivery. Receipt retries claim only pending, failed, stale-processing, or legacy role-disabled sales using at-least-once delivery with sale-level status and claim timeouts to minimize duplicate delivery across retries. Notifications and receipts use branded HTML with plain text included as a mail-client fallback. No external scheduler is required for the standard Compose deployment.
 
@@ -162,6 +166,7 @@ npm run build
 Also verify:
 
 - `NEXTAUTH_URL` and `ACCURATE_REDIRECT_URI` use the production HTTPS domain.
+- The Google OAuth client authorizes `${NEXTAUTH_URL}/api/auth/callback/google`, and `WOKO_GOOGLE_OAUTH_CLIENT_ID` plus `WOKO_GOOGLE_OAUTH_CLIENT_SECRET` are present in the app container.
 - Database backups and restore procedures are tested.
 - Credential, POS, analytics, self-checkout, and borrowing endpoints remain organization-scoped.
 - `CRON_SECRET` protects kiosk synchronization and allowance notification scheduling.
@@ -169,7 +174,7 @@ Also verify:
 
 ## Post-Deployment Verification
 
-- Sign in and verify role-based navigation.
+- Sign in with both credentials and a provisioned Google account, then verify role-based navigation. Confirm an unprovisioned Google email is rejected.
 - Connect Accurate and confirm host/session resolution.
 - Reconnect Accurate and confirm no second active credential is created.
 - Test inventory export preview and download.

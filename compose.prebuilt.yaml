@@ -10,6 +10,8 @@ services:
       PORT: 5758
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:password@postgres:5432/exim_accurate?schema=public}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:5758}
+      WOKO_GOOGLE_OAUTH_CLIENT_ID: ${WOKO_GOOGLE_OAUTH_CLIENT_ID:-}
+      WOKO_GOOGLE_OAUTH_CLIENT_SECRET: ${WOKO_GOOGLE_OAUTH_CLIENT_SECRET:-}
     ports:
       - "5758:5758"
     healthcheck:

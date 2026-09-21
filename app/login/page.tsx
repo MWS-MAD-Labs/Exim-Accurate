@@ -18,10 +18,10 @@ import {
   useMantineColorScheme,
   rem,
 } from "@mantine/core";
-import { useState } from "react";
-import { getSession, signIn } from "next-auth/react";
+import { Suspense, useEffect, useState } from "react";
+import { getProviders, getSession, signIn } from "next-auth/react";
 import { getRoleHome } from "@/lib/access-control";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
 import { useLanguage } from "@/lib/language";
 import {
@@ -32,11 +32,13 @@ import {
   IconFileImport,
   IconCheck,
   IconArrowRight,
+  IconBrandGoogle,
 } from "@tabler/icons-react";
 
-export default function LoginPage() {
+function LoginContent() {
   const { t } = useLanguage();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const features = [
     {
@@ -66,7 +68,53 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
   const [error, setError] = useState("");
+
+  const requestedCallbackUrl = searchParams.get("callbackUrl");
+  const callbackUrl =
+    requestedCallbackUrl?.startsWith("/") && !requestedCallbackUrl.startsWith("//")
+      ? requestedCallbackUrl
+      : "/dashboard";
+
+  useEffect(() => {
+    const oauthError = searchParams.get("error");
+    if (oauthError === "AccessDenied") {
+      setError(t.login.errorGoogleAccessDenied);
+    } else if (oauthError) {
+      setError(t.login.errorGoogleGeneric);
+    }
+  }, [searchParams, t.login.errorGoogleAccessDenied, t.login.errorGoogleGeneric]);
+
+  useEffect(() => {
+    let active = true;
+
+    getProviders()
+      .then((providers) => {
+        if (active) setGoogleEnabled(Boolean(providers?.google));
+      })
+      .catch(() => {
+        if (active) setGoogleEnabled(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    setError("");
+    setGoogleLoading(true);
+
+    try {
+      await signIn("google", { callbackUrl });
+    } catch {
+      setError(t.login.errorGeneric);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -306,100 +354,120 @@ export default function LoginPage() {
                   : "1px solid var(--mantine-color-gray-2)",
               }}
             >
-              <form onSubmit={handleSubmit}>
-                <Stack gap="md">
-                  {error && (
-                    <Alert
-                      icon={<IconAlertCircle size={16} />}
-                      title={t.login.errorTitle}
-                      color="red"
-                      variant="light"
-                      radius="md"
-                    >
-                      {error}
-                    </Alert>
-                  )}
-
-                  <TextInput
-                    label={t.login.email}
-                    placeholder={t.login.placeholderEmail}
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.currentTarget.value)}
-                    size="md"
+              <Stack gap="md">
+                {error && (
+                  <Alert
+                    icon={<IconAlertCircle size={16} />}
+                    title={t.login.errorTitle}
+                    color="red"
+                    variant="light"
                     radius="md"
-                    styles={{
-                      label: {
-                        marginBottom: 6,
-                        fontWeight: 500,
-                      },
-                    }}
-                  />
-
-                  <PasswordInput
-                    label={t.login.password}
-                    placeholder={t.login.placeholderPassword}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.currentTarget.value)}
-                    size="md"
-                    radius="md"
-                    styles={{
-                      label: {
-                        marginBottom: 6,
-                        fontWeight: 500,
-                      },
-                    }}
-                  />
-
-                  <Group justify="flex-end">
-                    <Anchor
-                      component="button"
-                      type="button"
-                      c="brand"
-                      size="sm"
-                      fw={500}
-                    >
-                      {t.login.forgotPassword}
-                    </Anchor>
-                  </Group>
-
-                  <Button
-                    type="submit"
-                    fullWidth
-                    loading={loading}
-                    size="md"
-                    radius="md"
-                    rightSection={!loading && <IconArrowRight size={18} />}
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                      boxShadow: "0 4px 14px rgba(34, 139, 230, 0.3)",
-                      transition: "all 0.2s ease",
-                    }}
-                    styles={{
-                      root: {
-                        "&:hover": {
-                          boxShadow: "0 6px 20px rgba(34, 139, 230, 0.4)",
-                        },
-                      },
-                    }}
                   >
-                    {loading ? t.common.processing : t.login.submit}
-                  </Button>
-                </Stack>
-              </form>
+                    {error}
+                  </Alert>
+                )}
+
+                {googleEnabled && (
+                  <>
+                    <Button
+                      type="button"
+                      fullWidth
+                      variant="default"
+                      loading={googleLoading}
+                      disabled={loading}
+                      size="md"
+                      radius="md"
+                      leftSection={!googleLoading && <IconBrandGoogle size={18} />}
+                      onClick={handleGoogleSignIn}
+                    >
+                      {t.login.googleSubmit}
+                    </Button>
+
+                    <Divider
+                      label={t.login.or}
+                      labelPosition="center"
+                      color={isDark ? "dark.4" : "gray.3"}
+                    />
+                  </>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                  <Stack gap="md">
+                    <TextInput
+                      label={t.login.email}
+                      placeholder={t.login.placeholderEmail}
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.currentTarget.value)}
+                      size="md"
+                      radius="md"
+                      styles={{
+                        label: {
+                          marginBottom: 6,
+                          fontWeight: 500,
+                        },
+                      }}
+                    />
+
+                    <PasswordInput
+                      label={t.login.password}
+                      placeholder={t.login.placeholderPassword}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.currentTarget.value)}
+                      size="md"
+                      radius="md"
+                      styles={{
+                        label: {
+                          marginBottom: 6,
+                          fontWeight: 500,
+                        },
+                      }}
+                    />
+
+                    <Group justify="flex-end">
+                      <Anchor
+                        component="button"
+                        type="button"
+                        c="brand"
+                        size="sm"
+                        fw={500}
+                      >
+                        {t.login.forgotPassword}
+                      </Anchor>
+                    </Group>
+
+                    <Button
+                      type="submit"
+                      fullWidth
+                      loading={loading}
+                      disabled={googleLoading}
+                      size="md"
+                      radius="md"
+                      rightSection={!loading && <IconArrowRight size={18} />}
+                      style={{
+                        background:
+                          "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
+                        boxShadow: "0 4px 14px rgba(34, 139, 230, 0.3)",
+                        transition: "all 0.2s ease",
+                      }}
+                      styles={{
+                        root: {
+                          "&:hover": {
+                            boxShadow: "0 6px 20px rgba(34, 139, 230, 0.4)",
+                          },
+                        },
+                      }}
+                    >
+                      {loading ? t.common.processing : t.login.submit}
+                    </Button>
+                  </Stack>
+                </form>
+              </Stack>
             </Paper>
 
             {/* Footer */}
             <Stack gap="md" align="center">
-              <Divider
-                label={t.login.or}
-                labelPosition="center"
-                w="100%"
-                color={isDark ? "dark.4" : "gray.3"}
-              />
-
               <Text size="sm" c="dimmed" ta="center">
                 {t.login.noAccount}{" "}
                 <Anchor
@@ -422,5 +490,13 @@ export default function LoginPage() {
         </Container>
       </Box>
     </Box>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 }

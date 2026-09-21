@@ -1,7 +1,11 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
+
+const googleClientId = process.env.WOKO_GOOGLE_OAUTH_CLIENT_ID;
+const googleClientSecret = process.env.WOKO_GOOGLE_OAUTH_CLIENT_SECRET;
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -41,6 +45,14 @@ export const authOptions: NextAuthOptions = {
         };
       },
     }),
+    ...(googleClientId && googleClientSecret
+      ? [
+          GoogleProvider({
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
+          }),
+        ]
+      : []),
   ],
   session: {
     strategy: "jwt",
@@ -49,8 +61,43 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
   },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
+    async signIn({ account, profile, user }) {
+      if (account?.provider !== "google") return true;
+
+      const googleProfile = profile as { email_verified?: boolean } | undefined;
+      if (!googleProfile?.email_verified || !user.email) return false;
+
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          email: {
+            equals: user.email,
+            mode: "insensitive",
+          },
+        },
+        select: { id: true },
+      });
+
+      return Boolean(existingUser);
+    },
+    async jwt({ token, user, account }) {
+      if (account?.provider === "google" && user.email) {
+        const existingUser = await prisma.user.findFirst({
+          where: {
+            email: {
+              equals: user.email,
+              mode: "insensitive",
+            },
+          },
+          select: { id: true, email: true, name: true, role: true },
+        });
+
+        if (existingUser) {
+          token.id = existingUser.id;
+          token.email = existingUser.email;
+          token.name = existingUser.name;
+          token.role = existingUser.role;
+        }
+      } else if (user) {
         token.id = user.id;
         token.name = user.name;
         token.role = user.role;

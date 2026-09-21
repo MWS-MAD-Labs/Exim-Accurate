@@ -35,6 +35,8 @@ This guide uses **GitHub Actions** to build the image and **Komodo UI** to deplo
    - Do not use `localhost` from inside the app container.
    - PostgreSQL is intentionally not published on a host port in the production Compose file; the app reaches it over the private Compose network.
    - Ensure `NEXTAUTH_URL` and `ACCURATE_REDIRECT_URI` use the production domain.
+   - Set `WOKO_GOOGLE_OAUTH_CLIENT_ID` and `WOKO_GOOGLE_OAUTH_CLIENT_SECRET` in the Komodo stack environment. `compose.prebuilt.yaml` passes both values into the app container.
+   - In Google Cloud, authorize `${NEXTAUTH_URL}/api/auth/callback/google` as the web OAuth redirect URI.
 
 ---
 
