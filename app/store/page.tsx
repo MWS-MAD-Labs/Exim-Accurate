@@ -5,7 +5,6 @@ import QRCode from "qrcode";
 import {
   Accordion,
   ActionIcon,
-  Progress,
   Select,
   Alert,
   AppShell,
@@ -74,7 +73,7 @@ interface Allowance {
 }
 
 type PaymentMethod = "allowance" | "cash" | "qris";
-type PaymentChoice = "cash" | "qris" | "allowance_first_cash" | "allowance_first_qris" | "allowance_debt";
+type PaymentChoice = "cash" | "qris" | "allowance_first_cash" | "allowance_first_qris" | "allowance_full" | "allowance_debt";
 
 interface Product {
   itemCode: string;
@@ -104,6 +103,7 @@ interface Reservation {
   preferredPaymentMethod: PaymentMethod;
   paymentStrategy: "external_only" | "allowance_then_external" | "allowance_debt";
   externalPaymentMethod: "cash" | "qris" | null;
+  approvedResultingDebt: string | null;
   items: ReservationItem[];
 }
 
@@ -176,6 +176,7 @@ export default function StorePage() {
   const [submitting, setSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentChoice | null>(null);
   const [debtConfirmed, setDebtConfirmed] = useState(false);
+
   const [message, setMessage] = useState<{ color: string; text: string } | null>(null);
 
   const loadReservations = useCallback(async () => {
@@ -264,15 +265,32 @@ export default function StorePage() {
   const allowanceAvailable = !!allowance && !allowance.previousDebt.blocked && allowance.remaining > 0 && cartTotal > 0;
   const allowanceCoversCart = allowanceAvailable && allowance.remaining >= cartTotal;
   const amountOverAllowance = Math.max(0, cartTotal - (allowance?.remaining ?? 0));
+  const debtAvailable = !!allowance && !allowance.previousDebt.blocked && cartTotal > 0 && !allowanceCoversCart;
+  const blockedDebtMessage = allowance?.previousDebt.blocked
+    ? t.dashboard.pos.debtBlockedAlert.replace("{amount}", formatMoney(allowance.previousDebt.outstanding))
+    : "";
   const activeOrders = reservations.filter((order) => order.status === "active");
   const visibleOrders = reservations.filter((order) => orderFilter === "all" || order.status === orderFilter);
 
-  useEffect(() => { setDebtConfirmed(false); }, [cartTotal, allowance?.remaining]);
+  const availablePaymentMethods: PaymentChoice[] = allowanceCoversCart
+    ? ["allowance_full", "cash", "qris"]
+    : allowanceAvailable
+      ? ["allowance_first_cash", "allowance_first_qris", "cash", "qris"]
+      : ["cash", "qris"];
+  if (debtAvailable) availablePaymentMethods.push("allowance_debt");
+  const validPaymentMethod = paymentMethod && availablePaymentMethods.includes(paymentMethod) ? paymentMethod : null;
+
+  useEffect(() => { setDebtConfirmed(false); }, [cartTotal, allowance?.remaining, paymentMethod, debtAvailable]);
 
   useEffect(() => {
-    if (allowanceAvailable) setPaymentMethod((current) => current ?? "allowance_first_cash");
-    else setPaymentMethod((current) => current?.startsWith("allowance_first") ? null : current);
-  }, [allowanceAvailable]);
+    setPaymentMethod((current) => {
+      if (current === "cash" || current === "qris") return current;
+      if (current === "allowance_debt" && debtAvailable) return current;
+      if (allowanceCoversCart) return "allowance_full";
+      if (allowanceAvailable) return current === "allowance_first_qris" ? current : "allowance_first_cash";
+      return null;
+    });
+  }, [allowanceAvailable, allowanceCoversCart, debtAvailable]);
 
   const setQuantity = (product: Product, quantity: number) => {
     const safeQuantity = Math.max(0, Math.min(product.stock, Math.floor(quantity || 0)));
@@ -280,7 +298,7 @@ export default function StorePage() {
   };
 
   const reserve = async () => {
-    if (!store || !cartLines.length || !paymentMethod || (paymentMethod === "allowance_debt" && !debtConfirmed) || submitting) return;
+    if (!store || !cartLines.length || !validPaymentMethod || allowance?.previousDebt.blocked || (validPaymentMethod === "allowance_debt" && !debtConfirmed) || submitting) return;
     setSubmitting(true);
     setMessage(null);
     try {
@@ -289,11 +307,12 @@ export default function StorePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           idempotencyKey: createIdempotencyKey(),
-          payment: paymentMethod === "cash" || paymentMethod === "qris"
-            ? { strategy: "external_only", method: paymentMethod }
-            : paymentMethod === "allowance_debt"
-              ? { strategy: "allowance_debt", debtConfirmed: true, expectedResultingDebt: amountOverAllowance.toFixed(2) }
-              : { strategy: "allowance_then_external", remainderMethod: paymentMethod === "allowance_first_qris" ? "qris" : "cash", expectedAllowanceAmount: Math.min(cartTotal, Math.max(0, allowance?.remaining ?? 0)).toFixed(2) },
+          payment: validPaymentMethod === "cash" || validPaymentMethod === "qris"
+            ? { strategy: "external_only", method: validPaymentMethod }
+            : validPaymentMethod === "allowance_full" || validPaymentMethod === "allowance_debt"
+              // Full allowance authorizes no debt; debt checkout requires explicit approval.
+              ? { strategy: "allowance_debt", debtConfirmed: true, expectedResultingDebt: validPaymentMethod === "allowance_full" ? "0.00" : amountOverAllowance.toFixed(2) }
+              : { strategy: "allowance_then_external", remainderMethod: validPaymentMethod === "allowance_first_qris" ? "qris" : "cash", expectedAllowanceAmount: Math.min(cartTotal, Math.max(0, allowance?.remaining ?? 0)).toFixed(2) },
           items: cartLines.map(({ itemCode, quantity }) => ({ itemCode, quantity })),
         }),
       });
@@ -381,18 +400,6 @@ export default function StorePage() {
       <AppShell.Main bg="var(--mantine-color-body)" mih="100vh">
         <Container size="xl" py={{ base: "md", sm: "xl" }}>
           <Stack gap="lg">
-            <Group justify="space-between" align="flex-start">
-              <Box>
-                <Text size="sm" c="dimmed" mb={4}>Welcome back{session?.user?.name ? `, ${session.user.name}` : ""}</Text>
-                <Title order={1}>Your staff store</Title>
-                <Text c="dimmed" mt="xs">Check your balance, shop, and keep track of your purchases.</Text>
-              </Box>
-              {store && (
-                <Badge variant="light" size="lg">
-                  {store.warehouseName} · {store.holdHours}h hold
-                </Badge>
-              )}
-            </Group>
 
             {message && (
               <Alert color={message.color} icon={message.color === "red" ? <IconAlertCircle size={18} /> : <IconCheck size={18} />} withCloseButton onClose={() => setMessage(null)}>
@@ -400,30 +407,15 @@ export default function StorePage() {
               </Alert>
             )}
 
-            <SimpleGrid cols={{ base: 1, sm: 3 }}>
-              <Paper withBorder radius="lg" p="lg">
-                <Group justify="space-between"><Text size="sm" fw={600}>Remaining allowance</Text><ThemeIcon variant="light" radius="xl"><IconWallet size={20} /></ThemeIcon></Group>
-                <Text size="30px" fw={800} c={allowance && allowance.remaining < 0 ? "red" : "blue"} mt="xs">{allowance ? formatMoney(allowance.remaining) : "Unavailable"}</Text>
-                <Text size="xs" c="dimmed">{allowance ? `${new Date(allowance.period.startsAt).toLocaleDateString()} – ${new Date(allowance.period.endsAt).toLocaleDateString()}` : "Refresh to check your balance"}</Text>
-                {allowance && <><Progress mt="md" value={allowance.total > 0 ? Math.min(100, Math.max(0, allowance.used / allowance.total * 100)) : 0} aria-label="Allowance used" /><Text size="xs" c="dimmed" mt="xs">{formatMoney(allowance.used)} used of {formatMoney(allowance.total)}</Text></>}
-                <Text size="xs" c="dimmed" mt="xs">Pending preorders are not deducted until pickup.</Text>
-              </Paper>
-              <Paper withBorder radius="lg" p="lg">
-                <Group justify="space-between"><Text size="sm" fw={600}>Ready for pickup</Text><ThemeIcon variant="light" color="cyan" radius="xl"><IconQrcode size={20} /></ThemeIcon></Group>
-                <Text size="30px" fw={800} mt="xs">{ordersError ? "—" : activeOrders.length}</Text>
-                <Text size="sm" c="dimmed">Show your ticket at the cashier to collect your items.</Text>
-                <Button variant="light" mt="md" fullWidth onClick={() => { setView("orders"); setOrderFilter("active"); }}>View pickup tickets</Button>
-              </Paper>
-              <Paper withBorder radius="lg" p="lg">
-                <Group justify="space-between"><Text size="sm" fw={600}>Your purchases</Text><ThemeIcon variant="light" color="grape" radius="xl"><IconHistory size={20} /></ThemeIcon></Group>
-                <Text fw={700} mt="md">All your store & POS purchases</Text>
-                <Text size="sm" c="dimmed" mt="xs">Check items, payment details, and balance after each purchase.</Text>
-                <Button variant="light" color="grape" mt="md" fullWidth onClick={() => setView("history")}>View transaction history</Button>
-              </Paper>
-            </SimpleGrid>
+            <Paper withBorder radius="md" px="md" py="sm">
+              <Group justify="space-between" gap="xs">
+                <Group gap="xs"><IconWallet size={18} /><Text size="sm" fw={600}>Remaining allowance</Text></Group>
+                <Text size="lg" fw={800} c={allowance && allowance.remaining < 0 ? "red" : "blue"}>{allowance ? formatMoney(allowance.remaining) : "Unavailable"}</Text>
+              </Group>
+            </Paper>
 
             {allowance?.previousDebt.hasOutstanding && <Alert color={allowance.previousDebt.blocked ? "red" : "orange"} icon={<IconAlertCircle size={18} />} title="Previous-period balance due">
-              {formatMoney(allowance.previousDebt.outstanding)} · Due {new Date(allowance.previousDebt.payday).toLocaleDateString()}. {allowance.previousDebt.blocked ? "Please settle this balance at POS before making another purchase." : "Please settle this balance at POS by payday."}
+              {formatMoney(allowance.previousDebt.outstanding)} · Due {new Date(allowance.previousDebt.payday).toLocaleDateString()}. {allowance.previousDebt.blocked ? blockedDebtMessage : "Please settle this balance at POS by payday."}
             </Alert>}
 
             <Group justify="space-between">
@@ -516,7 +508,7 @@ export default function StorePage() {
                             <Badge color={meta.color}>{meta.label}</Badge>
                           </Group>
                           <Text size="sm" c="dimmed">{reservation.warehouseName}</Text>
-                          <Text size="xs" c="dimmed">Payment: {reservation.paymentStrategy === "allowance_debt" ? "Allowance debt" : reservation.paymentStrategy === "allowance_then_external" ? `Allowance first + ${reservation.externalPaymentMethod === "qris" ? "QRIS" : "Cash"}` : reservation.externalPaymentMethod === "qris" ? "QRIS" : "Cash"}</Text>
+                          <Text size="xs" c="dimmed">Payment: {reservation.paymentStrategy === "allowance_debt" ? (reservation.approvedResultingDebt !== null && Number(reservation.approvedResultingDebt) === 0 ? "Full Allowance" : "Allowance debt") : reservation.paymentStrategy === "allowance_then_external" ? `Allowance first + ${reservation.externalPaymentMethod === "qris" ? "QRIS" : "Cash"}` : reservation.externalPaymentMethod === "qris" ? "QRIS" : "Cash"}</Text>
                         </Box>
                         <Text fw={700}>{formatMoney(total)}</Text>
                       </Group>
@@ -557,7 +549,7 @@ export default function StorePage() {
                 {transactions.map((transaction) => <Accordion.Item key={transaction.id} value={transaction.id}>
                   <Accordion.Control>
                     <Group justify="space-between" wrap="wrap" pr="sm">
-                      <Box><Text fw={700}>{transaction.reservationReference || "POS purchase"}</Text><Text size="xs" c="dimmed">{new Date(transaction.createdAt).toLocaleString()} · {transaction.warehouseName}</Text><Text size="sm" lineClamp={1}>{transaction.items.map((item) => `${item.quantity} × ${item.itemName}`).join(", ")}</Text></Box>
+                      <Box><Text fw={700}>{transaction.reservationReference || `POS purchase · ${transaction.id}`}</Text><Text size="xs" c="dimmed">{new Date(transaction.createdAt).toLocaleString()} · {transaction.warehouseName}</Text><Text size="sm" lineClamp={1}>{transaction.items.map((item) => `${item.quantity} × ${item.itemName}`).join(", ")}</Text></Box>
                       <Box><Text fw={800}>{formatMoney(Number(transaction.total))}</Text><Text size="xs" c="dimmed">View details</Text></Box>
                     </Group>
                   </Accordion.Control>
@@ -598,7 +590,7 @@ export default function StorePage() {
           {allowance?.previousDebt.hasOutstanding && (
             <Alert color={allowance.previousDebt.blocked ? "red" : "orange"} icon={<IconAlertCircle size={18} />}>
               {allowance.previousDebt.blocked
-                ? t.dashboard.pos.debtBlockedAlert.replace("{amount}", formatMoney(allowance.previousDebt.outstanding))
+                ? blockedDebtMessage
                 : t.dashboard.pos.debtDueByPaydayAlert
                     .replace("{amount}", formatMoney(allowance.previousDebt.outstanding))
                     .replace("{payday}", new Date(allowance.previousDebt.payday).toLocaleDateString())}
@@ -629,26 +621,27 @@ export default function StorePage() {
             )}
           </Paper>
           <Stack gap="xs">
-            <Alert color="blue" icon={<IconWallet size={18} />}>Your payment choice is saved for pickup. The cashier confirms collection without selecting payment again. Allowance and any Cash/QRIS remainder are recalculated at pickup; debt cannot exceed the amount you approve.</Alert>
-            <Radio.Group value={paymentMethod || ""} onChange={(value) => { setPaymentMethod(value as PaymentChoice); setDebtConfirmed(false); }} label="How would you like to pay?">
+            <Alert color="blue" icon={<IconWallet size={18} />}>Your payment choice is saved for pickup. Full Allowance requires enough balance at pickup; split payments recalculate the Cash/QRIS remainder using your available allowance. Debt payments cannot exceed the resulting debt you approve.</Alert>
+            <Radio.Group value={validPaymentMethod || ""} onChange={(value) => setPaymentMethod(value as PaymentChoice)} label="How would you like to pay?">
               <Stack mt="xs" gap="xs">
-                {allowanceAvailable && <Radio value="allowance_first_cash" label={<Group gap="xs"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + Cash {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
-                {allowanceAvailable && <Radio value="allowance_first_qris" label={<Group gap="xs"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + QRIS {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
+                {allowanceCoversCart && <Radio value="allowance_full" label={<Group gap="xs"><IconWallet size={16} />Full Allowance</Group>} />}
+                {allowanceAvailable && !allowanceCoversCart && <Radio value="allowance_first_cash" label={<Group gap="xs"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + Cash {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
+                {allowanceAvailable && !allowanceCoversCart && <Radio value="allowance_first_qris" label={<Group gap="xs"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + QRIS {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
                 <Radio value="cash" label={<Group gap="xs"><IconCash size={16} />Full Cash</Group>} />
                 <Radio value="qris" label={<Group gap="xs"><IconQrcode size={16} />Full QRIS</Group>} />
-                {allowance && !allowance.previousDebt.blocked && <Radio value="allowance_debt" label={<Group gap="xs"><IconAlertCircle size={16} />Record full amount as allowance debt</Group>} />}
+                {debtAvailable && <Radio value="allowance_debt" label={<Group gap="xs"><IconAlertCircle size={16} />{allowanceAvailable ? `Allowance ${formatMoney(allowance!.remaining)} + Debt ${formatMoney(amountOverAllowance)}` : `Full Debt — resulting debt ${formatMoney(amountOverAllowance)}`}</Group>} />}
               </Stack>
             </Radio.Group>
-            {paymentMethod === "allowance_debt" && allowance && (
+            {validPaymentMethod === "allowance_debt" && allowance && (
               <Alert color="orange">
                 <Stack gap="xs">
-                  <Text size="sm">Estimated balance after pickup: {formatMoney(allowance.remaining - cartTotal)}.</Text>
+                  <Text size="sm">Estimated balance after pickup: {formatMoney(allowance.remaining - cartTotal)}. The resulting debt includes any existing current-period debt.</Text>
                   <Checkbox checked={debtConfirmed} onChange={(event) => setDebtConfirmed(event.currentTarget.checked)} label={`I approve a resulting allowance debt of up to ${formatMoney(amountOverAllowance)}`} />
                 </Stack>
               </Alert>
             )}
           </Stack>
-          <Button size="lg" fullWidth loading={submitting} disabled={cartLines.length === 0 || !paymentMethod || allowance?.previousDebt.blocked || (paymentMethod === "allowance_debt" && (!allowance || !debtConfirmed))} onClick={() => void reserve()}>Confirm preorder</Button>
+          <Button size="lg" fullWidth loading={submitting} disabled={cartLines.length === 0 || !validPaymentMethod || allowance?.previousDebt.blocked || (validPaymentMethod === "allowance_debt" && !debtConfirmed)} onClick={() => void reserve()}>Confirm preorder</Button>
           <Text size="xs" c="dimmed" ta="center">Confirming locks stock only. It does not reserve or consume allowance until pickup.</Text>
         </Stack>
       </Drawer>

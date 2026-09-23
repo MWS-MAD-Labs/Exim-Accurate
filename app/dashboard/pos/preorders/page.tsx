@@ -301,7 +301,16 @@ export default function PreorderManagementPage() {
                       </Table.Td>
                       <Table.Td>{formatDate(reservation.createdAt)}</Table.Td>
                       <Table.Td>{formatDate(lifecycleDate)}</Table.Td>
-                      <Table.Td>{itemCount}</Table.Td>
+                      <Table.Td>
+                        <Stack gap={4}>
+                          {reservation.items.map((item) => (
+                            <Text key={item.id} size="sm">
+                              {item.itemName} × {item.quantity}
+                            </Text>
+                          ))}
+                          <Text size="xs" c="dimmed">Total quantity: {itemCount}</Text>
+                        </Stack>
+                      </Table.Td>
                       <Table.Td>{formatMoney(reservationTotal(reservation))}</Table.Td>
                       <Table.Td><Badge color={meta.color} variant="light">{meta.label}</Badge></Table.Td>
                       <Table.Td>

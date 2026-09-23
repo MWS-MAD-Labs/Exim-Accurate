@@ -1133,9 +1133,11 @@ export default function PosCashierPage() {
                     : pickupPreviewAvailable
                     ? <Alert color="blue">Payment preview: Allowance {formatMoney(pickupAllowanceApplied)} + {pickupReservation.externalPaymentMethod?.toUpperCase()} {formatMoney(pickupTotal - pickupAllowanceApplied)}. Review this amount before confirming.</Alert>
                     : <Alert color="red">Payment preview unavailable. Close and reopen this preorder to reload allowance before confirming pickup.</Alert>)}
-                  {pickupReservation.paymentStrategy === "allowance_debt" && <Alert color="orange">{pickupReservation.approvedResultingDebt == null
+                  {pickupReservation.paymentStrategy === "allowance_debt" && <Alert color={pickupReservation.approvedResultingDebt != null && Number(pickupReservation.approvedResultingDebt) === 0 ? "blue" : "orange"}>{pickupReservation.approvedResultingDebt == null
                     ? "This legacy preorder has no approved debt amount. Cancel it and ask staff to check out again."
-                    : `Staff-approved resulting debt limit: ${formatMoney(Number(pickupReservation.approvedResultingDebt))}. Pickup cannot exceed this amount.`}</Alert>}
+                    : Number(pickupReservation.approvedResultingDebt) === 0
+                      ? t.dashboard.pos.fullAllowanceNoDebtAlert
+                      : `Staff-approved resulting debt limit: ${formatMoney(Number(pickupReservation.approvedResultingDebt))}. Pickup cannot exceed this amount.`}</Alert>}
                   {pickupPreviousDebt?.blocked && <Alert color="red">{t.dashboard.pos.pickupDebtOverdueAlert.replace("{amount}", formatMoney(pickupPreviousDebt.outstanding))}</Alert>}
                   <Group grow>
                     <Button color="red" variant="outline" disabled={pickupLoading} onClick={() => void cancelPickup()}>Cancel preorder</Button>
