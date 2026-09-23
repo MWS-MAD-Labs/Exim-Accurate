@@ -14,15 +14,18 @@ import {
   jakartaDateKey,
   jakartaDateStart,
 } from "@/lib/pos";
+import { resolveComparisonPeriod } from "@/lib/pos-analytics-periods";
 import { isAdmin } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
 
-const MAX_RANGE_DAYS = 366;
 
 const querySchema = z.object({
   start: dateOnlySchema.optional(),
   end: dateOnlySchema.optional(),
   credentialId: z.string().uuid().optional(),
+  comparison: z.enum(["previous", "year", "custom"]).default("previous"),
+  comparisonStart: dateOnlySchema.optional(),
+  comparisonEnd: dateOnlySchema.optional(),
 });
 
 interface ItemAggregate {
@@ -112,6 +115,9 @@ export async function GET(req: NextRequest) {
       start: params.get("start") ?? undefined,
       end: params.get("end") ?? undefined,
       credentialId: params.get("credentialId") ?? undefined,
+      comparison: params.get("comparison") ?? undefined,
+      comparisonStart: params.get("comparisonStart") ?? undefined,
+      comparisonEnd: params.get("comparisonEnd") ?? undefined,
     });
     if (!parsedQuery.success) {
       return NextResponse.json({ error: "Invalid analytics filters" }, { status: 400 });
@@ -120,16 +126,22 @@ export async function GET(req: NextRequest) {
     const defaultEndValue = jakartaDateKey(new Date());
     const endValue = parsedQuery.data.end ?? defaultEndValue;
     const startValue = parsedQuery.data.start ?? addDateOnly(endValue, -29);
-    const rangeDays = Math.floor((dateOnlyOrdinal(endValue) - dateOnlyOrdinal(startValue)) / DAY_MS) + 1;
-    if (rangeDays < 1) {
-      return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
-    }
-    if (rangeDays > MAX_RANGE_DAYS) {
+    let previousPeriod: ReturnType<typeof resolveComparisonPeriod>;
+    try {
+      previousPeriod = resolveComparisonPeriod(
+        startValue,
+        endValue,
+        parsedQuery.data.comparison,
+        parsedQuery.data.comparisonStart,
+        parsedQuery.data.comparisonEnd,
+      );
+    } catch (error) {
       return NextResponse.json(
-        { error: `Date range cannot exceed ${MAX_RANGE_DAYS} days` },
+        { error: error instanceof Error ? error.message : "Invalid analytics filters" },
         { status: 400 },
       );
     }
+    const rangeDays = Math.floor((dateOnlyOrdinal(endValue) - dateOnlyOrdinal(startValue)) / DAY_MS) + 1;
 
     const credentialId = parsedQuery.data.credentialId;
     if (credentialId) {
@@ -146,10 +158,8 @@ export async function GET(req: NextRequest) {
     const credentialFilter = credentialId ? { credentialId } : {};
     const start = jakartaDateStart(startValue);
     const endExclusive = jakartaDateStart(addDateOnly(endValue, 1));
-    const previousEndValue = addDateOnly(startValue, -1);
-    const previousStartValue = addDateOnly(startValue, -rangeDays);
-    const previousStart = jakartaDateStart(previousStartValue);
-    const previousEndExclusive = start;
+    const previousStart = jakartaDateStart(previousPeriod.start);
+    const previousEndExclusive = jakartaDateStart(addDateOnly(previousPeriod.end, 1));
 
     const [periodSales, previousSales, products] = await Promise.all([
       prisma.posSale.findMany({
@@ -356,8 +366,9 @@ export async function GET(req: NextRequest) {
         start: startValue,
         end: endValue,
         days: rangeDays,
-        previousStart: previousStartValue,
-        previousEnd: previousEndValue,
+        previousStart: previousPeriod.start,
+        previousEnd: previousPeriod.end,
+        previousDays: previousPeriod.days,
       },
       summary: {
         revenue: current.revenue.toFixed(2),
@@ -368,6 +379,16 @@ export async function GET(req: NextRequest) {
         sales: syncedSales.length,
         averageOrderValue: syncedSales.length ? current.revenue.div(syncedSales.length).toFixed(2) : "0.00",
         averageUnitsPerSale: syncedSales.length ? Number((current.units / syncedSales.length).toFixed(1)) : 0,
+      },
+      previousSummary: {
+        revenue: previous.revenue.toFixed(2),
+        cost: previous.cost.toFixed(2),
+        profit: previousProfit.toFixed(2),
+        margin: previous.revenue.isZero() ? "0.0000" : previousProfit.div(previous.revenue).toFixed(4),
+        units: previous.units,
+        sales: previousSales.length,
+        averageOrderValue: previousSales.length ? previous.revenue.div(previousSales.length).toFixed(2) : "0.00",
+        averageUnitsPerSale: previousSales.length ? Number((previous.units / previousSales.length).toFixed(1)) : 0,
       },
       comparison: {
         revenue: percentageChange(current.revenue, previous.revenue),

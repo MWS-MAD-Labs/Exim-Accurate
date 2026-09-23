@@ -133,6 +133,16 @@ Administrators can open **Point of Sales → Sales Log** at `/dashboard/pos/sale
 
 The supporting `GET /api/pos/sales/log` endpoint requires an administrator session, scopes every query through the administrator's organization, validates a maximum date range of 366 days, and rejects malformed filter values.
 
+### POS Sales Analytics Comparison
+
+Administrators can open **Analytics → POS Sales** at `/dashboard/analytics/pos` to compare synced sales across two periods.
+
+- Choose a quick preset (today, last 7/30 days, this month, or last month), or select a custom main date range.
+- Compare with the immediately preceding equal-length period (default), the same dates last year, or a custom range. Both ranges are inclusive, use Jakarta calendar dates, and are limited to 366 days each.
+- The comparison table shows revenue, historical cost, gross profit, successful transactions, and units sold side by side, with absolute and percentage changes. A zero baseline displays no percentage unless both values are zero.
+- Unequal-length periods show a warning; totals are not normalized per day. CSV exports include both periods and comparison totals.
+- `GET /api/analytics/pos` accepts `comparison=previous|year|custom`; custom mode requires `comparisonStart` and `comparisonEnd` in `YYYY-MM-DD` format. Both periods retain the same organization and credential scope.
+
 ### POS Stock Management
 
 Administrators can open **Point of Sales → Stock Management** at `/dashboard/pos` to manage the local POS catalog.

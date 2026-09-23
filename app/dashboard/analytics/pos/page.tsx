@@ -53,6 +53,8 @@ import {
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatsCard } from "@/components/ui/StatsCard";
 import { useLanguage } from "@/lib/language";
+import dayjs from "dayjs";
+import { resolveComparisonPeriod, type ComparisonMode } from "@/lib/pos-analytics-periods";
 
 interface Credential {
   id: string;
@@ -67,6 +69,7 @@ interface PosAnalyticsData {
     days: number;
     previousStart: string;
     previousEnd: string;
+    previousDays: number;
   };
   summary: {
     revenue: string;
@@ -78,6 +81,7 @@ interface PosAnalyticsData {
     averageOrderValue: string;
     averageUnitsPerSale: number;
   };
+  previousSummary: PosAnalyticsData["summary"];
   comparison: {
     revenue: number | null;
     cost: number | null;
@@ -198,7 +202,11 @@ function Panel({
 export default function PosAnalyticsPage() {
   const { language } = useLanguage();
   const isId = language === "id";
-  const today = useMemo(() => new Date(), []);
+  const today = useMemo(() => {
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+    const part = (type: string) => parts.find((item) => item.type === type)!.value;
+    return new Date(`${part("year")}-${part("month")}-${part("day")}T00:00:00`);
+  }, []);
   const initialStart = useMemo(() => {
     const date = new Date(today);
     date.setDate(date.getDate() - 29);
@@ -209,6 +217,9 @@ export default function PosAnalyticsPage() {
     initialStart,
     today,
   ]);
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>("previous");
+  const [customRange, setCustomRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [preset, setPreset] = useState("30");
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [credentialId, setCredentialId] = useState<string | null>(null);
   const [data, setData] = useState<PosAnalyticsData | null>(null);
@@ -343,18 +354,75 @@ export default function PosAnalyticsPage() {
     inventoryWarning: "Some products failed to sync and should be checked in stock management.",
   }, [isId]);
 
+  const comparisonLabels = isId ? {
+    title: "Perbandingan periode", current: "Periode utama", baseline: "Periode pembanding",
+    compareTo: "Bandingkan dengan", previous: "Periode sebelumnya", year: "Periode yang sama tahun lalu",
+    custom: "Tanggal khusus", change: "Perubahan", metric: "Metrik", today: "Hari ini",
+    week: "7 hari terakhir", month: "30 hari terakhir", thisMonth: "Bulan ini", lastMonth: "Bulan lalu",
+    hint: "Hanya transaksi tersinkronisasi. Tanggal menggunakan WIB (Asia/Jakarta).",
+    incomplete: "Pilih tanggal awal dan akhir untuk kedua periode.",
+    invalid: "Setiap periode harus berurutan dan maksimal 366 hari.",
+    unequal: "Durasi periode berbeda. Total di bawah tidak disesuaikan per hari.",
+    overlap: "Kedua periode memiliki tanggal yang tumpang tindih. Penjualan pada tanggal tersebut dihitung dalam kedua total.",
+    noBaseline: "Tidak ada nilai pembanding untuk menghitung persentase.",
+  } : {
+    title: "Period comparison", current: "Main period", baseline: "Comparison period",
+    compareTo: "Compare with", previous: "Previous period", year: "Same period last year",
+    custom: "Custom dates", change: "Change", metric: "Metric", today: "Today",
+    week: "Last 7 days", month: "Last 30 days", thisMonth: "This month", lastMonth: "Last month",
+    hint: "Synced sales only. Dates use WIB (Asia/Jakarta).",
+    incomplete: "Select a start and end date for both periods.",
+    invalid: "Each period must be in order and no longer than 366 days.",
+    unequal: "These periods have different lengths. Totals below are not adjusted per day.",
+    overlap: "These periods overlap. Sales on shared dates are included in both totals.",
+    noBaseline: "No baseline value to calculate a percentage change.",
+  };
+  const comparisonPeriod = useMemo(() => {
+    if (!dateRange[0] || !dateRange[1] || (comparisonMode === "custom" && (!customRange[0] || !customRange[1]))) return null;
+    try {
+      return resolveComparisonPeriod(dateParam(dateRange[0]), dateParam(dateRange[1]), comparisonMode,
+        comparisonMode === "custom" && customRange[0] ? dateParam(customRange[0]) : undefined,
+        comparisonMode === "custom" && customRange[1] ? dateParam(customRange[1]) : undefined);
+    } catch {
+      return null;
+    }
+  }, [dateRange, comparisonMode, customRange]);
+  const incompleteRange = !dateRange[0] || !dateRange[1] || (comparisonMode === "custom" && (!customRange[0] || !customRange[1]));
+  const selectPreset = (value: string) => {
+    setPreset(value);
+    const end = dayjs(today);
+    const start = value === "today" ? end : value === "7" ? end.subtract(6, "day")
+      : value === "thisMonth" ? end.startOf("month")
+        : value === "lastMonth" ? end.subtract(1, "month").startOf("month") : end.subtract(29, "day");
+    setDateRange([start.toDate(), value === "lastMonth" ? end.subtract(1, "month").endOf("month").toDate() : end.toDate()]);
+  };
+  const formatDate = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateString(isId ? "id-ID" : "en-US", { day: "numeric", month: "short", year: "numeric" });
+  const formatPeriod = (start: string, end: string) => `${formatDate(start)} – ${formatDate(end)}`;
+
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     if (dateRange[0]) params.set("start", dateParam(dateRange[0]));
     if (dateRange[1]) params.set("end", dateParam(dateRange[1]));
     if (credentialId) params.set("credentialId", credentialId);
+    params.set("comparison", comparisonMode);
+    if (comparisonMode === "custom" && customRange[0] && customRange[1]) {
+      params.set("comparisonStart", dateParam(customRange[0]));
+      params.set("comparisonEnd", dateParam(customRange[1]));
+    }
     return params.toString();
-  }, [credentialId, dateRange]);
+  }, [credentialId, dateRange, comparisonMode, customRange]);
 
   const loadData = useCallback(async (quiet = false) => {
-    if (!dateRange[0] || !dateRange[1]) return;
-
     requestControllerRef.current?.abort();
+    if (!comparisonPeriod) {
+      setLoading(false);
+      setRefreshing(false);
+      setData(null);
+      setError(null);
+      return;
+    }
+
+    if (!quiet) setData(null);
     const controller = new AbortController();
     requestControllerRef.current = controller;
     quiet ? setRefreshing(true) : setLoading(true);
@@ -378,7 +446,7 @@ export default function PosAnalyticsPage() {
         setRefreshing(false);
       }
     }
-  }, [dateRange, labels.loadError, queryString]);
+  }, [comparisonPeriod, labels.loadError, queryString]);
 
   useEffect(() => {
     void fetch("/api/credentials", { cache: "no-store" })
@@ -428,6 +496,12 @@ export default function PosAnalyticsPage() {
     const rows: Array<Array<string | number>> = [
       [labels.title],
       [labels.dateRange, data.period.start, data.period.end],
+      [isId ? "Periode pembanding" : "Comparison period", data.period.previousStart, data.period.previousEnd],
+      [],
+      [isId ? "Metrik" : "Metric", isId ? "Periode utama" : "Main period", isId ? "Periode pembanding" : "Comparison period", isId ? "Perubahan (%)" : "Change (%)"],
+      ...(["revenue", "cost", "profit", "sales", "units"] as const).map((key) => [
+        key === "cost" ? labels.cogs : labels[key], data.summary[key], data.previousSummary[key], data.comparison[key] ?? "N/A",
+      ]),
       [],
       [labels.revenue, data.summary.revenue],
       [labels.cogs, data.summary.cost],
@@ -469,11 +543,11 @@ export default function PosAnalyticsPage() {
     anchor.download = `pos-report-${data.period.start}-${data.period.end}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
-  }, [data, labels]);
+  }, [data, labels, isId]);
 
   const trend = (value: number | null) => value === null ? undefined : {
     value,
-    label: labels.previousPeriod,
+    label: data ? formatPeriod(data.period.previousStart, data.period.previousEnd) : labels.previousPeriod,
   };
 
   const formatMoney = (value: string | number) => money.format(Number(value));
@@ -509,18 +583,40 @@ export default function PosAnalyticsPage() {
       </Group>
 
       <Paper p="md" radius="lg" withBorder>
+        <Stack gap="md">
+        <Text fw={700}>{comparisonLabels.title}</Text>
+        <Group gap="xs">
+          {[["today", comparisonLabels.today], ["7", comparisonLabels.week], ["30", comparisonLabels.month], ["thisMonth", comparisonLabels.thisMonth], ["lastMonth", comparisonLabels.lastMonth]].map(([value, label]) => (
+            <Button key={value} size="xs" variant={preset === value ? "filled" : "light"} onClick={() => selectPreset(value)} aria-pressed={preset === value}>{label}</Button>
+          ))}
+        </Group>
         <Group align="flex-end">
           <DatePickerInput
             type="range"
-            label={labels.dateRange}
+            label={comparisonLabels.current}
             value={dateRange}
-            onChange={setDateRange}
+            onChange={(value) => { setPreset("custom"); setDateRange(value); }}
+            allowSingleDateInRange
             clearable={false}
             leftSection={<IconCalendarStats size={16} />}
             maxDate={today}
             flex={1}
             miw={260}
           />
+          <Select
+            label={comparisonLabels.compareTo}
+            value={comparisonMode}
+            onChange={(value) => { if (value) setComparisonMode(value as ComparisonMode); }}
+            data={[{ value: "previous", label: comparisonLabels.previous }, { value: "year", label: comparisonLabels.year }, { value: "custom", label: comparisonLabels.custom }]}
+            allowDeselect={false}
+            flex={1}
+            miw={240}
+          />
+          {comparisonMode === "custom" ? (
+            <DatePickerInput type="range" label={comparisonLabels.baseline} value={customRange} onChange={setCustomRange} allowSingleDateInRange maxDate={today} clearable={false} leftSection={<IconCalendarStats size={16} />} flex={1} miw={260} />
+          ) : null}
+        </Group>
+        <Group align="flex-end">
           <Select
             label={labels.credential}
             data={credentialOptions}
@@ -534,10 +630,16 @@ export default function PosAnalyticsPage() {
             leftSection={<IconRefresh size={16} />}
             onClick={() => void loadData(true)}
             loading={refreshing}
+            disabled={!comparisonPeriod || loading}
           >
             {labels.refresh}
           </Button>
         </Group>
+        <Text size="xs" c="dimmed">{comparisonLabels.hint}</Text>
+        {comparisonPeriod ? (
+          <Text size="sm"><Text span fw={600}>{comparisonLabels.baseline}: </Text>{formatPeriod(comparisonPeriod.start, comparisonPeriod.end)} · {comparisonPeriod.days} {labels.days}</Text>
+        ) : <Alert color={incompleteRange ? "blue" : "orange"}>{incompleteRange ? comparisonLabels.incomplete : comparisonLabels.invalid}</Alert>}
+        </Stack>
       </Paper>
 
       {error ? (
@@ -563,6 +665,55 @@ export default function PosAnalyticsPage() {
         </SimpleGrid>
       ) : data ? (
         <>
+          <Panel title={comparisonLabels.title} subtitle={comparisonLabels.hint} icon={<IconCalendarStats size={20} />}>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md">
+              <Paper withBorder p="sm" radius="md">
+                <Text size="sm" c="blue" fw={700}>{comparisonLabels.current}</Text>
+                <Text fw={600}>{formatPeriod(data.period.start, data.period.end)}</Text>
+                <Text size="xs" c="dimmed">{data.period.days} {labels.days}</Text>
+              </Paper>
+              <Paper withBorder p="sm" radius="md">
+                <Text size="sm" c="dimmed" fw={700}>{comparisonLabels.baseline}</Text>
+                <Text fw={600}>{formatPeriod(data.period.previousStart, data.period.previousEnd)}</Text>
+                <Text size="xs" c="dimmed">{data.period.previousDays} {labels.days}</Text>
+              </Paper>
+            </SimpleGrid>
+            {data.period.days !== data.period.previousDays ? <Alert color="yellow" mb="md">{comparisonLabels.unequal}</Alert> : null}
+            {comparisonMode === "custom" && data.period.start <= data.period.previousEnd && data.period.previousStart <= data.period.end ? (
+              <Alert color="blue" icon={<IconAlertCircle size={18} />} mb="md">{comparisonLabels.overlap}</Alert>
+            ) : null}
+            <Table.ScrollContainer minWidth={650}>
+              <Table verticalSpacing="sm" striped>
+                <Table.Thead><Table.Tr>
+                  <Table.Th>{comparisonLabels.metric}</Table.Th>
+                  <Table.Th ta="right">{comparisonLabels.current}</Table.Th>
+                  <Table.Th ta="right">{comparisonLabels.baseline}</Table.Th>
+                  <Table.Th ta="right">{comparisonLabels.change}</Table.Th>
+                </Table.Tr></Table.Thead>
+                <Table.Tbody>
+                  {(["revenue", "cost", "profit", "sales", "units"] as const).map((key) => {
+                    const current = Number(data.summary[key]);
+                    const previous = Number(data.previousSummary[key]);
+                    const difference = current - previous;
+                    const percentage = data.comparison[key];
+                    const format = key === "sales" || key === "units" ? (value: number) => number.format(value) : formatMoney;
+                    return <Table.Tr key={key}>
+                      <Table.Td fw={600}>{key === "cost" ? labels.cogs : labels[key]}</Table.Td>
+                      <Table.Td ta="right" fw={700}>{format(current)}</Table.Td>
+                      <Table.Td ta="right">{format(previous)}</Table.Td>
+                      <Table.Td ta="right">
+                        <Text size="sm" fw={600}>{difference > 0 ? "+" : ""}{format(difference)}</Text>
+                        <Text size="xs" c="dimmed" title={percentage === null ? comparisonLabels.noBaseline : undefined}>
+                          {percentage === null ? "—" : `${percentage > 0 ? "+" : ""}${number.format(percentage)}%`}
+                        </Text>
+                      </Table.Td>
+                    </Table.Tr>;
+                  })}
+                </Table.Tbody>
+              </Table>
+            </Table.ScrollContainer>
+            {Object.values(data.comparison).some((value) => value === null) ? <Text size="xs" c="dimmed" mt="xs">— {comparisonLabels.noBaseline}</Text> : null}
+          </Panel>
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
             <StatsCard title={labels.revenue} value={formatMoney(data.summary.revenue)} description={labels.salesTrendSubtitle} trend={trend(data.comparison.revenue)} icon={<IconWallet size={24} />} color="brand" />
             <StatsCard title={labels.cogs} value={formatMoney(data.summary.cost)} description={isId ? "Biaya historis pada baris penjualan" : "Historical cost captured on sale lines"} trend={trend(data.comparison.cost)} icon={<IconPackageExport size={24} />} color="accent" />
