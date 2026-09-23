@@ -594,6 +594,7 @@ export default function PosSalesLogPage() {
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
             <DatePickerInput
               type="range"
+              allowSingleDateInRange
               label={labels.dateRange}
               value={dateRange}
               onChange={setDateRange}
