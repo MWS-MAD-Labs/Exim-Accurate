@@ -4,8 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { reservationRequestSchema, makeReservationReference } from "@/lib/pos";
-import { canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getDefaultPosStore, getOutstandingPreviousAllowanceDebt, getPosContext, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
+import { allocateSalePayment, lockPosSynchronization, saleTotal, canonicalizeRequestedItems, canonicalSaleItems, expireReservations, getDefaultPosStore, getOutstandingPreviousAllowanceDebt, getPosContext, resolveLocalPosProducts, withSerializableRetry } from "@/lib/pos-server";
 import crypto from "node:crypto";
+import { approvedReservationDebt, ReservationPaymentError } from "@/lib/pos-reservation-payment";
+import { PaymentAllocationError } from "@/lib/pos-payments";
 import { isRoleAllowed } from "@/lib/access-control";
 import { getOrganizationIdForUser } from "@/lib/organization";
 import { getOperationalPosCredential } from "@/lib/credential-access";
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
   if (!session?.user?.id || !session.user.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!isRoleAllowed(session.user.role, ["admin", "staff"])) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const parsed = reservationRequestSchema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Invalid reservation" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid reservation" }, { status: 400 });
   const { credentialId: requestedCredentialId, idempotencyKey, payment, items: requestedItems } = parsed.data;
   const defaultStore = requestedCredentialId ? null : await getDefaultPosStore(session.user.id);
   const credentialId = requestedCredentialId ?? defaultStore?.credentialId;
@@ -86,23 +88,46 @@ export async function POST(req: NextRequest) {
       ? payment.method
       : "allowance";
   const externalPaymentMethod = payment.strategy === "external_only" ? payment.method : payment.strategy === "allowance_then_external" ? payment.remainderMethod : null;
-  const reservation = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
-    for (const item of items) {
-      const product = await tx.posProduct.findUnique({ where: { credentialId_itemCode: { credentialId, itemCode: item.itemCode } } });
-      if (!product?.isActive) throw new Error("INSUFFICIENT_STOCK");
-      const allocation = await tx.posStockAllocation.upsert({ where: { credentialId_warehouseId_itemCode: { credentialId, warehouseId: context.settings!.warehouseId, itemCode: item.itemCode } }, update: { stockSnapshot: product.stock }, create: { userId: session.user.id, credentialId, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, itemCode: item.itemCode, stockSnapshot: product.stock } });
-      const updated = await tx.posStockAllocation.updateMany({ where: { id: allocation.id, heldQuantity: { lte: product.stock - item.quantity } }, data: { heldQuantity: { increment: item.quantity }, stockSnapshot: product.stock } });
-      if (updated.count !== 1) throw new Error("INSUFFICIENT_STOCK");
+  let reservation;
+  try {
+    reservation = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
+      await lockPosSynchronization(tx, credentialId);
+      const paymentAllocation = await allocateSalePayment(tx, {
+        credentialId,
+        buyerType: "staff",
+        staffEmail: session.user.email,
+        total: saleTotal(items),
+        payment,
+      });
+      const approvedResultingDebt = approvedReservationDebt(payment, paymentAllocation);
+      for (const item of items) {
+        const product = await tx.posProduct.findUnique({ where: { credentialId_itemCode: { credentialId, itemCode: item.itemCode } } });
+        if (!product?.isActive) throw new Error("INSUFFICIENT_STOCK");
+        const allocation = await tx.posStockAllocation.upsert({ where: { credentialId_warehouseId_itemCode: { credentialId, warehouseId: context.settings!.warehouseId, itemCode: item.itemCode } }, update: { stockSnapshot: product.stock }, create: { userId: session.user.id, credentialId, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, itemCode: item.itemCode, stockSnapshot: product.stock } });
+        const updated = await tx.posStockAllocation.updateMany({ where: { id: allocation.id, heldQuantity: { lte: product.stock - item.quantity } }, data: { heldQuantity: { increment: item.quantity } } });
+        if (updated.count !== 1) throw new Error("INSUFFICIENT_STOCK");
+      }
+      return tx.posReservation.create({ data: { userId: session.user.id, credentialId, reference: makeReservationReference(), idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, staffEmail: session.user.email, staffName: session.user.name, preferredPaymentMethod, paymentStrategy: payment.strategy, externalPaymentMethod, approvedResultingDebt, expiresAt, items: { create: items } }, include: { items: true } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10_000, timeout: 120_000 }).catch(async (error: unknown) => {
+      if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") return null;
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        const existing = await prisma.posReservation.findUnique({ where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } }, include: { items: true } });
+        if (existing?.requestFingerprint === fingerprint) return existing;
+      }
+      throw error;
+    }));
+  } catch (error) {
+    if (error instanceof ReservationPaymentError) {
+      return NextResponse.json({ code: error.code, error: error.message, ...error.details }, { status: 409 });
     }
-    return tx.posReservation.create({ data: { userId: session.user.id, credentialId, reference: makeReservationReference(), idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, staffEmail: session.user.email, staffName: session.user.name, preferredPaymentMethod, paymentStrategy: payment.strategy, externalPaymentMethod, expiresAt, items: { create: items } }, include: { items: true } });
-  }).catch(async (error: unknown) => {
-    if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") return null;
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const existing = await prisma.posReservation.findUnique({ where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } }, include: { items: true } });
-      if (existing?.requestFingerprint === fingerprint) return existing;
+    if (error instanceof PaymentAllocationError) {
+      return NextResponse.json({ code: error.code, error: "The current allowance cannot fulfill this payment choice. Review payment and confirm checkout again.", ...error.details }, { status: 409 });
+    }
+    if (error instanceof Error && error.message === "PREVIOUS_ALLOWANCE_DEBT_BLOCKED") {
+      return NextResponse.json({ error: "Previous-period negative balance must be paid before another transaction can be completed." }, { status: 409 });
     }
     throw error;
-  }));
+  }
   if (!reservation) return NextResponse.json({ error: "Insufficient available stock" }, { status: 409 });
   return NextResponse.json(reservation, { status: 201 });
 }

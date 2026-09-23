@@ -28,11 +28,6 @@ export const paymentIntentSchema = z.discriminatedUnion("strategy", [
   }),
 ]);
 
-export const reservationPaymentPreferenceSchema = z.discriminatedUnion("strategy", [
-  z.object({ strategy: z.literal("external_only"), method: externalPaymentMethodSchema }),
-  z.object({ strategy: z.literal("allowance_then_external"), remainderMethod: externalPaymentMethodSchema }),
-  z.object({ strategy: z.literal("allowance_debt"), debtConfirmed: z.literal(true) }),
-]);
 
 export type PaymentIntent = z.infer<typeof paymentIntentSchema>;
 export type PaymentStrategy = z.infer<typeof paymentStrategySchema>;

@@ -151,6 +151,18 @@ Migration `20260902000000_add_pos_sale_void` adds retained POS void audit fields
 - voided sales and their line items remain permanently available for audit;
 - the Sales Log can create an Accurate inbound reversal and restore local stock without deleting the original sale.
 
+## Staff Store and Pickup Payment Rollout
+
+Migration `20260923120000_add_reservation_approved_debt` adds a nullable, nonnegative staff-approved resulting debt limit to preorders. Apply it before serving the updated reservation routes; the standard Docker entrypoint applies it automatically with `prisma migrate deploy`.
+
+- Staff choose payment at `/store` checkout. POS pickup displays that saved choice and only allows confirmation or cancellation; the API does not accept payment-method overrides.
+- Split pickup requires a positive current allowance. If allowance changes after the cashier reviews the payment breakdown, confirmation is rejected until the updated amount is reviewed.
+- Debt pickup cannot exceed the resulting debt amount approved at checkout. Existing debt preorders have no recorded approval limit and must be cancelled and recreated; the migration intentionally does not infer consent.
+- Legacy Cash/QRIS reservation payloads remain supported. Legacy `preferredPaymentMethod: "allowance"` requests return HTTP 400 with guidance to submit an explicit debt payment and `expectedResultingDebt`.
+- The store's History tab includes the authenticated staff member's completed local POS purchases and pickups, including purchases awaiting Accurate synchronization. Voided/voiding sales are excluded; cancelled and expired preorders remain in the Pickup tab.
+
+After rollout, verify balance visibility, paginated purchase history, pickup using each saved payment strategy, cancellation, and rejection of changed split amounts or debt above the approved limit.
+
 ## Pre-Deployment Validation
 
 Run:

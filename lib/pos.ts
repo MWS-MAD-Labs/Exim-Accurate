@@ -5,8 +5,9 @@ import {
   legacyPaymentMethodSchema,
   legacyReservationPaymentPreference,
   paymentIntentSchema,
-  reservationPaymentPreferenceSchema,
 } from "@/lib/pos-payments";
+
+import { reservationCheckoutPaymentSchema } from "./pos-reservation-payment";
 
 export const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -96,12 +97,15 @@ export const saleRequestSchema = z
 export const reservationRequestSchema = z.object({
   credentialId: z.string().uuid().optional(),
   idempotencyKey: z.string().trim().min(8).max(128),
-  payment: reservationPaymentPreferenceSchema.optional(),
+  payment: reservationCheckoutPaymentSchema.optional(),
   preferredPaymentMethod: legacyPaymentMethodSchema.optional(),
   items: z.array(posItemRequestSchema).min(1),
 }).refine((data) => !!data.payment !== !!data.preferredPaymentMethod, {
   message: "Provide exactly one payment preference",
   path: ["payment"],
+}).refine((data) => data.preferredPaymentMethod !== "allowance", {
+  message: 'Legacy allowance preferences are not supported. Use payment: { strategy: "allowance_debt", debtConfirmed: true, expectedResultingDebt: "0.00" }, with expectedResultingDebt set to the staff-approved resulting debt amount.',
+  path: ["preferredPaymentMethod"],
 }).transform((data) => ({
   ...data,
   payment: data.payment ?? legacyReservationPaymentPreference(data.preferredPaymentMethod!),

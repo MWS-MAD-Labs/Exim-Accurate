@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import {
+  Accordion,
   ActionIcon,
+  Progress,
+  Select,
   Alert,
   AppShell,
   Badge,
@@ -43,6 +46,8 @@ import {
   IconShoppingBag,
   IconTrash,
   IconWallet,
+  IconHistory,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { signOut, useSession } from "next-auth/react";
 import { createIdempotencyKey } from "@/lib/browser-id";
@@ -102,6 +107,19 @@ interface Reservation {
   items: ReservationItem[];
 }
 
+interface Transaction {
+  id: string;
+  createdAt: string;
+  warehouseName: string;
+  reservationReference: string | null;
+  total: string;
+  allowanceUsed: string;
+  allowanceBalanceAfter: string | null;
+  paymentMethod: string;
+  payments: { method: string; amount: string }[];
+  items: ReservationItem[];
+}
+
 function formatMoney(value: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -143,6 +161,16 @@ export default function StorePage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [query, setQuery] = useState("");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const historyGeneration = useRef(0);
+  const historyPending = useRef(false);
+  const failedHistoryCursor = useRef<string | undefined>(undefined);
+  const [ordersError, setOrdersError] = useState("");
+  const [orderFilter, setOrderFilter] = useState<string | null>("active");
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [view, setView] = useState("catalog");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -151,9 +179,40 @@ export default function StorePage() {
   const [message, setMessage] = useState<{ color: string; text: string } | null>(null);
 
   const loadReservations = useCallback(async () => {
-    const response = await fetch("/api/pos/reservations?mine=true");
-    const data = await response.json();
-    if (response.ok) setReservations(data);
+    setOrdersError("");
+    try {
+      const response = await fetch("/api/pos/reservations?mine=true", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to load pickup tickets");
+      setReservations(data);
+    } catch (error) {
+      setOrdersError(error instanceof Error ? error.message : "Unable to load pickup tickets");
+    }
+  }, []);
+
+  const loadHistory = useCallback(async (cursor?: string) => {
+    if (cursor && historyPending.current) return;
+    const generation = ++historyGeneration.current;
+    historyPending.current = true;
+    setHistoryLoading(true);
+    setHistoryError("");
+    try {
+      const response = await fetch(`/api/pos/my-transactions${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to load transactions");
+      if (generation !== historyGeneration.current) return;
+      setTransactions((current) => cursor ? [...current, ...data.transactions] : data.transactions);
+      setNextCursor(data.nextCursor);
+    } catch (error) {
+      if (generation !== historyGeneration.current) return;
+      failedHistoryCursor.current = cursor;
+      setHistoryError(error instanceof Error ? error.message : "Unable to load transactions");
+    } finally {
+      if (generation === historyGeneration.current) {
+        historyPending.current = false;
+        setHistoryLoading(false);
+      }
+    }
   }, []);
 
   const loadProducts = useCallback(async () => {
@@ -176,8 +235,14 @@ export default function StorePage() {
   }, []);
 
   useEffect(() => {
-    void Promise.all([loadProducts(), loadReservations()]);
-  }, [loadProducts, loadReservations]);
+    void Promise.all([loadProducts(), loadReservations(), loadHistory()]);
+  }, [loadProducts, loadReservations, loadHistory]);
+
+  useEffect(() => {
+    const refresh = () => { void Promise.all([loadProducts(), loadReservations(), loadHistory()]); };
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [loadProducts, loadReservations, loadHistory]);
 
   const filteredProducts = useMemo(() => {
     const inStockProducts = products.filter((product) => product.stock > 0);
@@ -199,6 +264,10 @@ export default function StorePage() {
   const allowanceAvailable = !!allowance && !allowance.previousDebt.blocked && allowance.remaining > 0 && cartTotal > 0;
   const allowanceCoversCart = allowanceAvailable && allowance.remaining >= cartTotal;
   const amountOverAllowance = Math.max(0, cartTotal - (allowance?.remaining ?? 0));
+  const activeOrders = reservations.filter((order) => order.status === "active");
+  const visibleOrders = reservations.filter((order) => orderFilter === "all" || order.status === orderFilter);
+
+  useEffect(() => { setDebtConfirmed(false); }, [cartTotal, allowance?.remaining]);
 
   useEffect(() => {
     if (allowanceAvailable) setPaymentMethod((current) => current ?? "allowance_first_cash");
@@ -223,18 +292,25 @@ export default function StorePage() {
           payment: paymentMethod === "cash" || paymentMethod === "qris"
             ? { strategy: "external_only", method: paymentMethod }
             : paymentMethod === "allowance_debt"
-              ? { strategy: "allowance_debt", debtConfirmed: true }
-              : { strategy: "allowance_then_external", remainderMethod: paymentMethod === "allowance_first_qris" ? "qris" : "cash" },
+              ? { strategy: "allowance_debt", debtConfirmed: true, expectedResultingDebt: amountOverAllowance.toFixed(2) }
+              : { strategy: "allowance_then_external", remainderMethod: paymentMethod === "allowance_first_qris" ? "qris" : "cash", expectedAllowanceAmount: Math.min(cartTotal, Math.max(0, allowance?.remaining ?? 0)).toFixed(2) },
           items: cartLines.map(({ itemCode, quantity }) => ({ itemCode, quantity })),
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Unable to create preorder");
+      if (!response.ok) {
+        if (["RESERVATION_PAYMENT_CHANGED", "ALLOWANCE_CHANGED", "ALLOWANCE_DEBT_CHANGED", "ALLOWANCE_UNAVAILABLE"].includes(data.code)) {
+          setDebtConfirmed(false);
+          await loadProducts();
+        }
+        throw new Error(data.error || "Unable to create preorder");
+      }
       setCart({});
       setPaymentMethod(null);
       setDebtConfirmed(false);
       cartHandlers.close();
       setView("orders");
+      setOrderFilter("active");
       setMessage({ color: "green", text: `Preorder ${data.reference} created. Show its QR code at the cashier.` });
       await Promise.all([loadReservations(), loadProducts()]);
     } catch (error) {
@@ -245,6 +321,9 @@ export default function StorePage() {
   };
 
   const cancelReservation = async (id: string) => {
+    if (cancellingId || !window.confirm("Cancel this preorder and release its reserved items?")) return;
+    setCancellingId(id);
+    try {
     const response = await fetch("/api/pos/reservations", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -257,6 +336,11 @@ export default function StorePage() {
     }
     setMessage({ color: "green", text: "Preorder cancelled and stock released." });
     await Promise.all([loadReservations(), loadProducts()]);
+    } catch (error) {
+      setMessage({ color: "red", text: error instanceof Error ? error.message : "Unable to cancel preorder" });
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   if (loading && !store && products.length === 0) {
@@ -294,13 +378,14 @@ export default function StorePage() {
         </Container>
       </AppShell.Header>
 
-      <AppShell.Main bg="var(--mantine-color-gray-0)" mih="100vh">
+      <AppShell.Main bg="var(--mantine-color-body)" mih="100vh">
         <Container size="xl" py={{ base: "md", sm: "xl" }}>
           <Stack gap="lg">
             <Group justify="space-between" align="flex-start">
               <Box>
-                <Title order={1}>Preorder your items</Title>
-                <Text c="dimmed">Select items, confirm your preorder, then show the QR code at pickup.</Text>
+                <Text size="sm" c="dimmed" mb={4}>Welcome back{session?.user?.name ? `, ${session.user.name}` : ""}</Text>
+                <Title order={1}>Your staff store</Title>
+                <Text c="dimmed" mt="xs">Check your balance, shop, and keep track of your purchases.</Text>
               </Box>
               {store && (
                 <Badge variant="light" size="lg">
@@ -315,12 +400,43 @@ export default function StorePage() {
               </Alert>
             )}
 
+            <SimpleGrid cols={{ base: 1, sm: 3 }}>
+              <Paper withBorder radius="lg" p="lg">
+                <Group justify="space-between"><Text size="sm" fw={600}>Remaining allowance</Text><ThemeIcon variant="light" radius="xl"><IconWallet size={20} /></ThemeIcon></Group>
+                <Text size="30px" fw={800} c={allowance && allowance.remaining < 0 ? "red" : "blue"} mt="xs">{allowance ? formatMoney(allowance.remaining) : "Unavailable"}</Text>
+                <Text size="xs" c="dimmed">{allowance ? `${new Date(allowance.period.startsAt).toLocaleDateString()} – ${new Date(allowance.period.endsAt).toLocaleDateString()}` : "Refresh to check your balance"}</Text>
+                {allowance && <><Progress mt="md" value={allowance.total > 0 ? Math.min(100, Math.max(0, allowance.used / allowance.total * 100)) : 0} aria-label="Allowance used" /><Text size="xs" c="dimmed" mt="xs">{formatMoney(allowance.used)} used of {formatMoney(allowance.total)}</Text></>}
+                <Text size="xs" c="dimmed" mt="xs">Pending preorders are not deducted until pickup.</Text>
+              </Paper>
+              <Paper withBorder radius="lg" p="lg">
+                <Group justify="space-between"><Text size="sm" fw={600}>Ready for pickup</Text><ThemeIcon variant="light" color="cyan" radius="xl"><IconQrcode size={20} /></ThemeIcon></Group>
+                <Text size="30px" fw={800} mt="xs">{ordersError ? "—" : activeOrders.length}</Text>
+                <Text size="sm" c="dimmed">Show your ticket at the cashier to collect your items.</Text>
+                <Button variant="light" mt="md" fullWidth onClick={() => { setView("orders"); setOrderFilter("active"); }}>View pickup tickets</Button>
+              </Paper>
+              <Paper withBorder radius="lg" p="lg">
+                <Group justify="space-between"><Text size="sm" fw={600}>Your purchases</Text><ThemeIcon variant="light" color="grape" radius="xl"><IconHistory size={20} /></ThemeIcon></Group>
+                <Text fw={700} mt="md">All your store & POS purchases</Text>
+                <Text size="sm" c="dimmed" mt="xs">Check items, payment details, and balance after each purchase.</Text>
+                <Button variant="light" color="grape" mt="md" fullWidth onClick={() => setView("history")}>View transaction history</Button>
+              </Paper>
+            </SimpleGrid>
+
+            {allowance?.previousDebt.hasOutstanding && <Alert color={allowance.previousDebt.blocked ? "red" : "orange"} icon={<IconAlertCircle size={18} />} title="Previous-period balance due">
+              {formatMoney(allowance.previousDebt.outstanding)} · Due {new Date(allowance.previousDebt.payday).toLocaleDateString()}. {allowance.previousDebt.blocked ? "Please settle this balance at POS before making another purchase." : "Please settle this balance at POS by payday."}
+            </Alert>}
+
+            <Group justify="space-between">
+              <Text size="xs" c="dimmed">Balances are checked again at pickup.</Text>
+              <Button size="xs" variant="subtle" leftSection={<IconRefresh size={15} />} loading={loading || historyLoading} onClick={() => void Promise.all([loadProducts(), loadReservations(), loadHistory()])}>Refresh account</Button>
+            </Group>
             <SegmentedControl
               value={view}
               onChange={setView}
               data={[
-                { label: "Available stock", value: "catalog" },
-                { label: `My preorders (${reservations.filter((order) => order.status === "active").length})`, value: "orders" },
+                { label: "Shop", value: "catalog" },
+                { label: `Pickup (${activeOrders.length})`, value: "orders" },
+                { label: "History", value: "history" },
               ]}
               fullWidth
             />
@@ -331,6 +447,7 @@ export default function StorePage() {
                   <TextInput
                     style={{ flex: 1 }}
                     leftSection={<IconSearch size={17} />}
+                    aria-label="Search products"
                     placeholder="Search by item name or code"
                     value={query}
                     onChange={(event) => setQuery(event.currentTarget.value)}
@@ -363,9 +480,9 @@ export default function StorePage() {
                               <Button fullWidth leftSection={<IconPlus size={17} />} onClick={() => setQuantity(product, 1)} disabled={product.stock === 0}>Add to preorder</Button>
                             ) : (
                               <Group justify="space-between">
-                                <ActionIcon variant="light" size="lg" onClick={() => setQuantity(product, quantity - 1)}><IconMinus size={17} /></ActionIcon>
+                                <ActionIcon aria-label={`Remove one ${product.itemName}`} variant="light" size="lg" onClick={() => setQuantity(product, quantity - 1)}><IconMinus size={17} /></ActionIcon>
                                 <Text fw={700}>{quantity}</Text>
-                                <ActionIcon variant="light" size="lg" onClick={() => setQuantity(product, quantity + 1)} disabled={quantity >= product.stock}><IconPlus size={17} /></ActionIcon>
+                                <ActionIcon aria-label={`Add one ${product.itemName}`} variant="light" size="lg" onClick={() => setQuantity(product, quantity + 1)} disabled={quantity >= product.stock}><IconPlus size={17} /></ActionIcon>
                               </Group>
                             )}
                           </Stack>
@@ -379,13 +496,15 @@ export default function StorePage() {
 
             {view === "orders" && (
               <Stack gap="md">
-                {reservations.length === 0 ? (
+                <Group justify="space-between"><Box><Title order={2}>Pickup tickets</Title><Text size="sm" c="dimmed">Your selected payment is saved. The cashier only confirms or cancels pickup.</Text></Box><Select aria-label="Filter preorders by status" value={orderFilter} onChange={setOrderFilter} allowDeselect={false} data={[{ value: "active", label: "Ready for pickup" }, { value: "picked_up", label: "Picked up" }, { value: "cancelled", label: "Cancelled" }, { value: "expired", label: "Expired" }, { value: "all", label: "All preorders" }]} /></Group>
+                {ordersError && <Alert color="red">{ordersError}<Button variant="subtle" onClick={() => void loadReservations()}>Retry</Button></Alert>}
+                {!ordersError && visibleOrders.length === 0 ? (
                   <Paper withBorder p="xl" ta="center">
                     <IconQrcode size={42} color="var(--mantine-color-gray-5)" />
-                    <Text fw={600} mt="sm">No preorders yet</Text>
+                    <Text fw={600} mt="sm">No preorders in this view</Text>
                     <Button variant="light" mt="md" onClick={() => setView("catalog")}>Browse available stock</Button>
                   </Paper>
-                ) : reservations.map((reservation) => {
+                ) : visibleOrders.map((reservation) => {
                   const meta = statusMeta(reservation.status);
                   const total = reservation.items.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0);
                   return (
@@ -413,7 +532,7 @@ export default function StorePage() {
                           <Divider my="xs" />
                           <Group gap="xs"><IconClock size={16} /><Text size="sm">{reservation.status === "active" ? `Pickup before ${new Date(reservation.expiresAt).toLocaleString()}` : `Created ${new Date(reservation.createdAt).toLocaleString()}`}</Text></Group>
                           {reservation.status === "active" && (
-                            <Button color="red" variant="subtle" leftSection={<IconTrash size={16} />} onClick={() => void cancelReservation(reservation.id)}>Cancel preorder</Button>
+                            <Button color="red" variant="subtle" leftSection={<IconTrash size={16} />} loading={cancellingId === reservation.id} disabled={!!cancellingId && cancellingId !== reservation.id} onClick={() => void cancelReservation(reservation.id)}>Cancel preorder</Button>
                           )}
                         </Stack>
                         {reservation.status === "active" && (
@@ -429,24 +548,51 @@ export default function StorePage() {
                 })}
               </Stack>
             )}
+
+            {view === "history" && <Stack gap="md">
+              <Box><Title order={2}>Transaction history</Title><Text c="dimmed" size="sm">Completed store pickups and purchases at POS, newest first. Cancelled and expired preorders are in Pickup.</Text></Box>
+              {historyError && <Alert color="red" title="Could not load transactions">{historyError}<Button variant="subtle" onClick={() => void loadHistory(failedHistoryCursor.current)}>Retry</Button></Alert>}
+              {!historyLoading && !historyError && transactions.length === 0 && <Paper withBorder radius="lg" p="xl" ta="center"><IconHistory size={40} /><Text fw={600} mt="sm">No purchases yet</Text><Text c="dimmed" size="sm">Your purchases will appear here after checkout at POS or confirmed pickup.</Text><Button mt="md" variant="light" onClick={() => setView("catalog")}>Start shopping</Button></Paper>}
+              <Accordion variant="separated" radius="md">
+                {transactions.map((transaction) => <Accordion.Item key={transaction.id} value={transaction.id}>
+                  <Accordion.Control>
+                    <Group justify="space-between" wrap="wrap" pr="sm">
+                      <Box><Text fw={700}>{transaction.reservationReference || "POS purchase"}</Text><Text size="xs" c="dimmed">{new Date(transaction.createdAt).toLocaleString()} · {transaction.warehouseName}</Text><Text size="sm" lineClamp={1}>{transaction.items.map((item) => `${item.quantity} × ${item.itemName}`).join(", ")}</Text></Box>
+                      <Box><Text fw={800}>{formatMoney(Number(transaction.total))}</Text><Text size="xs" c="dimmed">View details</Text></Box>
+                    </Group>
+                  </Accordion.Control>
+                  <Accordion.Panel><Stack gap="xs">
+                    {transaction.items.map((item) => <Group key={item.id} justify="space-between"><Box><Text size="sm" fw={600}>{item.itemName}</Text><Text size="xs" c="dimmed">{item.quantity} × {formatMoney(Number(item.unitPrice))}</Text></Box><Text size="sm">{formatMoney(item.quantity * Number(item.unitPrice))}</Text></Group>)}
+                    <Divider my="xs" label="Payment details" />
+                    {transaction.payments.length ? transaction.payments.map((payment, index) => <Group key={index} justify="space-between"><Text size="sm" tt="capitalize">{payment.method === "qris" ? "QRIS" : payment.method.replaceAll("_", " ")}</Text><Text size="sm">{formatMoney(Number(payment.amount))}</Text></Group>) : <Text size="sm">{transaction.paymentMethod.toUpperCase()}</Text>}
+                    <Group justify="space-between"><Text size="sm">Allowance used</Text><Text size="sm">{formatMoney(Number(transaction.allowanceUsed))}</Text></Group>
+                    {transaction.allowanceBalanceAfter !== null && <Paper p="sm" radius="md" bg="var(--mantine-color-default-hover)"><Group justify="space-between"><Text size="sm" fw={600}>Balance after this purchase</Text><Text fw={700}>{formatMoney(Number(transaction.allowanceBalanceAfter))}</Text></Group><Text size="xs" c="dimmed">Historical balance, not your current remaining allowance.</Text></Paper>}
+                  </Stack></Accordion.Panel>
+                </Accordion.Item>)}
+              </Accordion>
+              {historyLoading && <Loader mx="auto" aria-label="Loading transactions" />}
+              {nextCursor && !historyError && <Button variant="light" loading={historyLoading} onClick={() => void loadHistory(nextCursor)}>Load older transactions</Button>}
+            </Stack>}
+            {cartCount > 0 && view === "catalog" && <Paper withBorder shadow="md" radius="lg" p="md" style={{ position: "sticky", bottom: 16, zIndex: 5 }}><Group justify="space-between"><Box><Text fw={700}>{cartCount} items · {formatMoney(cartTotal)}</Text><Text size="xs" c="dimmed">Choose your payment and reserve for pickup</Text></Box><Button onClick={cartHandlers.open}>Review cart</Button></Group></Paper>}
           </Stack>
         </Container>
       </AppShell.Main>
 
       <Drawer opened={cartOpened} onClose={cartHandlers.close} title="Your preorder" position="right" size="md">
-        <Stack h="calc(100vh - 90px)">
-          <ScrollArea style={{ flex: 1 }}>
+        <Stack>
+          {message?.color === "red" && <Alert color="red" role="alert" icon={<IconAlertCircle size={18} />}>{message.text}</Alert>}
+          <ScrollArea.Autosize mah="35vh" type="auto">
             <Stack>
               {cartLines.length === 0 ? <Text c="dimmed" ta="center" py="xl">Your preorder is empty.</Text> : cartLines.map((line) => (
                 <Paper key={line.itemCode} withBorder p="sm" radius="md">
                   <Group justify="space-between" wrap="nowrap">
                     <Box style={{ flex: 1 }}><Text fw={600} size="sm">{line.itemName}</Text><Text size="xs" c="dimmed">{formatMoney(line.unitPrice)} each</Text></Box>
-                    <NumberInput w={82} min={0} max={line.stock} value={line.quantity} onChange={(value) => setQuantity(line, typeof value === "number" ? value : 0)} />
+                    <NumberInput aria-label={`Quantity for ${line.itemName}`} w={82} min={0} max={line.stock} value={line.quantity} onChange={(value) => setQuantity(line, typeof value === "number" ? value : 0)} />
                   </Group>
                 </Paper>
               ))}
             </Stack>
-          </ScrollArea>
+          </ScrollArea.Autosize>
           <Divider />
           <Group justify="space-between"><Text fw={600}>Total</Text><Text fw={800} size="xl">{formatMoney(cartTotal)}</Text></Group>
           {allowance?.previousDebt.hasOutstanding && (
@@ -483,26 +629,26 @@ export default function StorePage() {
             )}
           </Paper>
           <Stack gap="xs">
-            <Alert color="blue" icon={<IconWallet size={18} />}>This is a payment preference only. Allowance and the final Cash/QRIS remainder are recalculated at pickup.</Alert>
-            <Radio.Group value={paymentMethod || ""} onChange={(value) => { setPaymentMethod(value as PaymentChoice); setDebtConfirmed(false); }} label="Payment strategy">
+            <Alert color="blue" icon={<IconWallet size={18} />}>Your payment choice is saved for pickup. The cashier confirms collection without selecting payment again. Allowance and any Cash/QRIS remainder are recalculated at pickup; debt cannot exceed the amount you approve.</Alert>
+            <Radio.Group value={paymentMethod || ""} onChange={(value) => { setPaymentMethod(value as PaymentChoice); setDebtConfirmed(false); }} label="How would you like to pay?">
               <Stack mt="xs" gap="xs">
                 {allowanceAvailable && <Radio value="allowance_first_cash" label={<Group gap="xs"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + Cash {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
                 {allowanceAvailable && <Radio value="allowance_first_qris" label={<Group gap="xs"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + QRIS {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
                 <Radio value="cash" label={<Group gap="xs"><IconCash size={16} />Full Cash</Group>} />
                 <Radio value="qris" label={<Group gap="xs"><IconQrcode size={16} />Full QRIS</Group>} />
-                {!allowance?.previousDebt.blocked && <Radio value="allowance_debt" label={<Group gap="xs"><IconAlertCircle size={16} />Record full amount as allowance debt</Group>} />}
+                {allowance && !allowance.previousDebt.blocked && <Radio value="allowance_debt" label={<Group gap="xs"><IconAlertCircle size={16} />Record full amount as allowance debt</Group>} />}
               </Stack>
             </Radio.Group>
             {paymentMethod === "allowance_debt" && allowance && (
               <Alert color="orange">
                 <Stack gap="xs">
                   <Text size="sm">Estimated balance after pickup: {formatMoney(allowance.remaining - cartTotal)}.</Text>
-                  <Checkbox checked={debtConfirmed} onChange={(event) => setDebtConfirmed(event.currentTarget.checked)} label="I explicitly confirm this preorder may create or increase allowance debt" />
+                  <Checkbox checked={debtConfirmed} onChange={(event) => setDebtConfirmed(event.currentTarget.checked)} label={`I approve a resulting allowance debt of up to ${formatMoney(amountOverAllowance)}`} />
                 </Stack>
               </Alert>
             )}
           </Stack>
-          <Button size="lg" fullWidth loading={submitting} disabled={cartLines.length === 0 || !paymentMethod || (paymentMethod === "allowance_debt" && !debtConfirmed)} onClick={() => void reserve()}>Confirm preorder</Button>
+          <Button size="lg" fullWidth loading={submitting} disabled={cartLines.length === 0 || !paymentMethod || allowance?.previousDebt.blocked || (paymentMethod === "allowance_debt" && (!allowance || !debtConfirmed))} onClick={() => void reserve()}>Confirm preorder</Button>
           <Text size="xs" c="dimmed" ta="center">Confirming locks stock only. It does not reserve or consume allowance until pickup.</Text>
         </Stack>
       </Drawer>

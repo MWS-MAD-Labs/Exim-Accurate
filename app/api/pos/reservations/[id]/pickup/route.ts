@@ -1,24 +1,19 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
-import { z } from "zod";
+import { ZodError } from "zod";
+import { assertReservationDebtAuthorized, reservationPickupPaymentIntent, ReservationPaymentError } from "@/lib/pos-reservation-payment";
 
 import { canOperatePos } from "@/lib/access-control";
 import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
-import { legacyPaymentIntent, legacyPaymentMethodSchema, paymentIntentSchema, PaymentAllocationError, serializePayments } from "@/lib/pos-payments";
+import { PaymentAllocationError, serializePayments } from "@/lib/pos-payments";
 import { allocateSalePayment, getPosContext, lockPosSynchronization, reconcileSaleImmediateDebtSettlement, saleTotal, withSerializableRetry } from "@/lib/pos-server";
 import { sendPosSaleReceipt } from "@/lib/pos-sale-receipt";
 import { prisma } from "@/lib/prisma";
 
 const saleInclude = { items: true, payments: { orderBy: { createdAt: "asc" as const } } } satisfies Prisma.PosSaleInclude;
-const pickupPaymentSchema = z.object({
-  payment: paymentIntentSchema.optional(),
-  paymentMethod: legacyPaymentMethodSchema.optional(),
-}).refine((value) => !!value.payment !== !!value.paymentMethod, {
-  message: "Provide exactly one payment intent",
-  path: ["payment"],
-}).transform((value) => value.payment ?? legacyPaymentIntent(value.paymentMethod!));
+
 
 function responseFor(sale: Prisma.PosSaleGetPayload<{ include: typeof saleInclude }>, adjustmentNumber?: string) {
   return {
@@ -38,8 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canOperatePos(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const payment = pickupPaymentSchema.safeParse(await req.json().catch(() => null));
-  if (!payment.success) return NextResponse.json({ error: payment.error.issues[0]?.message || "Invalid payment intent" }, { status: 400 });
+  // Confirmation only: caller-supplied payment fields never override the reservation.
 
   const { id } = await params;
   const reservation = await prisma.posReservation.findUnique({ where: { id }, include: { items: true, sale: { include: saleInclude } } });
@@ -57,6 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   let sale: Prisma.PosSaleGetPayload<{ include: typeof saleInclude }> | null;
   try {
+    const payment = reservationPickupPaymentIntent(reservation, await req.json().catch(() => null));
     sale = await withSerializableRetry(() => prisma.$transaction(async (tx) => {
       await lockPosSynchronization(tx, reservation.credentialId);
       const allocation = await allocateSalePayment(tx, {
@@ -64,8 +59,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         buyerType: "staff",
         staffEmail: reservation.staffEmail,
         total: saleTotal(reservation.items),
-        payment: payment.data,
+        payment,
       });
+      assertReservationDebtAuthorized(allocation, reservation.approvedResultingDebt);
       const changed = await tx.posReservation.updateMany({ where: { id, status: "active", expiresAt: { gt: new Date() } }, data: { status: "picked_up", pickupAt: new Date() } });
       if (changed.count !== 1) throw new Error("RESERVATION_CONFLICT");
       const createdSale = await tx.posSale.create({
@@ -74,7 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           credentialId: reservation.credentialId,
           reservationId: reservation.id,
           idempotencyKey: `reservation:${reservation.id}`,
-          requestFingerprint: `reservation:${reservation.id}:${JSON.stringify(payment.data)}`,
+          requestFingerprint: `reservation:${reservation.id}:${JSON.stringify(payment)}`,
           warehouseId: reservation.warehouseId,
           warehouseName: reservation.warehouseName,
           paymentMethod: allocation.paymentMethod,
@@ -132,12 +128,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       throw error;
     }));
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json({ error: "A valid expectedAllowanceAvailable preview is required for split pickup. Reload the preorder before confirming." }, { status: 400 });
+    }
+    if (error instanceof ReservationPaymentError) {
+      return NextResponse.json({ code: error.code, error: error.message }, { status: 409 });
+    }
     if (error instanceof PaymentAllocationError) {
       const message = error.code === "ALLOWANCE_CHANGED"
-        ? "Allowance balance changed. Review the updated payment."
+        ? "Allowance balance changed. Review the updated allowance and external payment amount, then confirm pickup again."
         : error.code === "ALLOWANCE_DEBT_CHANGED"
-          ? "The resulting allowance debt changed. Review and confirm again."
-          : "No positive allowance is available. Choose Cash, QRIS, or explicitly confirm allowance debt.";
+          ? "The resulting allowance debt changed. Ask staff to review their preorder."
+          : "The stored payment choice cannot be fulfilled with the current allowance. Restore allowance or cancel this preorder and ask staff to check out again.";
       return NextResponse.json({ code: error.code, error: message, ...error.details }, { status: 409 });
     }
     if (error instanceof Error && error.message === "PREVIOUS_ALLOWANCE_DEBT_BLOCKED") {

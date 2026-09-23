@@ -435,6 +435,7 @@ model PosReservation {
   preferredPaymentMethod String    @default("allowance") // Transitional compatibility projection
   paymentStrategy        String    @default("allowance_then_external") // external_only, allowance_then_external, allowance_debt
   externalPaymentMethod  String? // cash, qris
+  approvedResultingDebt  Decimal? @db.Decimal(14, 2)
   status                 String    @default("active") // active, picked_up, cancelled, expired
   expiresAt              DateTime
   pickupAt               DateTime?

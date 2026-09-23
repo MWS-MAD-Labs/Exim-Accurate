@@ -111,6 +111,7 @@ interface PickupReservation {
   preferredPaymentMethod: PaymentMethod;
   paymentStrategy: "external_only" | "allowance_then_external" | "allowance_debt";
   externalPaymentMethod: "cash" | "qris" | null;
+  approvedResultingDebt: string | null;
   items: Array<{
     id: string;
     itemCode: string;
@@ -175,7 +176,7 @@ export default function PosCashierPage() {
   const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
   const [pickupOpened, setPickupOpened] = useState(false);
   const [pickupReservation, setPickupReservation] = useState<PickupReservation | null>(null);
-  const [pickupPaymentMethod, setPickupPaymentMethod] = useState<PaymentChoice | null>(null);
+
   const [pickupAllowance, setPickupAllowance] = useState<Allowance | null>(null);
   const [pickupPreviousDebt, setPickupPreviousDebt] = useState<PreviousDebt | null>(null);
   const [pickupLoading, setPickupLoading] = useState(false);
@@ -649,10 +650,8 @@ export default function PosCashierPage() {
 
   const openPickup = () => {
     setPickupReservation(null);
-    setPickupPaymentMethod(null);
+    setPickupAllowance(null);
     setPickupPreviousDebt(null);
-    setQrisConfirmed(false);
-    setDebtConfirmed(false);
     setPickupError("");
     setScannerKey((current) => current + 1);
     setPickupOpened(true);
@@ -676,13 +675,7 @@ export default function PosCashierPage() {
       const pickupAllowance = allowanceResponse.ok ? await allowanceResponse.json() as Allowance : null;
       setPickupPreviousDebt(pickupAllowance?.previousDebt ?? null);
       setPickupAllowance(pickupAllowance);
-      setPickupPaymentMethod(pickupAllowance?.previousDebt.blocked
-        ? null
-        : data.paymentStrategy === "allowance_debt"
-          ? "allowance_debt"
-          : data.paymentStrategy === "allowance_then_external"
-            ? data.externalPaymentMethod === "qris" ? "allowance_first_qris" : "allowance_first_cash"
-            : data.externalPaymentMethod === "qris" ? "qris" : "cash");
+
       if (data.status !== "active") setPickupError(`This preorder is ${String(data.status).replace("_", " ")}.`);
     } catch (error) {
       setPickupReservation(null);
@@ -695,23 +688,58 @@ export default function PosCashierPage() {
     }
   };
 
+  const cancelPickup = async () => {
+    if (!pickupReservation || pickupLoading || pickupReservation.status !== "active") return;
+    if (!window.confirm("Cancel this preorder and release its reserved stock?")) return;
+    setPickupLoading(true);
+    setPickupError("");
+    try {
+      const response = await fetch("/api/pos/reservations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: pickupReservation.id, action: "cancel" }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Unable to cancel preorder");
+      setPickupReservation((current) => current ? { ...current, status: data.status } : current);
+      if (data.status !== "cancelled") setPickupError(`This preorder is ${String(data.status).replaceAll("_", " ")}.`);
+    } catch (error) {
+      setPickupError(error instanceof Error ? error.message : "Unable to cancel preorder");
+    } finally {
+      setPickupLoading(false);
+    }
+  };
+
+  const pickupIsSplit = pickupReservation?.paymentStrategy === "allowance_then_external";
+  const pickupPreviewAvailable = pickupAllowance !== null && Number.isFinite(pickupAllowance.remaining);
+  const pickupTotal = pickupReservation?.items.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0) ?? 0;
+  const pickupAllowanceApplied = pickupPreviewAvailable ? Math.min(pickupTotal, Math.max(0, pickupAllowance.remaining)) : 0;
+  const pickupSplitUnavailable = pickupIsSplit && pickupPreviewAvailable && pickupAllowance.remaining <= 0;
+
   const confirmPickup = async () => {
-    if (!pickupReservation || !pickupPaymentMethod || pickupLoading) return;
+    if (!pickupReservation || pickupReservation.status !== "active" || pickupLoading) return;
+    if (pickupIsSplit && (!pickupPreviewAvailable || pickupSplitUnavailable)) return;
     setPickupLoading(true);
     setPickupError("");
     try {
       const response = await fetch(`/api/pos/reservations/${pickupReservation.id}/pickup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payment: buildPaymentIntent(pickupPaymentMethod, pickupAllowance?.remaining ?? 0) }),
+        body: JSON.stringify(pickupIsSplit ? {
+          expectedAllowanceAvailable: Math.max(0, pickupAllowance!.remaining).toFixed(2),
+        } : {}),
       });
       const data = await response.json();
       if (!response.ok && !data.sale) {
-        if (data.code === "ALLOWANCE_CHANGED" || data.code === "ALLOWANCE_DEBT_CHANGED") {
-          const currentBalance = data.allowance?.currentlyAvailable ?? data.allowance?.currentBalance;
-          if (currentBalance !== undefined) setPickupAllowance((current) => current ? { ...current, remaining: Number(currentBalance) } : current);
-          setDebtConfirmed(false);
-          setQrisConfirmed(false);
+        if (response.status === 409 && (data.code === "ALLOWANCE_CHANGED" || data.code === "ALLOWANCE_UNAVAILABLE")) {
+          const balance = data.code === "ALLOWANCE_CHANGED"
+            ? data.allowance?.currentlyAvailable
+            : data.currentBalance;
+          if (typeof balance === "string" && Number.isFinite(Number(balance))) {
+            setPickupAllowance((current) => current ? { ...current, remaining: Number(balance) } : null);
+          } else {
+            setPickupAllowance(null);
+          }
         }
         throw new Error(data.error || "Unable to confirm pickup");
       }
@@ -726,7 +754,7 @@ export default function PosCashierPage() {
       });
       setPickupOpened(false);
       setPickupReservation(null);
-      setPickupPaymentMethod(null);
+
       setPickupAllowance(null);
       setPickupPreviousDebt(null);
     } catch (error) {
@@ -1048,7 +1076,7 @@ export default function PosCashierPage() {
 
       <Modal
         opened={pickupOpened}
-        onClose={() => setPickupOpened(false)}
+        onClose={() => { if (!pickupLoading) setPickupOpened(false); }}
         title="Preorder pickup"
         size="lg"
         centered
@@ -1093,21 +1121,25 @@ export default function PosCashierPage() {
               </Card>
               {pickupReservation.status === "active" && (
                 <>
-                  <Text fw={600}>Payment strategy <Text span size="xs" c="dimmed">(staff selected {pickupReservation.paymentStrategy.replaceAll("_", " ")})</Text></Text>
-                  <SimpleGrid cols={2}>
-                    <Button variant={pickupPaymentMethod === "cash" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => { setPickupPaymentMethod("cash"); setQrisConfirmed(false); setDebtConfirmed(false); }}>Full Cash</Button>
-                    <Button variant={pickupPaymentMethod === "qris" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => { setPickupPaymentMethod("qris"); setQrisConfirmed(false); setDebtConfirmed(false); }}>Full QRIS</Button>
-                    <Button variant={pickupPaymentMethod === "allowance_first_cash" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked || (pickupAllowance?.remaining ?? 0) <= 0} onClick={() => { setPickupPaymentMethod("allowance_first_cash"); setQrisConfirmed(false); setDebtConfirmed(false); }}>Allowance + Cash</Button>
-                    <Button variant={pickupPaymentMethod === "allowance_first_qris" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked || (pickupAllowance?.remaining ?? 0) <= 0} onClick={() => { setPickupPaymentMethod("allowance_first_qris"); setQrisConfirmed(false); setDebtConfirmed(false); }}>Allowance + QRIS</Button>
-                    <Button color="orange" variant={pickupPaymentMethod === "allowance_debt" ? "filled" : "outline"} disabled={!!pickupPreviousDebt?.blocked} onClick={() => { setPickupPaymentMethod("allowance_debt"); setQrisConfirmed(false); setDebtConfirmed(false); }}>Allowance debt</Button>
-                  </SimpleGrid>
+                  <Text fw={600}>Staff-selected payment: {pickupReservation.paymentStrategy === "allowance_debt"
+                    ? "Allowance"
+                    : pickupReservation.externalPaymentMethod
+                      ? `${pickupReservation.paymentStrategy === "allowance_then_external" ? "Allowance + " : ""}${pickupReservation.externalPaymentMethod.toUpperCase()}`
+                      : "Incomplete payment choice"}</Text>
+                  <Text size="sm" c="dimmed">Payment was chosen at store checkout and cannot be changed here. Confirm pickup only after receiving any Cash or QRIS amount due.</Text>
                   {pickupAllowance && <Alert color="blue">Current allowance: {formatMoney(pickupAllowance.remaining)}. Final allocation is verified when pickup is submitted.</Alert>}
-                  {(pickupPaymentMethod === "qris" || pickupPaymentMethod === "allowance_first_qris") && <Checkbox checked={qrisConfirmed} onChange={(event) => setQrisConfirmed(event.currentTarget.checked)} label="QRIS payment received" />}
-                  {pickupPaymentMethod === "allowance_debt" && <Checkbox checked={debtConfirmed} onChange={(event) => setDebtConfirmed(event.currentTarget.checked)} label={`Confirm allowance balance will become ${formatMoney((pickupAllowance?.remaining ?? 0) - pickupReservation.items.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0))}`} />}
+                  {pickupIsSplit && (pickupSplitUnavailable
+                    ? <Alert color="red">No positive allowance is available for this saved split payment. Restore allowance and reopen this preorder, or cancel it and ask staff to check out again with another payment method.</Alert>
+                    : pickupPreviewAvailable
+                    ? <Alert color="blue">Payment preview: Allowance {formatMoney(pickupAllowanceApplied)} + {pickupReservation.externalPaymentMethod?.toUpperCase()} {formatMoney(pickupTotal - pickupAllowanceApplied)}. Review this amount before confirming.</Alert>
+                    : <Alert color="red">Payment preview unavailable. Close and reopen this preorder to reload allowance before confirming pickup.</Alert>)}
+                  {pickupReservation.paymentStrategy === "allowance_debt" && <Alert color="orange">{pickupReservation.approvedResultingDebt == null
+                    ? "This legacy preorder has no approved debt amount. Cancel it and ask staff to check out again."
+                    : `Staff-approved resulting debt limit: ${formatMoney(Number(pickupReservation.approvedResultingDebt))}. Pickup cannot exceed this amount.`}</Alert>}
                   {pickupPreviousDebt?.blocked && <Alert color="red">{t.dashboard.pos.pickupDebtOverdueAlert.replace("{amount}", formatMoney(pickupPreviousDebt.outstanding))}</Alert>}
                   <Group grow>
-                    <Button variant="subtle" onClick={() => { setPickupReservation(null); setPickupPaymentMethod(null); setPickupPreviousDebt(null); setPickupError(""); setScannerKey((current) => current + 1); }}>Scan another</Button>
-                    <Button loading={pickupLoading} disabled={!pickupPaymentMethod || ((pickupPaymentMethod === "qris" || pickupPaymentMethod === "allowance_first_qris") && !qrisConfirmed) || (pickupPaymentMethod === "allowance_debt" && !debtConfirmed)} onClick={() => void confirmPickup()}>Confirm pickup</Button>
+                    <Button color="red" variant="outline" disabled={pickupLoading} onClick={() => void cancelPickup()}>Cancel preorder</Button>
+                    <Button loading={pickupLoading} disabled={!!pickupPreviousDebt?.blocked || (pickupIsSplit && !pickupPreviewAvailable) || pickupSplitUnavailable} onClick={() => void confirmPickup()}>Confirm pickup</Button>
                   </Group>
                 </>
               )}

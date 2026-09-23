@@ -40,13 +40,38 @@ test("normalizes legacy sale payment payloads during the compatibility window", 
   assert.deepEqual(parsed.payment, { strategy: "external_only", method: "cash" });
 });
 
-test("normalizes legacy allowance preorder preferences explicitly", () => {
-  const parsed = reservationRequestSchema.parse({
+test("rejects legacy allowance preorder preferences with checkout guidance", () => {
+  const parsed = reservationRequestSchema.safeParse({
     preferredPaymentMethod: "allowance",
     idempotencyKey: "legacy-reservation-key",
     items: [{ itemCode: "A", quantity: 1 }],
   });
-  assert.deepEqual(parsed.payment, { strategy: "allowance_debt", debtConfirmed: true });
+  assert.equal(parsed.success, false);
+  if (parsed.success) return;
+  assert.deepEqual(parsed.error.issues[0].path, ["preferredPaymentMethod"]);
+  assert.match(parsed.error.issues[0].message, /Use payment:/);
+  assert.match(parsed.error.issues[0].message, /expectedResultingDebt/);
+});
+
+for (const method of ["cash", "qris"] as const) {
+  test(`continues to normalize legacy ${method} preorder preferences`, () => {
+    const parsed = reservationRequestSchema.parse({
+      preferredPaymentMethod: method,
+      idempotencyKey: "legacy-reservation-key",
+      items: [{ itemCode: "A", quantity: 1 }],
+    });
+    assert.deepEqual(parsed.payment, { strategy: "external_only", method });
+  });
+}
+
+test("accepts explicit staff-approved debt at reservation checkout", () => {
+  const payment = { strategy: "allowance_debt", debtConfirmed: true, expectedResultingDebt: "25000.00" };
+  const parsed = reservationRequestSchema.parse({
+    payment,
+    idempotencyKey: "approved-debt-reservation-key",
+    items: [{ itemCode: "A", quantity: 1 }],
+  });
+  assert.deepEqual(parsed.payment, payment);
 });
 
 test("rejects requests that send both legacy and normalized payment fields", () => {
