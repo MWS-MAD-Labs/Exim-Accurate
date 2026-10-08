@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid query" }, { status: 400 });
 
   const { credentialId, year: requestedYear } = parsed.data;
-  const credential = await getOperationalPosCredential(session.user.id, session.user.role, credentialId);
+  const credential = await getOperationalPosCredential(session.user.id, session.user.permissions, credentialId);
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
 
   const settings = await prisma.posSettings.findUnique({

@@ -32,6 +32,18 @@ export async function GET() {
       return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
     }
 
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { organizationId: true },
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
+    }
+
+    const organizationId = currentUser.organizationId;
+    const userScope = { user: { organizationId } };
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -49,40 +61,44 @@ export async function GET() {
       recentImports,
     ] = await Promise.all([
       prisma.exportJob.count({
-        where: { status: "done" },
+        where: { status: "done", ...userScope },
       }),
       prisma.importJob.count({
-        where: { status: "done" },
+        where: { status: "done", ...userScope },
       }),
       prisma.accurateCredentials.count({
-        where: {},
+        where: { organizationId },
       }),
       prisma.exportJob.count({
         where: {
           status: "done",
+          ...userScope,
           startedAt: { gte: startOfMonth, lt: startOfNextMonth },
         },
       }),
       prisma.importJob.count({
         where: {
           status: "done",
+          ...userScope,
           startedAt: { gte: startOfMonth, lt: startOfNextMonth },
         },
       }),
       prisma.exportJob.count({
         where: {
           status: "done",
+          ...userScope,
           startedAt: { gte: startOfLastMonth, lt: startOfMonth },
         },
       }),
       prisma.importJob.count({
         where: {
           status: "done",
+          ...userScope,
           startedAt: { gte: startOfLastMonth, lt: startOfMonth },
         },
       }),
       prisma.exportJob.findMany({
-        where: {},
+        where: userScope,
         orderBy: { startedAt: "desc" },
         take: 10,
         select: {
@@ -94,7 +110,7 @@ export async function GET() {
         },
       }),
       prisma.importJob.findMany({
-        where: {},
+        where: userScope,
         orderBy: { startedAt: "desc" },
         take: 10,
         select: {
@@ -108,32 +124,15 @@ export async function GET() {
     ]);
 
     // Read kiosk data from cache (synced by /api/cron/sync-kiosk)
-    let kioskCaches: any[] = [];
-    if ((prisma as any).kioskSyncData) {
-      kioskCaches = await (prisma as any).kioskSyncData.findMany({
-        where: {
+    const kioskCache = await prisma.kioskSyncData.findUnique({
+      where: {
+        organizationId_year_month: {
+          organizationId,
           year: now.getFullYear(),
           month: now.getMonth() + 1,
         },
-      });
-    } else {
-      console.warn('[dashboard/summary] kioskSyncData model not found on prisma client yet');
-    }
-
-    // Treat the strongest monthly kiosk cache as the organization-wide source of truth.
-    // This avoids double-counting when multiple admin logins can trigger the same sync.
-    const kioskCache =
-      kioskCaches
-        .slice()
-        .sort((a, b) => {
-          const totalDiff = (b.totalCheckouts || 0) - (a.totalCheckouts || 0);
-          if (totalDiff !== 0) return totalDiff;
-
-          const uniqueDiff = (b.uniqueUsers || 0) - (a.uniqueUsers || 0);
-          if (uniqueDiff !== 0) return uniqueDiff;
-
-          return new Date(b.lastSyncAt).getTime() - new Date(a.lastSyncAt).getTime();
-        })[0] || null;
+      },
+    });
 
     const totalKioskCheckouts = kioskCache?.totalCheckouts || 0;
     const uniqueKioskUsers = kioskCache?.uniqueUsers || 0;
@@ -151,7 +150,7 @@ export async function GET() {
       itemName: item.itemName || item.itemCode,
       totalQuantity: item.totalQuantity || 0,
     }));
-    let kioskLastSync: string | null = kioskCache?.lastSyncAt || null;
+    const kioskLastSync = kioskCache?.lastSyncAt.toISOString() ?? null;
 
     // Build kiosk weekly chart data (last 7 days) from cached daily data
     const dailyCountMap = new Map<string, number>();
@@ -191,6 +190,7 @@ export async function GET() {
       prisma.exportJob.findMany({
         where: {
           status: "done",
+          ...userScope,
           startedAt: { gte: weekStart },
         },
         select: { startedAt: true },
@@ -198,6 +198,7 @@ export async function GET() {
       prisma.importJob.findMany({
         where: {
           status: "done",
+          ...userScope,
           startedAt: { gte: weekStart },
         },
         select: { startedAt: true },
@@ -236,6 +237,7 @@ export async function GET() {
     const monthJobs = await prisma.exportJob.findMany({
       where: {
         status: "done",
+        ...userScope,
         startedAt: { gte: startOfMonth, lt: startOfNextMonth },
       },
       select: { startedAt: true },
@@ -244,6 +246,7 @@ export async function GET() {
     const monthImports = await prisma.importJob.findMany({
       where: {
         status: "done",
+        ...userScope,
         startedAt: { gte: startOfMonth, lt: startOfNextMonth },
       },
       select: { startedAt: true },

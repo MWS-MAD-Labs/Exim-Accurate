@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   }).safeParse(Object.fromEntries(new URL(req.url).searchParams));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid query" }, { status: 400 });
   const { credentialId, email, periodStart, periodEnd } = parsed.data;
-  const credential = await getOperationalPosCredential(session.user.id, session.user.role, credentialId);
+  const credential = await getOperationalPosCredential(session.user.id, session.user.permissions, credentialId);
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   const requestedPeriod = periodStart && periodEnd
     ? { startsAt: parseDateOnly(periodStart), endsAt: parseDateOnly(periodEnd) }

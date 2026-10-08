@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const credential = await getOperationalPosCredential(
     session.user.id,
-    session.user.role,
+    session.user.permissions,
     parsed.data.credentialId,
   );
   if (!credential) return NextResponse.json({ error: "POS store is not available" }, { status: 404 });

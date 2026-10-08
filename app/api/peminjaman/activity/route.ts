@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
+        const credential = await getResourceCredential(session.user.id, session.user.permissions, credentialId);
         if (!credential) {
             return NextResponse.json({ error: "Credential not found" }, { status: 404 });
         }

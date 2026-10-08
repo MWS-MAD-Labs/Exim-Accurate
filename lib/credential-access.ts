@@ -1,13 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import { isRoleAllowed } from "@/lib/access-control";
+import { hasAnyPermission, hasPermission } from "@/lib/access-control";
 import { getOrganizationIdForUser } from "@/lib/organization";
 
+// Who may use a credential follows the permissions of the person's role in Central, not the
+// name of the role, so a role made in Central works as soon as it carries the right permissions.
 export async function getResourceCredential(
   userId: string,
-  role: string | null | undefined,
+  permissions: readonly string[] | null | undefined,
   credentialId: string,
 ) {
-  if (!isRoleAllowed(role, ["admin", "resource"])) return null;
+  if (!hasAnyPermission(permissions, ["credentials.manage", "borrowing.manage"])) return null;
   const organizationId = await getOrganizationIdForUser(userId);
   if (!organizationId) return null;
 
@@ -18,10 +20,10 @@ export async function getResourceCredential(
 
 export async function getOperationalPosCredential(
   userId: string,
-  role: string | null | undefined,
+  permissions: readonly string[] | null | undefined,
   credentialId: string,
 ) {
-  if (!isRoleAllowed(role, ["admin", "cashier", "staff"])) return null;
+  if (!hasPermission(permissions, "pos.catalog.read")) return null;
   const organizationId = await getOrganizationIdForUser(userId);
   if (!organizationId) return null;
 

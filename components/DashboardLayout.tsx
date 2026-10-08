@@ -18,7 +18,7 @@ import {
   rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   IconDashboard,
@@ -37,6 +37,7 @@ import {
   IconChartLine,
   IconShoppingCart,
   IconBuildingWarehouse,
+  IconQrcode,
   IconUsers,
   IconClock,
   IconWallet,
@@ -60,9 +61,8 @@ function UserMenu() {
   const { data: session } = useSession();
   const router = useRouter();
 
-  const handleSignOut = async () => {
-    await signOut({ redirect: false });
-    router.push("/login");
+  const handleSignOut = () => {
+    router.push("/auth/logout");
   };
 
   const getInitials = (email?: string | null) => {
@@ -274,6 +274,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       icon: <IconUsers size={20} />,
       href: "/admin",
     },
+    {
+      label: "Badges",
+      icon: <IconQrcode size={20} />,
+      href: "/admin/badges",
+    },
   ];
 
   const navItems = session?.user?.role === "resource"
@@ -285,6 +290,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const isActive = (href: string) => pathname === href;
   const isItemActive = (item: NavItem): boolean => {
     if (item.href) {
+      // User management and Badges both live under /admin, so /admin is matched exactly.
+      if (item.href === "/admin") return pathname === item.href;
       return pathname === item.href || pathname.startsWith(`${item.href}/`);
     }
 
@@ -421,7 +428,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             <Group
               gap="xs"
               style={{ cursor: "pointer" }}
-              onClick={() => router.push(getRoleHome(session?.user?.role))}
+              onClick={() => router.push(getRoleHome(session?.user?.role, session?.user?.permissions))}
             >
               <Box
                 style={{

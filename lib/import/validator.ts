@@ -5,7 +5,7 @@ export const ImportRowSchema = z.object({
   itemCode: z.string().min(1, "Item code is required"),
   itemName: z.string().optional(),
   type: z.enum(["Penambahan", "Pengurangan"], {
-    errorMap: () => ({ message: 'Type must be "Penambahan" or "Pengurangan"' }),
+    error: 'Type must be "Penambahan" or "Pengurangan"',
   }),
   quantity: z.number().positive("Quantity must be positive"),
   unit: z.string().min(1, "Unit is required"),
@@ -54,7 +54,7 @@ export async function validateImportRow(
     ImportRowSchema.parse(row);
   } catch (err) {
     if (err instanceof z.ZodError) {
-      errors.push(...err.errors.map((e) => `Row ${rowIndex}: ${e.message}`));
+      errors.push(...err.issues.map((issue) => `Row ${rowIndex}: ${issue.message}`));
     }
   }
 

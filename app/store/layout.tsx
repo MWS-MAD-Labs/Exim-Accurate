@@ -13,8 +13,8 @@ export default async function StoreLayout({
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/store");
   }
-  if (!canUseStaffStore(session.user.role)) {
-    redirect(getRoleHome(session.user.role));
+  if (!canUseStaffStore(session.user.role, session.user.permissions)) {
+    redirect(getRoleHome(session.user.role, session.user.permissions));
   }
 
   return children;

@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
     if (credentialId) {
       const credential = await getOperationalPosCredential(
         session.user.id,
-        session.user.role,
+        session.user.permissions,
         credentialId,
       );
       if (!credential) {

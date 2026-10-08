@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const { credentialId, warehouseId, warehouseName } = parsed.data;
     const credential = await getResourceCredential(
         session.user.id,
-        session.user.role,
+        session.user.permissions,
         credentialId,
     );
     if (!credential) {

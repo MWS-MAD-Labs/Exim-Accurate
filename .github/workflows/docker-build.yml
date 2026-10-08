@@ -37,6 +37,19 @@ jobs:
       - name: Run Linting & Type Check
         run: npm test
 
+      # A deploy sends the permission list to Central when the server starts. This stops a change that
+      # would drop a permission which roles in Central still use. Skipped when the secrets are not set.
+      - name: Check permissions against Central
+        env:
+          CENTRAL_DATA_API_BASE_URL: ${{ secrets.CENTRAL_DATA_API_BASE_URL }}
+          CENTRAL_DATA_API_TOKEN: ${{ secrets.CENTRAL_DATA_API_TOKEN }}
+        run: |
+          if [ -z "$CENTRAL_DATA_API_BASE_URL" ] || [ -z "$CENTRAL_DATA_API_TOKEN" ]; then
+            echo "Central secrets are not set, skipping the permission check."
+            exit 0
+          fi
+          npx tsx scripts/sync-permissions.ts check --before-deploy
+
   build-and-push:
     name: Build & Push Docker Image
     needs: test

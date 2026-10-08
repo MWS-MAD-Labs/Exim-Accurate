@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isRoleAllowed } from "@/lib/access-control";
+import { hasPermission } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { expireReservations } from "@/lib/pos-server";
 import { getOperationalPosCredential } from "@/lib/credential-access";
@@ -15,7 +15,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!isRoleAllowed(session.user.role, ["admin", "cashier", "staff"])) {
+  if (!hasPermission(session.user.permissions, "pos.catalog.read")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -32,11 +32,11 @@ export async function GET(
     return NextResponse.json({ error: "Reservation is not attached to a POS credential" }, { status: 409 });
   }
 
-  const canReadAny = isRoleAllowed(session.user.role, ["admin", "cashier"]);
+  const canReadAny = hasPermission(session.user.permissions, "pos.checkout");
   if (!canReadAny && reservation.userId !== session.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (canReadAny && !await getOperationalPosCredential(session.user.id, session.user.role, reservation.credentialId)) {
+  if (canReadAny && !await getOperationalPosCredential(session.user.id, session.user.permissions, reservation.credentialId)) {
     return NextResponse.json({ error: "Reservation is not available to this POS operator" }, { status: 403 });
   }
 

@@ -52,8 +52,8 @@ function parseStaffInfo(email: string): { name: string; department: string } {
 }
 
 // Helper to ensure valid Accurate session
-async function ensureCredentialSession(userId: string, credentialId: string, role: string) {
-    let credential = await getResourceCredential(userId, role, credentialId);
+async function ensureCredentialSession(userId: string, credentialId: string, permissions: string[]) {
+    let credential = await getResourceCredential(userId, permissions, credentialId);
 
     if (!credential) throw new Error("Credential not found");
 
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
+        const credential = await getResourceCredential(session.user.id, session.user.permissions, credentialId);
         if (!credential) {
             return NextResponse.json({ error: "Credential not found" }, { status: 404 });
         }
@@ -239,7 +239,7 @@ export async function POST(req: NextRequest) {
         let adjustmentId: number | null = null;
         if (type === "borrow") {
             try {
-                const credential = await ensureCredentialSession(session.user.id, credentialId, session.user.role);
+                const credential = await ensureCredentialSession(session.user.id, credentialId, session.user.permissions);
                 const resourceSettings = await prisma.resourceSettings.findUnique({
                     where: { organizationId: credential.organizationId },
                 });

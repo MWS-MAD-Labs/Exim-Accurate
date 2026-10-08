@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
     const credential = await getResourceCredential(
         session.user.id,
-        session.user.role,
+        session.user.permissions,
         credentialId,
     );
     if (!credential || !credential.host || !credential.session) {

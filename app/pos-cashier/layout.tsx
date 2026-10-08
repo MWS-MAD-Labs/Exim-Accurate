@@ -37,8 +37,8 @@ export default async function PosCashierLayout({
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/pos-cashier");
   }
-  if (!canOperatePos(session.user.role)) {
-    redirect(getRoleHome(session.user.role));
+  if (!canOperatePos(session.user.role, session.user.permissions)) {
+    redirect(getRoleHome(session.user.role, session.user.permissions));
   }
 
   return (

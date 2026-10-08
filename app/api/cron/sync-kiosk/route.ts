@@ -1,4 +1,5 @@
 import { NextResponse, after } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
     listInventoryAdjustments,
@@ -51,18 +52,17 @@ async function performSync(forceStartDate?: string | null) {
 
     console.log(`[sync-kiosk] Starting sync. Date range: ${startDateStr} to now.`);
 
-    // Get all users with credentials
-    const users = await prisma.user.findMany({
+    const organizations = await prisma.organization.findMany({
         include: {
             accurateCredentials: { where: { disconnectedAt: null } },
         },
     });
 
-    console.log(`[sync-kiosk] Found ${users.length} users`);
+    console.log(`[sync-kiosk] Found ${organizations.length} organizations`);
 
-    for (const user of users) {
+    for (const organization of organizations) {
         try {
-            console.log(`[sync-kiosk] Syncing for user ${user.email}, credentials: ${user.accurateCredentials.length}`);
+            console.log(`[sync-kiosk] Syncing organization ${organization.id}, credentials: ${organization.accurateCredentials.length}`);
 
             interface KioskUser {
                 email: string;
@@ -81,7 +81,7 @@ async function performSync(forceStartDate?: string | null) {
             const dailyCounts = new Map<string, number>();
             let totalCheckouts = 0;
 
-            for (let cred of user.accurateCredentials) {
+            for (let cred of organization.accurateCredentials) {
                 console.log(`[sync-kiosk] Processing credential ${cred.id}`);
                 if (!cred.apiToken) {
                     console.log(`[sync-kiosk] Skipping credential ${cred.id}: no apiToken`);
@@ -313,48 +313,43 @@ async function performSync(forceStartDate?: string | null) {
             const uniqueUsers = usersByEmail.size;
 
             // Upsert cache
-            if ((prisma as any).kioskSyncData) {
-                await (prisma as any).kioskSyncData.upsert({
-                    where: {
-                        userId_year_month: {
-                            userId: user.id,
-                            year,
-                            month,
-                        },
-                    },
-                    update: {
-                        totalCheckouts: totalCheckouts,
-                        uniqueUsers,
-                        topUsers: topUsers as any,
-                        topItems: topItems as any,
-                        dailyData: dailyData as any,
-                        lastSyncAt: now,
-                    },
-                    create: {
-                        userId: user.id,
+            await prisma.kioskSyncData.upsert({
+                where: {
+                    organizationId_year_month: {
+                        organizationId: organization.id,
                         year,
                         month,
-                        totalCheckouts: totalCheckouts,
-                        uniqueUsers,
-                        topUsers: topUsers as any,
-                        topItems: topItems as any,
-                        dailyData: dailyData as any,
-                        lastSyncAt: now,
                     },
-                });
-            } else {
-                console.error('[sync-kiosk] kioskSyncData model not found on prisma client');
-                throw new Error('Database model not ready. Please try again in a few seconds.');
-            }
+                },
+                update: {
+                    totalCheckouts,
+                    uniqueUsers,
+                    topUsers: topUsers as unknown as Prisma.InputJsonValue,
+                    topItems: topItems as unknown as Prisma.InputJsonValue,
+                    dailyData: dailyData as unknown as Prisma.InputJsonValue,
+                    lastSyncAt: now,
+                },
+                create: {
+                    organizationId: organization.id,
+                    year,
+                    month,
+                    totalCheckouts,
+                    uniqueUsers,
+                    topUsers: topUsers as unknown as Prisma.InputJsonValue,
+                    topItems: topItems as unknown as Prisma.InputJsonValue,
+                    dailyData: dailyData as unknown as Prisma.InputJsonValue,
+                    lastSyncAt: now,
+                },
+            });
 
 
             console.log(
-                `[sync-kiosk] ✅ Synced for ${user.email}: ${totalCheckouts} checkouts, ${uniqueUsers} users, ${topItems.length} items`,
+                `[sync-kiosk] Synced organization ${organization.id}: ${totalCheckouts} checkouts, ${uniqueUsers} users, ${topItems.length} items`,
             );
-        } catch (userErr: any) {
+        } catch (organizationError: any) {
             console.error(
-                `[sync-kiosk] ❌ Failed for ${user.email}:`,
-                userErr.message,
+                `[sync-kiosk] Failed organization ${organization.id}:`,
+                organizationError.message,
             );
         }
     }
@@ -366,7 +361,7 @@ export async function GET(request: Request) {
     // Verify cron secret
     const authHeader = request.headers.get("authorization");
     const isDev = process.env.NODE_ENV === "development";
-    if (!isDev && CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+    if (!isDev && (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
