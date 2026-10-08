@@ -32,7 +32,7 @@ Exima extends Accurate Online with inventory adjustment import/export, self-chec
 - TypeScript
 - Mantine UI
 - PostgreSQL and Prisma
-- NextAuth
+- NextAuth local sessions with MWS Hub SSO
 - Zod
 - ExcelJS
 - Recharts
@@ -55,7 +55,7 @@ npm install
 cp .env.example .env
 ```
 
-Configure `.env`, including the database, NextAuth, Accurate OAuth, cron, and Google SMTP values. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the required `SMTP_*` variables and daily allowance-notification cron endpoint.
+Configure `.env`, including the database, NextAuth, MWS Hub SSO, Central Data Center API, Accurate OAuth, cron, and Google SMTP values. See [`DEPLOYMENT.md`](DEPLOYMENT.md) for deployment details.
 
 Start PostgreSQL only:
 
@@ -69,7 +69,7 @@ Apply migrations and create the first administrator:
 
 ```sh
 npm run db:deploy
-npm run db:seed -- admin@example.com password123 admin
+npm run db:seed -- admin@example.com <central-person-id> <central-organization-id> "Admin Name"
 ```
 
 Start the application:
@@ -78,7 +78,25 @@ Start the application:
 npm run dev
 ```
 
-Open `http://localhost:3000`, sign in, and connect Accurate from **Accurate Credentials**.
+Open `http://localhost:3000`, sign in through MWS Hub, and connect Accurate from **Accurate Credentials**. A matching Exima user must already exist; Hub authentication does not auto-provision an organization or application role.
+
+### MWS Hub SSO
+
+Exima uses Hub as the only interactive login entry. Hub authenticates the person and hands Exima a short-lived, single-use code. Exima exchanges that code server-to-server, verifies the RS256 relay token with Hub JWKS, confirms the active employee against Central Data Center, and then creates its own NextAuth session.
+
+Register Exima in Hub with:
+
+```text
+sso_app_id     = exima
+sso_entry_url  = https://exima.mws.web.id/auth/sso
+sso_logout_url = https://exima.mws.web.id/auth/logout-silent
+```
+
+The callback requires a short-lived HttpOnly initiation cookie created by `/auth/hub`. Hub currently does not round-trip an application-provided OAuth-style `state` value, so a future Hub hardening should bind the opaque exchange code to a caller state and return it with the redirect.
+
+Create a dedicated Central API client with `employees:read` and `application_entitlements:read`. Exima keys identity by Central `Person.id`; email remains a mutable contact/display field. Central application entitlements are authoritative for the Exima organization, role, permissions, and entitlement version. Each local `Organization` must have a unique `centralOrganizationId` matching the entitlement's `organization_id`.
+
+Exima keeps no identity data of its own: name, email, role and permissions come from Central. `npm run users:sync` (the server also runs it by itself every minute and reads the list only when Central's version key changed) brings in everyone who has access, and an account is also made or refreshed at sign-in, so nobody is seeded or edited by hand. Allowance rates, balances, debts and sales stay in Exima, linked to the person. Exima sessions are limited to 15 minutes and Hub logout revokes them immediately through `sessionVersion`. With `EXIMA_CENTRAL_ACCESS_MODE=enforce` Exima also asks Central again (cached `EXIMA_CENTRAL_ACCESS_CACHE_SECONDS`, 30 by default): removed access signs the person out and a changed role or permission list reaches the session. `warn` only logs, `off` (default) keeps the old behaviour. The permission list is sent to Central by the server itself when it starts, and only when it differs (`EXIMA_PERMISSION_SYNC`); `npm run permissions:check` and `permissions:sync` do it by hand. Changing a name or email in Central never signs anyone out; only losing all access does.
 
 For Docker production deployment, migration reconciliation, verification, backup, and rollback procedures, see [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
@@ -227,7 +245,7 @@ npm run db:generate  # Generate Prisma client
 npm run db:migrate   # Create/apply development migration
 npm run db:deploy    # Apply existing migrations
 npm run db:studio    # Open Prisma Studio
-npm run db:seed -- admin@example.com password123 admin
+npm run db:seed -- admin@example.com <central-person-id> <central-organization-id> "Admin Name"
 ```
 
 ## Database Model Highlights

@@ -1,591 +1,128 @@
 "use client";
 
 import {
-  Paper,
-  TextInput,
-  PasswordInput,
-  Button,
-  Title,
-  Container,
-  Stack,
   Alert,
   Box,
-  Text,
+  Button,
+  Container,
   Group,
+  Paper,
+  Stack,
+  Text,
   ThemeIcon,
-  Divider,
-  Anchor,
-  Collapse,
+  Title,
   useMantineColorScheme,
-  rem,
 } from "@mantine/core";
-import { Suspense, useEffect, useState } from "react";
-import { getProviders, getSession, signIn } from "next-auth/react";
-import { getRoleHome } from "@/lib/access-control";
-import { useRouter, useSearchParams } from "next/navigation";
-import { LanguageSelect } from "@/components/ui/LanguageSelect";
-import { useLanguage } from "@/lib/language";
 import {
   IconAlertCircle,
-  IconShield,
-  IconPlugConnected,
-  IconFileExport,
-  IconFileImport,
-  IconCheck,
   IconArrowRight,
-  IconBrandGoogle,
+  IconBuildingCommunity,
+  IconLock,
+  IconShieldCheck,
 } from "@tabler/icons-react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { LanguageSelect } from "@/components/ui/LanguageSelect";
+
+const errorMessages: Record<string, string> = {
+  CredentialsSignin: "Akun Anda belum memiliki akses Exima atau proses SSO gagal.",
+  sso: "Proses masuk melalui MWS Hub gagal. Silakan coba lagi.",
+  revoked: "Sesi Anda telah berakhir. Silakan masuk kembali melalui MWS Hub.",
+};
 
 function LoginContent() {
-  const { t } = useLanguage();
-  const router = useRouter();
   const searchParams = useSearchParams();
-
-  const features = [
-    {
-      icon: <IconFileExport size={20} />,
-      title: t.login.features.export.title,
-      description: t.login.features.export.description,
-    },
-    {
-      icon: <IconFileImport size={20} />,
-      title: t.login.features.import.title,
-      description: t.login.features.import.description,
-    },
-    {
-      icon: <IconPlugConnected size={20} />,
-      title: t.login.features.oauth.title,
-      description: t.login.features.oauth.description,
-    },
-    {
-      icon: <IconShield size={20} />,
-      title: t.login.features.security.title,
-      description: t.login.features.security.description,
-    },
-  ];
-
+  const router = useRouter();
   const { colorScheme } = useMantineColorScheme();
-  const isDark = colorScheme === "dark";
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleEnabled, setGoogleEnabled] = useState(false);
-  const [showCredentials, setShowCredentials] = useState(false);
-  const [error, setError] = useState("");
+  const error = searchParams.get("error");
 
-  const requestedCallbackUrl = searchParams.get("callbackUrl");
-  const callbackUrl =
-    requestedCallbackUrl?.startsWith("/") && !requestedCallbackUrl.startsWith("//")
-      ? requestedCallbackUrl
-      : "/dashboard";
-
-  useEffect(() => {
-    if (searchParams.get("credentials") === "true" || searchParams.get("password") === "true") {
-      setShowCredentials(true);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    const oauthError = searchParams.get("error");
-    if (oauthError === "AccessDenied") {
-      setError(t.login.errorGoogleAccessDenied);
-    } else if (oauthError) {
-      setError(t.login.errorGoogleGeneric);
-    }
-  }, [searchParams, t.login.errorGoogleAccessDenied, t.login.errorGoogleGeneric]);
-
-  useEffect(() => {
-    let active = true;
-
-    getProviders()
-      .then((providers) => {
-        if (active) setGoogleEnabled(Boolean(providers?.google));
-      })
-      .catch(() => {
-        if (active) setGoogleEnabled(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const handleGoogleSignIn = async () => {
-    setError("");
-    setGoogleLoading(true);
-
-    try {
-      await signIn("google", { callbackUrl });
-    } catch {
-      setError(t.login.errorGeneric);
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  const handleSignIn = () => {
     setLoading(true);
-
-    try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError(t.login.errorInvalid);
-      } else {
-        const session = await getSession();
-        router.push(getRoleHome(session?.user?.role));
-        router.refresh();
-      }
-    } catch (err) {
-      setError(t.login.errorGeneric);
-    } finally {
-      setLoading(false);
-    }
+    router.push("/auth/hub");
   };
 
   return (
     <Box
       style={{
         minHeight: "100vh",
-        display: "flex",
-        background: isDark
-          ? "var(--mantine-color-dark-8)"
-          : "var(--mantine-color-gray-0)",
+        display: "grid",
+        placeItems: "center",
+        padding: 24,
+        background:
+          colorScheme === "dark"
+            ? "radial-gradient(circle at 15% 15%, #17324d 0, #141517 42%, #101113 100%)"
+            : "radial-gradient(circle at 15% 15%, #dff3ff 0, #f7f9fc 42%, #eef2f7 100%)",
       }}
     >
-      {/* Left Side - Branding */}
-      <Box
-        visibleFrom="md"
-        style={{
-          flex: 1,
-          background:
-            "linear-gradient(135deg, #228BE6 0%, #1C7ED6 50%, #1971C2 100%)",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          padding: rem(60),
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        {/* Background decorations */}
-        <Box
-          style={{
-            position: "absolute",
-            top: "-20%",
-            right: "-20%",
-            width: "60%",
-            height: "60%",
-            borderRadius: "50%",
-            background: "rgba(255, 255, 255, 0.1)",
-            filter: "blur(60px)",
-          }}
-        />
-        <Box
-          style={{
-            position: "absolute",
-            bottom: "-10%",
-            left: "-10%",
-            width: "40%",
-            height: "40%",
-            borderRadius: "50%",
-            background: "rgba(255, 255, 255, 0.08)",
-            filter: "blur(40px)",
-          }}
-        />
-
-        <Stack gap="xl" style={{ position: "relative", zIndex: 1 }}>
-          {/* Logo */}
-          <Group gap="sm">
-            <Box
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 12,
-                background: "rgba(255, 255, 255, 0.2)",
-                backdropFilter: "blur(10px)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontWeight: 700,
-                fontSize: 24,
-              }}
-            >
-              E
-            </Box>
-            <Text size="xl" fw={700} c="white">
-              Exima
-            </Text>
-          </Group>
-
-          {/* Tagline */}
-          <Stack gap="sm">
-            <Title order={2} c="white" fw={700} style={{ fontSize: rem(36) }}>
-              {t.login.branding.title}
-            </Title>
-            <Text c="rgba(255, 255, 255, 0.8)" size="lg" maw={400}>
-              {t.login.branding.description}
-            </Text>
-          </Stack>
-
-          {/* Features */}
-          <Stack gap="md" mt="xl">
-            {features.map((feature) => (
-              <Group key={feature.title} gap="md">
-                <ThemeIcon
-                  size={44}
-                  radius="md"
-                  variant="light"
-                  style={{
-                    backgroundColor: "rgba(255, 255, 255, 0.15)",
-                    color: "white",
-                  }}
-                >
-                  {feature.icon}
-                </ThemeIcon>
-                <Stack gap={2}>
-                  <Text c="white" fw={600} size="sm">
-                    {feature.title}
-                  </Text>
-                  <Text c="rgba(255, 255, 255, 0.7)" size="xs">
-                    {feature.description}
-                  </Text>
-                </Stack>
-              </Group>
-            ))}
-          </Stack>
-
-          {/* Trust badges */}
-          <Group gap="lg" mt="xl">
-            <Group gap="xs">
-              <IconCheck size={16} color="rgba(255, 255, 255, 0.8)" />
-              <Text size="xs" c="rgba(255, 255, 255, 0.8)">
-                {t.home.benefits.free.split(",")[0]}
-              </Text>
-            </Group>
-            <Group gap="xs">
-              <IconCheck size={16} color="rgba(255, 255, 255, 0.8)" />
-              <Text size="xs" c="rgba(255, 255, 255, 0.8)">
-                {t.common.selfHost}
-              </Text>
-            </Group>
-            <Group gap="xs">
-              <IconCheck size={16} color="rgba(255, 255, 255, 0.8)" />
-              <Text size="xs" c="rgba(255, 255, 255, 0.8)">
-                {t.common.free.split(" · ")[1]}
-              </Text>
-            </Group>
-          </Group>
-        </Stack>
-      </Box>
-
-      {/* Right Side - Login Form */}
-      <Box
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: rem(24),
-        }}
-      >
-        <Container size={420} w="100%">
-          <Stack gap="xl">
-            <Group justify="flex-end">
-              <LanguageSelect />
-            </Group>
-
-            {/* Mobile Logo */}
-            <Group gap="sm" hiddenFrom="md" justify="center">
-              <Box
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background:
-                    "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  fontWeight: 700,
-                  fontSize: 20,
-                }}
-              >
-                E
+      <Container size={520} w="100%">
+        <Stack gap="lg">
+          <Group justify="space-between">
+            <Group gap="sm">
+              <ThemeIcon size={44} radius="md" variant="gradient" gradient={{ from: "blue", to: "cyan" }}>
+                <IconBuildingCommunity size={24} />
+              </ThemeIcon>
+              <Box>
+                <Text fw={800} size="xl">Exima</Text>
+                <Text size="xs" c="dimmed">MWS inventory and operations</Text>
               </Box>
-              <Text
-                size="xl"
-                fw={700}
-                style={{
-                  background: isDark
-                    ? "linear-gradient(135deg, #74C0FC 0%, #A5D8FF 100%)"
-                    : "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
-                Exima
-              </Text>
             </Group>
+            <LanguageSelect />
+          </Group>
 
-            {/* Header */}
-            <Stack gap="xs" ta={{ base: "center", md: "left" }}>
-              <Title order={2} fw={700}>
-                {t.login.title}
-              </Title>
-              <Text c="dimmed" size="sm">
-                {t.login.subtitle}
-              </Text>
-            </Stack>
-
-            {/* Form */}
-            <Paper
-              withBorder
-              shadow="md"
-              p="xl"
-              radius="lg"
-              style={{
-                backgroundColor: isDark
-                  ? "var(--mantine-color-dark-7)"
-                  : "white",
-                border: isDark
-                  ? "1px solid var(--mantine-color-dark-4)"
-                  : "1px solid var(--mantine-color-gray-2)",
-              }}
-            >
-              <Stack gap="md">
-                {error && (
-                  <Alert
-                    icon={<IconAlertCircle size={16} />}
-                    title={t.login.errorTitle}
-                    color="red"
-                    variant="light"
-                    radius="md"
-                  >
-                    {error}
-                  </Alert>
-                )}
-
-                {googleEnabled ? (
-                  <>
-                    <Button
-                      type="button"
-                      fullWidth
-                      variant="default"
-                      loading={googleLoading}
-                      disabled={loading}
-                      size="md"
-                      radius="md"
-                      leftSection={!googleLoading && <IconBrandGoogle size={18} />}
-                      onClick={handleGoogleSignIn}
-                    >
-                      {t.login.googleSubmit}
-                    </Button>
-
-                    <Group justify="center" mt="xs">
-                      <Anchor
-                        component="button"
-                        type="button"
-                        size="xs"
-                        c="dimmed"
-                        onClick={() => setShowCredentials((prev) => !prev)}
-                      >
-                        {showCredentials ? t.login.hideCredentials : t.login.useCredentials}
-                      </Anchor>
-                    </Group>
-
-                    <Collapse in={showCredentials}>
-                      <Stack gap="md" mt="sm">
-                        <Divider
-                          label={t.login.or}
-                          labelPosition="center"
-                          color={isDark ? "dark.4" : "gray.3"}
-                        />
-
-                        <form onSubmit={handleSubmit}>
-                          <Stack gap="md">
-                            <TextInput
-                              label={t.login.email}
-                              placeholder={t.login.placeholderEmail}
-                              required
-                              value={email}
-                              onChange={(e) => setEmail(e.currentTarget.value)}
-                              size="md"
-                              radius="md"
-                              styles={{
-                                label: {
-                                  marginBottom: 6,
-                                  fontWeight: 500,
-                                },
-                              }}
-                            />
-
-                            <PasswordInput
-                              label={t.login.password}
-                              placeholder={t.login.placeholderPassword}
-                              required
-                              value={password}
-                              onChange={(e) => setPassword(e.currentTarget.value)}
-                              size="md"
-                              radius="md"
-                              styles={{
-                                label: {
-                                  marginBottom: 6,
-                                  fontWeight: 500,
-                                },
-                              }}
-                            />
-
-                            <Group justify="flex-end">
-                              <Anchor
-                                component="button"
-                                type="button"
-                                c="brand"
-                                size="sm"
-                                fw={500}
-                              >
-                                {t.login.forgotPassword}
-                              </Anchor>
-                            </Group>
-
-                            <Button
-                              type="submit"
-                              fullWidth
-                              loading={loading}
-                              disabled={googleLoading}
-                              size="md"
-                              radius="md"
-                              rightSection={!loading && <IconArrowRight size={18} />}
-                              style={{
-                                background:
-                                  "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                                boxShadow: "0 4px 14px rgba(34, 139, 230, 0.3)",
-                                transition: "all 0.2s ease",
-                              }}
-                              styles={{
-                                root: {
-                                  "&:hover": {
-                                    boxShadow: "0 6px 20px rgba(34, 139, 230, 0.4)",
-                                  },
-                                },
-                              }}
-                            >
-                              {loading ? t.common.processing : t.login.submit}
-                            </Button>
-                          </Stack>
-                        </form>
-                      </Stack>
-                    </Collapse>
-                  </>
-                ) : (
-                  <form onSubmit={handleSubmit}>
-                    <Stack gap="md">
-                      <TextInput
-                        label={t.login.email}
-                        placeholder={t.login.placeholderEmail}
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.currentTarget.value)}
-                        size="md"
-                        radius="md"
-                        styles={{
-                          label: {
-                            marginBottom: 6,
-                            fontWeight: 500,
-                          },
-                        }}
-                      />
-
-                      <PasswordInput
-                        label={t.login.password}
-                        placeholder={t.login.placeholderPassword}
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.currentTarget.value)}
-                        size="md"
-                        radius="md"
-                        styles={{
-                          label: {
-                            marginBottom: 6,
-                            fontWeight: 500,
-                          },
-                        }}
-                      />
-
-                      <Group justify="flex-end">
-                        <Anchor
-                          component="button"
-                          type="button"
-                          c="brand"
-                          size="sm"
-                          fw={500}
-                        >
-                          {t.login.forgotPassword}
-                        </Anchor>
-                      </Group>
-
-                      <Button
-                        type="submit"
-                        fullWidth
-                        loading={loading}
-                        disabled={googleLoading}
-                        size="md"
-                        radius="md"
-                        rightSection={!loading && <IconArrowRight size={18} />}
-                        style={{
-                          background:
-                            "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                          boxShadow: "0 4px 14px rgba(34, 139, 230, 0.3)",
-                          transition: "all 0.2s ease",
-                        }}
-                        styles={{
-                          root: {
-                            "&:hover": {
-                              boxShadow: "0 6px 20px rgba(34, 139, 230, 0.4)",
-                            },
-                          },
-                        }}
-                      >
-                        {loading ? t.common.processing : t.login.submit}
-                      </Button>
-                    </Stack>
-                  </form>
-                )}
+          <Paper withBorder shadow="xl" radius="xl" p={{ base: "xl", sm: 36 }}>
+            <Stack gap="xl">
+              <Stack gap="xs">
+                <Text size="xs" tt="uppercase" fw={700} c="blue">Central sign-in</Text>
+                <Title order={1} fz={{ base: 30, sm: 38 }} lh={1.1}>
+                  Masuk melalui MWS Hub
+                </Title>
+                <Text c="dimmed">
+                  Identitas diverifikasi oleh MWS Hub dan Central Data Center. Hak akses fitur tetap mengikuti akun Exima yang sudah diprovisikan.
+                </Text>
               </Stack>
-            </Paper>
 
-            {/* Footer */}
-            <Stack gap="md" align="center">
-              <Text size="sm" c="dimmed" ta="center">
-                {t.login.noAccount}{" "}
-                <Anchor
-                  component="button"
-                  type="button"
-                  fw={600}
-                  onClick={() => router.push("/register")}
-                >
-                  {t.login.register}
-                </Anchor>
+              {error && (
+                <Alert icon={<IconAlertCircle size={18} />} color="red" title="Tidak dapat masuk">
+                  {errorMessages[error] || errorMessages.sso}
+                </Alert>
+              )}
+
+              <Stack gap="sm">
+                <Group wrap="nowrap" align="flex-start">
+                  <ThemeIcon variant="light" color="blue" radius="xl"><IconShieldCheck size={18} /></ThemeIcon>
+                  <Box>
+                    <Text fw={600} size="sm">Satu identitas MWS</Text>
+                    <Text size="xs" c="dimmed">Gunakan akun organisasi yang terdaftar dan aktif di Central.</Text>
+                  </Box>
+                </Group>
+                <Group wrap="nowrap" align="flex-start">
+                  <ThemeIcon variant="light" color="teal" radius="xl"><IconLock size={18} /></ThemeIcon>
+                  <Box>
+                    <Text fw={600} size="sm">Token tidak masuk ke browser</Text>
+                    <Text size="xs" c="dimmed">Exima menukar kode sekali pakai dengan Hub melalui koneksi server-to-server.</Text>
+                  </Box>
+                </Group>
+              </Stack>
+
+              <Button
+                size="lg"
+                radius="md"
+                loading={loading}
+                rightSection={!loading && <IconArrowRight size={19} />}
+                onClick={handleSignIn}
+              >
+                Lanjutkan ke MWS Hub
+              </Button>
+
+              <Text size="xs" c="dimmed" ta="center">
+                Akun baru tidak dibuat otomatis. Hub mengautentikasi identitas, sedangkan administrator Exima menentukan organisasi dan role aplikasi.
               </Text>
-
-              <Group gap="xs" mt="sm">
-                <Anchor size="xs" c="dimmed" href="/terms">
-                  {t.login.terms}
-                </Anchor>
-              </Group>
             </Stack>
-          </Stack>
-        </Container>
-      </Box>
+          </Paper>
+        </Stack>
+      </Container>
     </Box>
   );
 }

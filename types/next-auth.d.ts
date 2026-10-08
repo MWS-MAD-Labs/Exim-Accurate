@@ -6,6 +6,12 @@ declare module "next-auth" {
     email: string;
     name: string | null;
     role: string;
+    permissions: string[];
+    organizationId: string;
+    centralEntitlementId: string | null;
+    entitlementVersion: number;
+    centralPersonId: string | null;
+    sessionVersion: number;
   }
 
   interface Session {
@@ -18,5 +24,11 @@ declare module "next-auth/jwt" {
     id: string;
     name: string | null;
     role: string;
+    permissions: string[];
+    organizationId: string;
+    centralEntitlementId: string | null;
+    entitlementVersion: number;
+    centralPersonId: string | null;
+    sessionVersion: number;
   }
 }

@@ -11,32 +11,44 @@ datasource db {
 }
 
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                    String   @id @default(uuid())
+  centralOrganizationId String?  @unique
+  name                  String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   users               User[]
   accurateCredentials AccurateCredentials[]
   posSettings         PosSettings[]
   resourceSettings    ResourceSettings?
   borrowableItems     BorrowableItem[]
+  kioskSyncData       KioskSyncData[]
 }
 
 model User {
-  id             String   @id @default(uuid())
-  organizationId String
-  email          String   @unique
-  name           String?
-  password       String
-  role           String   @default("staff")
-  createdAt      DateTime @default(now())
+  id                   String    @id @default(uuid())
+  organizationId       String
+  centralPersonId      String?   @unique
+  centralEntitlementId String?   @unique
+  email                String    @unique
+  name                 String?
+  password             String?
+  role                 String    @default("staff")
+  permissions          String[]  @default([])
+  entitlementVersion   Int       @default(0)
+  // Where the person stands in Central as of the last sync: active, no_access or unknown.
+  centralStatus        String?
+  // Goes up to cancel every badge printed or shown before.
+  badgeVersion         Int       @default(1)
+  entitlementSyncedAt  DateTime?
+  sessionVersion       Int       @default(0)
+  createdAt            DateTime  @default(now())
 
   organization                       Organization                      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  emailHistory                       UserEmailHistory[]
   accurateCredentials                AccurateCredentials[]
   exportJobs                         ExportJob[]
   importJobs                         ImportJob[]
-  kioskSyncData                      KioskSyncData[]
   borrowingSessions                  BorrowingSession[]
   borrowingActivities                BorrowingActivity[]
   posSales                           PosSale[]                         @relation("PosSaleCreatedBy")
@@ -91,20 +103,24 @@ model AccurateCredentials {
 
 // Self Checkout feature - tracks staff checkout sessions
 model CheckoutSession {
-  id           String    @id @default(uuid())
-  staffEmail   String // Email from QR badge scan
-  staffName    String? // Parsed from email or badge
-  staffDept    String? // Department parsed from email
-  createdAt    DateTime  @default(now())
-  completedAt  DateTime?
-  status       String    @default("pending") // pending, completed, failed
-  errorMessage String?
+  id            String    @id @default(uuid())
+  staffEmail    String // Email from QR badge scan
+  // Central Person.id of the staff member. Balances and debts are kept per person; the email is only a label.
+  staffPersonId String?
+  staffName     String? // Parsed from email or badge
+  staffDept     String? // Department parsed from email
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+  status        String    @default("pending") // pending, completed, failed
+  errorMessage  String?
 
   items        CheckoutItem[]
   credentialId String
   credential   AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
 
   adjustmentId Int? // ID of created inventory adjustment in Accurate
+
+  @@index([staffPersonId])
 }
 
 model CheckoutItem {
@@ -120,7 +136,7 @@ model CheckoutItem {
 // Cached kiosk statistics - synced daily via cron
 model KioskSyncData {
   id             String   @id @default(uuid())
-  userId         String
+  organizationId String
   year           Int
   month          Int // 1-12
   totalCheckouts Int      @default(0)
@@ -132,9 +148,9 @@ model KioskSyncData {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, year, month])
+  @@unique([organizationId, year, month])
 }
 
 model ExportJob {
@@ -313,24 +329,30 @@ model PosAllowancePeriodOverride {
 }
 
 model PosStaffDayOff {
-  id           String   @id @default(uuid())
-  credentialId String
-  staffEmail   String
-  date         DateTime
-  reason       String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(uuid())
+  credentialId  String
+  staffEmail    String
+  // Central Person.id of the staff member. Balances and debts are kept per person; the email is only a label.
+  staffPersonId String?
+  date          DateTime
+  reason        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
 
   @@unique([credentialId, staffEmail, date])
+  @@unique([credentialId, staffPersonId, date], map: "PosStaffDayOff_person_unique")
   @@index([credentialId, staffEmail, date])
+  @@index([credentialId, staffPersonId, date])
 }
 
 model PosStaffAllowanceAdjustment {
   id             String   @id @default(uuid())
   credentialId   String
   staffEmail     String
+  // Central Person.id of the staff member. Balances and debts are kept per person; the email is only a label.
+  staffPersonId  String?
   periodStartsAt DateTime
   periodEndsAt   DateTime
   amount         Decimal  @db.Decimal(14, 2)
@@ -344,6 +366,7 @@ model PosStaffAllowanceAdjustment {
   createdBy  User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@unique([credentialId, staffEmail, periodStartsAt, periodEndsAt])
+  @@unique([credentialId, staffPersonId, periodStartsAt, periodEndsAt], map: "PosStaffAllowanceAdjustment_person_unique")
   @@index([createdById])
 }
 
@@ -351,6 +374,8 @@ model PosStaffAllowanceDebtSettlement {
   id             String   @id @default(uuid())
   credentialId   String
   staffEmail     String
+  // Central Person.id of the staff member. Balances and debts are kept per person; the email is only a label.
+  staffPersonId  String?
   periodStartsAt DateTime
   periodEndsAt   DateTime
   amount         Decimal  @db.Decimal(14, 2)
@@ -368,12 +393,15 @@ model PosStaffAllowanceDebtSettlement {
   @@index([credentialId, staffEmail, periodStartsAt, periodEndsAt])
   @@index([credentialId, createdAt])
   @@index([createdById])
+  @@index([credentialId, staffPersonId, periodStartsAt, periodEndsAt])
 }
 
 model PosAllowanceNotification {
   id             String    @id @default(uuid())
   credentialId   String
   staffEmail     String
+  // Central Person.id of the staff member. Balances and debts are kept per person; the email is only a label.
+  staffPersonId  String?
   periodStartsAt DateTime
   periodEndsAt   DateTime
   reminderDay    Int // 1 = day before cutoff, 0 = cutoff day
@@ -388,6 +416,7 @@ model PosAllowanceNotification {
   credential AccurateCredentials @relation(fields: [credentialId], references: [id], onDelete: Cascade)
 
   @@unique([credentialId, staffEmail, periodStartsAt, periodEndsAt, reminderDay])
+  @@unique([credentialId, staffPersonId, periodStartsAt, periodEndsAt, reminderDay], map: "PosAllowanceNotification_person_unique")
   @@index([status, updatedAt])
 }
 
@@ -431,11 +460,13 @@ model PosReservation {
   warehouseId            Int
   warehouseName          String
   staffEmail             String
+  // Central Person.id of the staff member. Balances and debts are kept per person; the email is only a label.
+  staffPersonId          String?
   staffName              String?
   preferredPaymentMethod String    @default("allowance") // Transitional compatibility projection
   paymentStrategy        String    @default("allowance_then_external") // external_only, allowance_then_external, allowance_debt
   externalPaymentMethod  String? // cash, qris
-  approvedResultingDebt  Decimal? @db.Decimal(14, 2)
+  approvedResultingDebt  Decimal?  @db.Decimal(14, 2)
   status                 String    @default("active") // active, picked_up, cancelled, expired
   expiresAt              DateTime
   pickupAt               DateTime?
@@ -451,6 +482,7 @@ model PosReservation {
   @@unique([userId, idempotencyKey])
   @@index([credentialId, status, expiresAt])
   @@index([userId, createdAt])
+  @@index([credentialId, staffPersonId])
 }
 
 model PosReservationItem {
@@ -504,6 +536,8 @@ model PosSale {
   // Buyer identification (staff QR badge scan) and allowance payment usage
   buyerType     String  @default("guest") // staff, guest
   staffEmail    String?
+  // Central Person.id of the staff member. Balances and debts are kept per person; the email is only a label.
+  staffPersonId String?
   staffName     String?
   allowanceUsed Decimal @default(0) @db.Decimal(14, 2)
 
@@ -523,6 +557,7 @@ model PosSale {
   @@index([receiptEmailStatus, receiptEmailAttemptedAt])
   @@index([credentialId, staffEmail, createdAt])
   @@index([voidedById])
+  @@index([credentialId, staffPersonId, createdAt])
 }
 
 model PosSalePayment {
@@ -615,4 +650,29 @@ model PosSaleItem {
   sale PosSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
   @@index([saleId, itemCode])
+}
+
+// The key Central gave the list of people the last time it was synced, one row per application.
+model CentralSyncState {
+  id          String    @id @default(uuid())
+  application String    @unique(map: "CentralSyncState_application_key")
+  key         String
+  syncedAt    DateTime
+  // The last time the sync ran, whether or not anything changed, and how it ended.
+  checkedAt   DateTime?
+  lastError   String?
+  lastSummary Json?
+}
+
+// Emails a person had before Central changed it, so an old badge can still be recognized for a while.
+model UserEmailHistory {
+  id         String   @id @default(uuid())
+  userId     String
+  email      String
+  replacedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, email])
+  @@index([email])
 }

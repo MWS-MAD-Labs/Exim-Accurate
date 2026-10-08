@@ -1,13 +1,15 @@
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
   const email = process.argv[2] || "admin@example.com";
-  const password = process.argv[3] || "password123";
-  const role = process.argv[4] || "admin";
+  const centralPersonId = process.argv[3];
+  const centralOrganizationId = process.argv[4];
   const name = process.argv[5]?.trim() || null;
+  if (!centralPersonId || !centralOrganizationId) {
+    throw new Error("Usage: npm run db:seed -- <email> <centralPersonId> <centralOrganizationId> [name]");
+  }
 
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({
@@ -19,29 +21,29 @@ async function main() {
     return;
   }
 
-  // Hash password
-  const hashedPassword = await bcrypt.hash(password, 10);
-
   // Create user
   const user = await prisma.user.create({
     data: {
       organization: {
         connectOrCreate: {
           where: { id: "default-organization" },
-          create: { id: "default-organization", name: "Default Organization" },
+          create: {
+            id: "default-organization",
+            centralOrganizationId,
+            name: "Default Organization",
+          },
         },
       },
       email,
+      centralPersonId,
       name,
-      password: hashedPassword,
-      role,
     },
   });
 
   console.log("User created successfully:");
   console.log(`Email: ${user.email}`);
   console.log(`Name: ${user.name || "Not set"}`);
-  console.log(`Role: ${user.role}`);
+  console.log(`Central Person ID: ${user.centralPersonId}`);
   console.log(`ID: ${user.id}`);
 }
 

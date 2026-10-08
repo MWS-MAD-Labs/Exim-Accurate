@@ -9,6 +9,9 @@
 # testing
 /coverage
 
+# local knowledge graph output
+/graphify-out/
+
 # next.js
 /.next/
 /out/

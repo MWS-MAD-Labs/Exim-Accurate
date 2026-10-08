@@ -16,8 +16,13 @@ Copy `.env.example` to `.env` and configure at least:
 DATABASE_URL=postgresql://postgres:password@postgres:5432/exim_accurate?schema=public
 NEXTAUTH_URL=https://your-domain.example
 NEXTAUTH_SECRET=replace-with-a-strong-random-secret
-WOKO_GOOGLE_OAUTH_CLIENT_ID=...
-WOKO_GOOGLE_OAUTH_CLIENT_SECRET=...
+
+HUB_BASE_URL=https://app.mws.web.id
+HUB_INTERNAL_SECRET=replace-with-the-shared-hub-secret
+HUB_SSO_APP_ID=exima
+HUB_SSO_JWKS_URL=https://app.mws.web.id/.well-known/jwks.json
+CENTRAL_DATA_API_BASE_URL=https://db.mws.web.id
+CENTRAL_DATA_API_TOKEN=token-prefix.secret
 
 ACCURATE_APP_KEY=...
 ACCURATE_SIGNATURE_SECRET=...
@@ -36,9 +41,15 @@ SMTP_PASSWORD=replace-with-google-app-password
 SMTP_FROM=Exima Notifications <notifications@example.com>
 ```
 
-Never commit `.env` or expose OAuth secrets, SMTP passwords, tokens, session values, or database credentials in logs. For Google SMTP, use an App Password rather than the account's normal password whenever possible.
+Never commit `.env` or expose Hub/Central secrets, OAuth secrets, SMTP passwords, tokens, session values, or database credentials in logs. For Google SMTP, use an App Password rather than the account's normal password whenever possible.
 
-For Google Sign-In, configure the Google OAuth web application's authorized redirect URI as `https://your-domain.example/api/auth/callback/google`. Google authentication is intentionally limited to existing Exima users: an administrator must provision the user's email and role first, and the verified Google email must match that account.
+Register Exima in Hub with `sso_app_id=exima`, `sso_entry_url=https://your-domain.example/auth/sso`, `sso_logout_url=https://your-domain.example/auth/logout-silent`, and Central entitlement application ID `exima`. Create a dedicated Central API client scoped to `employees:read` and `application_entitlements:read`. Existing Exima users are linked to Central `Person.id` on their first successful Hub login; unknown users are rejected rather than auto-provisioned. Map every Exima organization to the entitlement `organization_id` through `Organization.centralOrganizationId` before enabling login.
+
+For an existing organization, run:
+
+```sh
+npm run db:map-central-organization -- <local-organization-id> <central-organization-id>
+```
 
 Both Compose stacks include an `allowance-notification-scheduler` service and a `pos-sale-sync-scheduler` service. After the app becomes healthy, the first sidecar calls the protected allowance-notification and POS receipt-retry endpoints hourly, while the sale-sync sidecar retries locally queued Accurate inventory adjustments every minute over the internal Docker network. Allowance notifications only process day -1 and day 0 of each active POS store's cutoff date, and `PosAllowanceNotification` prevents duplicate delivery. Receipt retries claim only pending, failed, stale-processing, or legacy role-disabled sales using at-least-once delivery with sale-level status and claim timeouts to minimize duplicate delivery across retries. Notifications and receipts use branded HTML with plain text included as a mail-client fallback. No external scheduler is required for the standard Compose deployment.
 
@@ -90,7 +101,7 @@ docker compose -f compose.prebuilt.yaml run --rm --no-deps \
   -v /workspace/node_modules \
   -w /workspace \
   --entrypoint sh \
-  app -c 'npm ci --include=dev && npm run db:seed -- admin@example.com secure-password admin'
+  app -c 'npm ci --include=dev && npm run db:seed -- admin@example.com central-person-id central-organization-id "Admin Name"'
 ```
 
 The one-off container inherits the application's `DATABASE_URL`, so the `postgres` hostname resolves on the Compose network. It explicitly sets `NODE_ENV=development` and uses `npm ci --include=dev` to guarantee that the `tsx` seed runner is installed.
@@ -100,7 +111,7 @@ For the local-build `compose.local.yaml` deployment, PostgreSQL is published on 
 ```sh
 npm ci
 DATABASE_URL='postgresql://postgres:password@127.0.0.1:5434/exim_accurate?schema=public' \
-  npm run db:seed -- admin@example.com secure-password admin
+  npm run db:seed -- admin@example.com central-person-id central-organization-id "Admin Name"
 ```
 
 Use the actual database credentials from the deployment rather than the example password. The script creates or connects the default organization. Users created later through the admin interface join the current administrator's organization.
@@ -178,7 +189,9 @@ npm run build
 Also verify:
 
 - `NEXTAUTH_URL` and `ACCURATE_REDIRECT_URI` use the production HTTPS domain.
-- The Google OAuth client authorizes `${NEXTAUTH_URL}/api/auth/callback/google`, and `WOKO_GOOGLE_OAUTH_CLIENT_ID` plus `WOKO_GOOGLE_OAUTH_CLIENT_SECRET` are present in the app container.
+- Hub has the Exima SSO entry/logout URLs registered and its JWKS endpoint is reachable from the app container.
+- `HUB_INTERNAL_SECRET` matches Hub, and the Central API token is active with `employees:read` plus `application_entitlements:read`.
+- Every active Exima organization has the correct `centralOrganizationId`, and every provisioned user has a Central entitlement whose role/permissions use Exima's canonical vocabulary.
 - Database backups and restore procedures are tested.
 - Credential, POS, analytics, self-checkout, and borrowing endpoints remain organization-scoped.
 - `CRON_SECRET` protects kiosk synchronization and allowance notification scheduling.
@@ -186,7 +199,9 @@ Also verify:
 
 ## Post-Deployment Verification
 
-- Sign in with both credentials and a provisioned Google account, then verify role-based navigation. Confirm an unprovisioned Google email is rejected.
+- Launch Exima from Hub with each provisioned Exima role and verify role-based navigation. Confirm an active Central employee without a local Exima user is rejected.
+- Change a Central employee email, sign in again, and confirm the existing Exima user is updated through the stable Central `Person.id` link.
+- Sign out from Exima and Hub, then verify the prior Exima session is rejected through back-channel `sessionVersion` revocation.
 - Connect Accurate and confirm host/session resolution.
 - Reconnect Accurate and confirm no second active credential is created.
 - Test inventory export preview and download.

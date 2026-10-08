@@ -17,7 +17,14 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "tsx scripts/seed-user.ts"
+    "db:seed": "tsx scripts/seed-user.ts",
+    "db:map-central-organization": "tsx scripts/map-central-organization.ts",
+    "badge:check": "tsx --env-file=.env scripts/badge-check.ts check",
+    "badge:issue": "tsx --env-file=.env scripts/badge-check.ts issue",
+    "staff:audit": "tsx --env-file=.env scripts/staff-audit.ts",
+    "users:sync": "tsx --env-file=.env scripts/sync-users.ts",
+    "permissions:sync": "tsx --env-file=.env scripts/sync-permissions.ts sync",
+    "permissions:check": "tsx --env-file=.env scripts/sync-permissions.ts check"
   },
   "dependencies": {
     "@mantine/core": "^7.15.2",
@@ -27,10 +34,10 @@
     "@mantine/notifications": "^7.15.2",
     "@prisma/client": "^6.19.0",
     "@tabler/icons-react": "^3.23.0",
-    "bcryptjs": "^2.4.3",
     "dayjs": "^1.11.13",
     "exceljs": "^4.4.0",
     "html5-qrcode": "^2.3.8",
+    "mws-central-auth": "github:MWS-MAD-Labs/mws-central-auth#v0.5.3",
     "next": "16.3.0",
     "next-auth": "^4.24.11",
     "nodemailer": "^7.0.13",
@@ -39,11 +46,10 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^3.7.0",
-    "zod": "^3.24.1",
+    "zod": "^4.6.5",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.2",
     "@types/nodemailer": "^7.0.12",
     "@types/qrcode": "^1.5.6",
