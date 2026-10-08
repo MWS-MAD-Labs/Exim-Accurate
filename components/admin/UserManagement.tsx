@@ -36,7 +36,7 @@ import {
   IconTool,
 } from "@tabler/icons-react";
 import { USER_ROLE_META, type UserRole } from "@/lib/user-roles";
-import { longAgo, shortAgo } from "@/lib/time-ago";
+import { syncDotState, syncTooltipLines } from "@/lib/sync-label";
 import type { UserStatus } from "@/lib/user-directory";
 
 interface ManagedUser {
@@ -114,6 +114,36 @@ function formatTime(value: string | null) {
 async function readError(response: Response) {
   const body = await response.json().catch(() => null);
   return body?.error || "Something went wrong.";
+}
+
+
+const syncDotCss = `
+.sync-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; outline-offset: 3px; cursor: default; }
+.sync-dot--fresh { animation: sync-dot-pulse 1.6s ease-out 1; }
+@keyframes sync-dot-pulse { 0% { box-shadow: 0 0 0 0 rgba(64,192,87,0.55); } 100% { box-shadow: 0 0 0 9px rgba(64,192,87,0); } }
+@media (prefers-reduced-motion: reduce) { .sync-dot--fresh { animation: none; } }
+`;
+
+// A small dot next to the title: green when in step with Central, orange when the sync is failing.
+// The details are in the tooltip.
+function SyncDot({ status }: { status: SyncStatus }) {
+  const state = syncDotState(status);
+  const lines = syncTooltipLines(status);
+  return (
+    <Tooltip
+      withArrow
+      events={{ hover: true, focus: true, touch: true }}
+      label={<Stack gap={0}>{lines.map((line, index) => <Text key={line} size="xs" fw={index === 0 ? 600 : 400}>{line}</Text>)}</Stack>}
+    >
+      <span
+        role="status"
+        tabIndex={0}
+        aria-label={lines.join(". ")}
+        className={`sync-dot${state === "fresh" ? " sync-dot--fresh" : ""}`}
+        style={{ background: state === "failing" ? "var(--mantine-color-orange-6)" : "var(--mantine-color-green-6)" }}
+      />
+    </Tooltip>
+  );
 }
 
 export function UserManagement() {
@@ -205,24 +235,18 @@ export function UserManagement() {
 
   return (
     <Stack gap="lg">
+      <style>{syncDotCss}</style>
       <Group justify="space-between" align="flex-end">
         <Box>
           <Text size="sm" c="dimmed" mb={4}>Administration</Text>
-          <Title order={2}>User management</Title>
+          <Group gap={10} align="center" wrap="nowrap">
+            <Title order={2}>User management</Title>
+            {syncStatus && <SyncDot status={syncStatus} />}
+          </Group>
           <Text c="dimmed" size="sm" mt={4}>
             People, roles and permissions come from Central and cannot be changed here.
           </Text>
         </Box>
-        {syncStatus && !syncStatus.last_error && (
-          <Tooltip
-            label={`Last change ${longAgo(syncStatus.synced_at)}. Checked every minute.`}
-            withArrow
-          >
-            <Badge variant="dot" color="green" size="lg" radius="sm" tt="none" fw={500}>
-              Synced · {shortAgo(syncStatus.checked_at)}
-            </Badge>
-          </Tooltip>
-        )}
       </Group>
 
       {syncStatus?.last_error ? (

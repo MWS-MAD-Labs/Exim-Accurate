@@ -7,7 +7,6 @@ import {
   NavLink,
   Text,
   Button,
-  Avatar,
   UnstyledButton,
   Menu,
   Divider,
@@ -48,6 +47,7 @@ import {
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
 import { useLanguage } from "@/lib/language";
+import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { initialsOf, roleLabelOf } from "@/lib/initials";
 import { getRoleHome, hasAnyPermission, type AppPermission } from "@/lib/access-control";
 
@@ -86,11 +86,6 @@ function UserMenu() {
   const initials = initialsOf(name, email);
   const role = roleLabelOf(session?.user?.role);
 
-  // The letters sit in the middle of the circle whatever the parent's text styles are.
-  const avatarStyles = {
-    placeholder: { display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0, fontWeight: 600 },
-  } as const;
-
   return (
     <Menu position="bottom-end" withArrow shadow="lg" width={240}>
       <Menu.Target>
@@ -98,9 +93,7 @@ function UserMenu() {
           aria-label="Account menu"
           style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 8px", borderRadius: 10 }}
         >
-          <Avatar size={34} radius="xl" color="brand" variant="filled" styles={avatarStyles}>
-            {initials}
-          </Avatar>
+          <InitialsAvatar initials={initials} size={34} label={displayName} />
           <Box visibleFrom="sm" style={{ minWidth: 0, maxWidth: 160 }}>
             <Text size="sm" fw={600} lh={1.2} truncate>{displayName}</Text>
             {role && <Text size="xs" c="dimmed" lh={1.2} truncate>{role}</Text>}
@@ -111,9 +104,7 @@ function UserMenu() {
 
       <Menu.Dropdown>
         <Group gap="sm" px="sm" py="xs" wrap="nowrap">
-          <Avatar size={40} radius="xl" color="brand" variant="filled" styles={avatarStyles}>
-            {initials}
-          </Avatar>
+          <InitialsAvatar initials={initials} size={40} label={displayName} />
           <Box style={{ minWidth: 0 }}>
             <Text size="sm" fw={700} lh={1.25} truncate>{displayName}</Text>
             <Text size="xs" c="dimmed" lh={1.25} truncate>{email}</Text>
