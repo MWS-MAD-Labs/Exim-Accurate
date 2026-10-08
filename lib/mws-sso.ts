@@ -2,6 +2,7 @@ import { InMemoryReplayStore, verifyRelayToken } from "mws-central-auth/server";
 import { normalizePermissions } from "@/lib/access-control";
 import { eximaAccessMode, isBypassEmail } from "@/lib/central-access";
 import { linkableEntitlementId } from "@/lib/central-user-sync";
+import { errorForNetwork, errorForResponse } from "@/lib/central-errors";
 import { endsSessions } from "@/lib/session-policy";
 import { recordEmailChange } from "@/lib/staff-identity";
 import { prisma } from "@/lib/prisma";
@@ -49,17 +50,23 @@ export function getHubLogoutUrl(email: string, returnUrl: string) {
 }
 
 async function exchangeHubCode(code: string, state: string) {
-  const response = await fetch(`${hubBaseUrl()}/sso/exchange`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-hub-internal-secret": requiredEnvironment("HUB_INTERNAL_SECRET"),
-    },
-    body: JSON.stringify({ code, state, appId: requiredEnvironment("HUB_SSO_APP_ID") }),
-    signal: AbortSignal.timeout(5_000),
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${hubBaseUrl()}/sso/exchange`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-hub-internal-secret": requiredEnvironment("HUB_INTERNAL_SECRET"),
+      },
+      body: JSON.stringify({ code, state, appId: requiredEnvironment("HUB_SSO_APP_ID") }),
+      signal: AbortSignal.timeout(5_000),
+      cache: "no-store",
+    });
+  } catch (error) {
+    throw errorForNetwork(error);
+  }
   const body = (await response.json().catch(() => null)) as { data?: { token?: string } } | null;
+  if (response.status >= 500) throw errorForResponse(response.status);
   if (!response.ok || !body?.data?.token) throw new Error("Hub code exchange failed");
   return body.data.token;
 }
@@ -110,15 +117,21 @@ async function lookupCentralEmployee(personId: string) {
   const baseUrl = requiredEnvironment("CENTRAL_DATA_API_BASE_URL").replace(/\/$/, "");
   const url = new URL(`${baseUrl}/api/internal/employees/lookup`);
   url.searchParams.set("person_id", personId);
-  const response = await fetch(url, {
-    headers: {
-      authorization: `Bearer ${requiredEnvironment("CENTRAL_DATA_API_TOKEN")}`,
-      accept: "application/json",
-    },
-    signal: AbortSignal.timeout(10_000),
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        authorization: `Bearer ${requiredEnvironment("CENTRAL_DATA_API_TOKEN")}`,
+        accept: "application/json",
+      },
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    });
+  } catch (error) {
+    throw errorForNetwork(error);
+  }
   const body = (await response.json().catch(() => null)) as { data?: CentralEmployeeProfile } | null;
+  if (response.status >= 500) throw errorForResponse(response.status);
   if (!response.ok || !body?.data) throw new Error("Central employee lookup failed");
   return body.data;
 }

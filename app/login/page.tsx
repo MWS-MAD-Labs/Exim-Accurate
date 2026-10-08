@@ -29,6 +29,7 @@ const errorMessages: Record<string, string> = {
   CredentialsSignin: "Akun Anda belum memiliki akses Exima atau proses SSO gagal.",
   sso: "Proses masuk melalui MWS Hub gagal. Silakan coba lagi.",
   revoked: "Sesi Anda telah berakhir. Silakan masuk kembali melalui MWS Hub.",
+  UPSTREAM_UNREACHABLE: "MWS Hub atau Central sedang tidak dapat dihubungi. Coba lagi sebentar lagi.",
 };
 
 function LoginContent() {

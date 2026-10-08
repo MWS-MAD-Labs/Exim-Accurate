@@ -1,9 +1,13 @@
 // Deploy step: tells Central which permissions Exima's code understands.
-//   npm run permissions:sync [-- --confirm-removals]
+//   npm run permissions:sync [-- --confirm-removals] [--retries 5 --wait 20]
+//     --retries/--wait: asks again when Central cannot be reached (it may be deploying). A no from
+//     Central, or an endpoint it does not have yet, fails at once.
 //   npm run permissions:check [-- --allow-removals]   (changes nothing, exits 1 on a mismatch)
 //   npm run permissions:check -- --before-deploy        (for CI: fails only if roles in Central use a
 //                                                        permission this code no longer knows)
 import { PERMISSION_MANIFEST } from "../lib/access-control";
+import { CentralError, errorForNetwork } from "../lib/central-errors";
+import { withRetries } from "../lib/retry";
 import {
   comparePermissions,
   listRegisteredPermissions,
@@ -15,8 +19,22 @@ import {
 const APPLICATION_ID = "exima";
 const [mode, ...flags] = process.argv.slice(2);
 
+function flagNumber(name: string, fallback: number) {
+  const index = flags.indexOf(name);
+  const value = index >= 0 ? Number(flags[index + 1]) : NaN;
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
 async function sync() {
-  const result = await publishPermissions(APPLICATION_ID, PERMISSION_MANIFEST, flags.includes("--confirm-removals"));
+  const result = await withRetries(
+    () => publishPermissions(APPLICATION_ID, PERMISSION_MANIFEST, flags.includes("--confirm-removals")),
+    {
+      retries: flagNumber("--retries", 0),
+      waitMs: flagNumber("--wait", 20) * 1000,
+      shouldRetry: (error) => (error instanceof CentralError ? error : errorForNetwork(error)).kind === "unreachable",
+      onRetry: (error, attempt) => console.warn(`attempt ${attempt} failed (${error instanceof Error ? error.message : error}), asking again`),
+    },
+  );
   console.log(`exima permissions published: ${result.total} total, ${result.added} new`);
   if (result.deprecated.length > 0) console.warn(`dropped from the list: ${result.deprecated.join(", ")}`);
   if (result.affected_roles.length > 0) {

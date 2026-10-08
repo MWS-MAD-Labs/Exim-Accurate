@@ -1,8 +1,9 @@
 import { normalizePermissions } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { createFailureTracker } from "@/lib/sync-failures";
 import { endsSessions } from "@/lib/session-policy";
 import { recordEmailChange } from "@/lib/staff-identity";
-import { fetchCentralKey, isChanged, rememberCentralKey } from "@/lib/central-sync-status";
+import { fetchCentralKeyResult, isChanged, rememberCentralKey } from "@/lib/central-sync-status";
 
 export type CentralAccessRow = {
   id: string;
@@ -264,9 +265,15 @@ export type AutoSyncResult =
 
 const SYNC_LOCK_ID = 7_300_117;
 
-async function saveRun(error: string | null) {
+const failures = createFailureTracker(3);
+
+// The time of this check is always kept. The error is changed only when given: undefined leaves it as it was.
+async function saveRun(error?: string | null) {
   const application = SYNC_APPLICATION_ID();
-  await prisma.centralSyncState.updateMany({ where: { application }, data: { checkedAt: new Date(), lastError: error } });
+  await prisma.centralSyncState.updateMany({
+    where: { application },
+    data: { checkedAt: new Date(), ...(error === undefined ? {} : { lastError: error }) },
+  });
 }
 
 // What the scheduler calls every minute: ask Central for the short key and sync only when it
@@ -278,8 +285,14 @@ export async function syncIfChanged(): Promise<AutoSyncResult> {
       if (!locked) return { status: "locked" } as const;
       try {
         const application = SYNC_APPLICATION_ID();
-        const centralKey = await fetchCentralKey(application, 0);
-        if (!centralKey) return { status: "unavailable" } as const;
+        const result = await fetchCentralKeyResult(application, 0);
+        if ("failure" in result) {
+          // A short outage leaves no mark; one that lasts shows on the page with its reason.
+          await saveRun(failures.fail(result.message)).catch(() => undefined);
+          return { status: "unavailable" } as const;
+        }
+        failures.succeed();
+        const centralKey = result.key;
         const state = await prisma.centralSyncState.findUnique({ where: { application } });
         if (!isChanged(state?.key ?? null, centralKey)) {
           await saveRun(null);

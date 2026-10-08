@@ -1,4 +1,5 @@
 import { syncIfChanged } from "@/lib/central-user-sync";
+import { retryPendingPermissions } from "@/lib/permission-sync";
 
 // The sync of people from Central runs by itself, inside the server, so it does not depend on a
 // scheduler outside the app (there is none in `npm run dev`). Each tick is one small question to
@@ -28,6 +29,8 @@ export function startAutoSync(
   intervalMs = autoSyncIntervalMs(process.env.EXIMA_AUTO_SYNC_SECONDS),
   timers: Timers = { setTimeout, setInterval },
   firstRunMs = FIRST_RUN_MS,
+  // Also each minute: the permission list, while it is still waiting to reach Central.
+  alsoEachTick: () => Promise<void> = retryPendingPermissions,
 ) {
   // One timer per process, also after a hot reload.
   if (globalState.__eximaAutoSync) return globalState.__eximaAutoSync.stop;
@@ -38,6 +41,7 @@ export function startAutoSync(
     if (running) return;
     running = true;
     try {
+      await alsoEachTick().catch((error) => console.error("[permissions] Retry failed", error instanceof Error ? error.message : error));
       const result = await run();
       if (result.status === "synced") console.info("[sync] People changed in Central, Exima is up to date");
       else if (result.status === "error") console.error("[sync] Automatic sync failed:", result.message);

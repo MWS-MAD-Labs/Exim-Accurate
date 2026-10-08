@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
+import { isUnreachable } from "./central-errors";
 import { authenticateHubCode } from "./mws-sso";
 import { decideSession, eximaAccessMode, resolveAccess } from "./central-access";
 import { normalizePermissions } from "./access-control";
@@ -73,6 +74,11 @@ export const authOptions: NextAuthOptions = {
             sessionVersion: user.sessionVersion,
           };
         } catch (error) {
+          // Hub or Central being down is told apart from not having access, so people know to try again.
+          if (isUnreachable(error)) {
+            console.error("[auth] Hub SSO could not reach Hub or Central", { reason: (error as Error).message });
+            throw new Error("UPSTREAM_UNREACHABLE");
+          }
           console.error("[auth] Hub SSO failed", {
             errorName: error instanceof Error ? error.name : "UnknownError",
             reason: error instanceof Error ? error.message.split("\n")[0] : undefined,

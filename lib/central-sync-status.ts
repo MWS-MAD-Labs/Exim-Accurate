@@ -1,6 +1,8 @@
 // Whether the people in Exima still match what Central has. Central gives one short key that
 // changes only when something Exima keeps about a person changes, so a page view asks for that
 // key (at most every few minutes) instead of the whole list.
+import { errorForNetwork, errorForResponse, type CentralFailure } from "@/lib/central-errors";
+
 const CHECK_MS = 5 * 60_000;
 
 let known: { key: string; at: number } | null = null;
@@ -28,11 +30,13 @@ export function isChanged(syncedKey: string | null, centralKey: string | null) {
   return syncedKey !== centralKey;
 }
 
-export async function fetchCentralKey(applicationId: string, maxAgeMs = CHECK_MS): Promise<string | null> {
-  if (maxAgeMs > 0 && known && Date.now() - known.at < maxAgeMs) return known.key;
+export type KeyResult = { key: string } | { failure: CentralFailure; message: string };
+
+export async function fetchCentralKeyResult(applicationId: string, maxAgeMs = CHECK_MS): Promise<KeyResult> {
+  if (maxAgeMs > 0 && known && Date.now() - known.at < maxAgeMs) return { key: known.key };
   const base = process.env.CENTRAL_DATA_API_BASE_URL?.trim().replace(/\/$/, "");
   const token = process.env.CENTRAL_DATA_API_TOKEN?.trim();
-  if (!base || !token) return null;
+  if (!base || !token) return { failure: "rejected", message: "Central API is not configured" };
   try {
     const url = new URL(`${base}/api/internal/application-entitlements/version`);
     url.searchParams.set("application_id", applicationId);
@@ -41,13 +45,23 @@ export async function fetchCentralKey(applicationId: string, maxAgeMs = CHECK_MS
       signal: AbortSignal.timeout(5_000),
       cache: "no-store",
     });
-    const body = (await response.json().catch(() => null)) as { data?: { key?: string } } | null;
-    if (!response.ok || !body?.data?.key) return null;
+    const body = (await response.json().catch(() => null)) as { data?: { key?: string }; errors?: string } | null;
+    if (!response.ok) {
+      const failure = errorForResponse(response.status, body?.errors);
+      return { failure: failure.kind, message: failure.message };
+    }
+    if (!body?.data?.key) return { failure: "rejected", message: "Central answered without a version key" };
     rememberCentralKey(body.data.key);
-    return body.data.key;
-  } catch {
-    return null;
+    return { key: body.data.key };
+  } catch (error) {
+    const failure = errorForNetwork(error);
+    return { failure: failure.kind, message: failure.message };
   }
+}
+
+export async function fetchCentralKey(applicationId: string, maxAgeMs = CHECK_MS): Promise<string | null> {
+  const result = await fetchCentralKeyResult(applicationId, maxAgeMs);
+  return "key" in result ? result.key : null;
 }
 
 export function buildStatus(

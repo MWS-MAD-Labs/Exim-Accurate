@@ -1,6 +1,8 @@
 // Sends the permissions Exima understands to Central (Application Access > Permissions).
 // The token has to belong to the API client made for Exima, with the
 // application_permissions:write scope.
+import { errorForNetwork, errorForResponse } from "@/lib/central-errors";
+
 export type PermissionManifestEntry = { key: string; description?: string; requires?: string[] };
 export type RegisteredPermission = {
   key: string;
@@ -31,18 +33,23 @@ function env(name: string) {
 
 async function call<T>(path: string, init: { method: "GET" | "PUT"; body?: unknown } = { method: "GET" }) {
   const base = env("CENTRAL_DATA_API_BASE_URL").replace(/\/$/, "");
-  const response = await fetch(`${base}/api/internal/application-permissions${path}`, {
-    method: init.method,
-    headers: {
-      authorization: `Bearer ${env("CENTRAL_DATA_API_TOKEN")}`,
-      ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
-    },
-    ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
-    signal: AbortSignal.timeout(10_000),
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${base}/api/internal/application-permissions${path}`, {
+      method: init.method,
+      headers: {
+        authorization: `Bearer ${env("CENTRAL_DATA_API_TOKEN")}`,
+        ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
+      },
+      ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    });
+  } catch (error) {
+    throw errorForNetwork(error);
+  }
   const body = (await response.json().catch(() => null)) as { data?: T; errors?: string } | null;
-  if (!response.ok) throw new Error(body?.errors || `Central permission call failed with status ${response.status}`);
+  if (!response.ok) throw errorForResponse(response.status, body?.errors);
   return body?.data as T;
 }
 

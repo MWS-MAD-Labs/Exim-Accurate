@@ -1,4 +1,5 @@
 import { PERMISSION_MANIFEST } from "@/lib/access-control";
+import { CentralError, errorForNetwork } from "@/lib/central-errors";
 import {
   comparePermissions,
   listRegisteredPermissions,
@@ -34,13 +35,28 @@ const defaults: Deps = {
 
 export type PermissionSyncOutcome = "in_sync" | "published" | "refused" | "unreachable" | "off";
 
+// Still waiting to be sent: Central was not reachable, or has not been deployed with this yet.
+// The automatic sync asks again every minute until it works.
+let pending = true;
+
+export function permissionsPending() {
+  return pending;
+}
+
+export function resetPermissionsPendingForTest() {
+  pending = true;
+}
+
 export async function syncPermissionsOnBoot(
   manifest: PermissionManifestEntry[] = PERMISSION_MANIFEST,
   deps: Partial<Deps> = {},
   attempts = 3,
 ): Promise<PermissionSyncOutcome> {
   const d = { ...defaults, ...deps };
-  if (!permissionSyncEnabled()) return "off";
+  if (!permissionSyncEnabled()) {
+    pending = false;
+    return "off";
+  }
   const application = APPLICATION_ID();
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -48,6 +64,7 @@ export async function syncPermissionsOnBoot(
       const [registered, usage] = await Promise.all([d.list(application), d.usage(application)]);
       const check = comparePermissions(manifest, registered, usage);
       if (check.notRegistered.length === 0 && check.wouldDrop.length === 0 && check.requiresDiffer.length === 0) {
+        pending = false;
         return "in_sync";
       }
       // Never confirms removals: Central refuses a list that would drop permissions roles still carry.
@@ -56,20 +73,28 @@ export async function syncPermissionsOnBoot(
       if (result.affected_roles.length > 0) {
         d.log.warn(`[permissions] Roles still carry dropped permissions: ${result.affected_roles.map((role) => role.role).join(", ")}`);
       }
+      pending = false;
       return "published";
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      // An answer from Central that says no is not worth asking again.
-      if (/drops|confirm|unknown permission|requires/i.test(message)) {
-        d.log.warn(`[permissions] Central did not accept the list: ${message}`);
+      const failure = error instanceof CentralError ? error : errorForNetwork(error);
+      // A no from Central is not worth asking again. Unreachable or not deployed yet is.
+      if (failure.kind === "rejected") {
+        d.log.error(`[permissions] ${failure.message}. The list was not sent; deploy is blocked by CI for this.`);
+        pending = false;
         return "refused";
       }
       if (attempt === attempts) {
-        d.log.error(`[permissions] Central could not be reached, the list was not sent: ${message}`);
+        d.log.error(`[permissions] ${failure.message}. The list was not sent; trying again every minute.`);
         return "unreachable";
       }
       await d.sleep(2_000 * attempt);
     }
   }
   return "unreachable";
+}
+
+// One more try per minute, while the list is still waiting to be sent.
+export async function retryPendingPermissions(deps: Partial<Deps> = {}) {
+  if (!pending) return;
+  await syncPermissionsOnBoot(PERMISSION_MANIFEST, deps, 1);
 }
