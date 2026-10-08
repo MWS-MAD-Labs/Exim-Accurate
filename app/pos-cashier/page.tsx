@@ -260,6 +260,26 @@ export default function PosCashierPage() {
     return remainingDebt;
   };
 
+  const scanStaff = async (value: string) => {
+    const scanned = value.trim();
+    if (!scanned || !credentialId) return;
+    try {
+      const response = await fetch("/api/pos/staff/identify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credentialId, value: scanned }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setStaffError(data?.error || "Badge tidak dikenali.");
+        return;
+      }
+      await identifyStaff(data.email, data.name || data.email);
+    } catch {
+      setStaffError("Tidak dapat memeriksa badge. Coba lagi.");
+    }
+  };
+
   const identifyStaff = async (email: string, registeredName?: string | null) => {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed.includes("@") || !credentialId) return;
@@ -1209,7 +1229,8 @@ export default function PosCashierPage() {
                   if (selectedStaff) {
                     void identifyStaff(selectedStaff.email, selectedStaff.name);
                   } else {
-                    void identifyStaff(staffEmail);
+                    // A reader presses Enter at once, before the name list arrives: the server says who it is.
+                    void scanStaff(staffEmail);
                   }
                 } else if (event.key === "Escape") {
                   setStaffSuggestionsOpen(false);

@@ -28,6 +28,8 @@ export function requiredPermissions(request: NextRequest): AppPermission[] {
   if (path === "/api/pos/products") return ["pos.catalog.read"];
   if (path.startsWith("/api/pos/allowance")) return ["allowance.manage", "allowance.collect", "pos.checkout"];
   if (path.startsWith("/api/pos/sales")) return ["pos.sales.read", "pos.checkout"];
+  if (path.startsWith("/api/pos/staff")) return ["pos.checkout"];
+  if (path.startsWith("/api/pos/my-transactions")) return ["store.use"];
 
   return [];
 }
