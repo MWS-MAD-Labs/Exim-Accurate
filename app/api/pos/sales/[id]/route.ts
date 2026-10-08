@@ -1,3 +1,4 @@
+import { hasPermission } from "@/lib/access-control";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
@@ -6,7 +7,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { getOrganizationIdForUser } from "@/lib/organization";
 import { externalPaymentMethodSchema, paymentStrategySchema, serializePayments } from "@/lib/pos-payments";
-import { getStaffAllowance, isAdmin, lockStaffAllowancePeriod, reconcileSaleImmediateDebtSettlement, resolveStaffAllowancePeriod, saleTotal, withSerializableRetry } from "@/lib/pos-server";
+import { getStaffAllowance, lockStaffAllowancePeriod, reconcileSaleImmediateDebtSettlement, resolveStaffAllowancePeriod, saleTotal, withSerializableRetry } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
 
 const correctionSchema = z.object({
@@ -37,7 +38,7 @@ const correctionSchema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const parsed = correctionSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid payment correction" }, { status: 400 });
   const organizationId = await getOrganizationIdForUser(session.user.id);

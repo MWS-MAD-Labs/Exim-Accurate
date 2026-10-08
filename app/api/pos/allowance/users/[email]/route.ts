@@ -1,3 +1,4 @@
+import { hasPermission } from "@/lib/access-control";
 import { resolveStaff, staffData, staffWhere } from "@/lib/staff-identity";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -6,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { prisma } from "@/lib/prisma";
-import { getOutstandingCurrentAllowanceDebt, getOutstandingPreviousAllowanceDebt, getStaffAllowance, isAdmin } from "@/lib/pos-server";
+import { getOutstandingCurrentAllowanceDebt, getOutstandingPreviousAllowanceDebt, getStaffAllowance } from "@/lib/pos-server";
 import { dateOnlySchema, parseDateOnly, startOfDate } from "@/lib/pos";
 
 export async function GET(
@@ -15,7 +16,7 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "allowance.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const query = z.object({
     credentialId: z.string().uuid(),

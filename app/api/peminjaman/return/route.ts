@@ -8,7 +8,7 @@ import { saveInventoryAdjustment } from "@/lib/accurate/inventory";
 import { refreshSession, refreshAccessToken } from "@/lib/accurate/client";
 import { createBorrowingActivities } from "@/lib/peminjaman";
 import dayjs from "dayjs";
-import { canAccessResourceManagement } from "@/lib/access-control";
+import { hasPermission } from "@/lib/access-control";
 import { getOrganizationIdForUser } from "@/lib/organization";
 
 interface ReturnItem {
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     if (!session?.user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (!canAccessResourceManagement(session.user.role)) {
+    if (!hasPermission(session.user.permissions, "borrowing.manage")) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

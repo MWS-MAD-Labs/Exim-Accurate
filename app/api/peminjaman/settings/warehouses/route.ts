@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
-import { canAccessResourceManagement } from "@/lib/access-control";
+import { hasPermission } from "@/lib/access-control";
 import { listWarehouses } from "@/lib/accurate/pos";
 import { getResourceCredential } from "@/lib/credential-access";
 
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     if (!session?.user?.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (!canAccessResourceManagement(session.user.role)) {
+    if (!hasPermission(session.user.permissions, "borrowing.manage")) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

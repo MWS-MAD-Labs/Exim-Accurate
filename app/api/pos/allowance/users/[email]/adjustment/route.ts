@@ -1,3 +1,4 @@
+import { hasPermission } from "@/lib/access-control";
 import { resolveStaff, staffData, staffWhere } from "@/lib/staff-identity";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -6,7 +7,6 @@ import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { prisma } from "@/lib/prisma";
 import { dateOnlySchema, parseDateOnly } from "@/lib/pos";
-import { isAdmin } from "@/lib/pos-server";
 const schema = z.object({
   credentialId: z.string().uuid(),
   periodStartsAt: dateOnlySchema,
@@ -24,7 +24,7 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "allowance.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid adjustment" }, { status: 400 });
   const credential = await getOperationalPosCredential(session.user.id, session.user.permissions, parsed.data.credentialId);

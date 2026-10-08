@@ -46,7 +46,7 @@ import {
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
 import { useLanguage } from "@/lib/language";
-import { getRoleHome } from "@/lib/access-control";
+import { getRoleHome, hasAnyPermission, type AppPermission } from "@/lib/access-control";
 
 interface NavItem {
   label: string;
@@ -54,6 +54,18 @@ interface NavItem {
   href?: string;
   children?: NavItem[];
   badge?: string;
+  // Shown to a person who has any of these permissions. A group shows when one of its items does.
+  requires?: readonly AppPermission[];
+}
+
+function visibleItems(items: NavItem[], permissions: readonly string[] | undefined): NavItem[] {
+  return items.flatMap((item) => {
+    if (item.children) {
+      const children = visibleItems(item.children, permissions);
+      return children.length > 0 ? [{ ...item, children }] : [];
+    }
+    return !item.requires || hasAnyPermission(permissions, item.requires) ? [item] : [];
+  });
 }
 
 function UserMenu() {
@@ -174,11 +186,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             label: t.dashboard.nav.export,
             icon: <IconFileExport size={16} />,
             href: "/dashboard/export/inventory-adjustment",
+            requires: ["inventory.export"],
           },
           {
             label: t.dashboard.nav.import,
             icon: <IconFileImport size={16} />,
             href: "/dashboard/import/inventory-adjustment",
+            requires: ["inventory.import"],
           },
         ],
       },
@@ -186,11 +200,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         label: t.dashboard.nav.selfCheckout,
         icon: <IconScan size={16} />,
         href: "/kiosk",
+        requires: ["borrowing.manage"],
       },
       {
         label: t.dashboard.nav.peminjaman,
         icon: <IconClipboardList size={16} />,
         href: "/dashboard/peminjaman",
+        requires: ["borrowing.manage"],
       },
     ],
   };
@@ -200,6 +216,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       label: t.dashboard.nav.dashboard,
       icon: <IconDashboard size={20} />,
       href: "/dashboard",
+      requires: ["dashboard.read"],
     },
     resourceManagementItem,
     {
@@ -210,31 +227,37 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           label: "POS Cashier",
           icon: <IconShoppingCart size={16} />,
           href: "/pos-cashier",
+          requires: ["pos.checkout"],
         },
         {
           label: "Sales Log",
           icon: <IconReceipt size={16} />,
           href: "/dashboard/pos/sales-log",
+          requires: ["pos.manage"],
         },
         {
           label: "Stock Management",
           icon: <IconBuildingWarehouse size={16} />,
           href: "/dashboard/pos",
+          requires: ["pos.manage"],
         },
         {
           label: "Pre Order Management",
           icon: <IconClock size={16} />,
           href: "/dashboard/pos/preorders",
+          requires: ["pos.manage"],
         },
         {
           label: t.dashboard.pos.staffAllowanceTitle,
           icon: <IconWallet size={16} />,
           href: "/dashboard/pos/allowance",
+          requires: ["allowance.manage"],
         },
         {
           label: "POS Settings",
           icon: <IconSettings size={16} />,
           href: "/dashboard/pos/settings",
+          requires: ["pos.manage"],
         },
       ],
     },
@@ -246,21 +269,25 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           label: "Overview",
           icon: <IconChartLine size={16} />,
           href: "/dashboard/analytics",
+          requires: ["analytics.read"],
         },
         {
           label: "Peminjaman",
           icon: <IconClipboardList size={16} />,
           href: "/dashboard/analytics/peminjaman",
+          requires: ["analytics.read"],
         },
         {
           label: "Pengambilan",
           icon: <IconScan size={16} />,
           href: "/dashboard/analytics/pengambilan",
+          requires: ["analytics.read"],
         },
         {
           label: "POS Sales",
           icon: <IconShoppingCart size={16} />,
           href: "/dashboard/analytics/pos",
+          requires: ["analytics.read"],
         },
       ],
     },
@@ -268,24 +295,24 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       label: t.dashboard.nav.credentials,
       icon: <IconKey size={20} />,
       href: "/dashboard/credentials",
+      requires: ["credentials.manage"],
     },
     {
       label: t.dashboard.nav.userManagement,
       icon: <IconUsers size={20} />,
       href: "/admin",
+      requires: ["users.manage"],
     },
     {
       label: "Badges",
       icon: <IconQrcode size={20} />,
       href: "/admin/badges",
+      requires: ["users.manage"],
     },
   ];
 
-  const navItems = session?.user?.role === "resource"
-    ? [resourceManagementItem]
-    : session?.user?.role === "admin"
-      ? adminNavItems
-      : [];
+  // What a person sees follows the permissions of their role in Central, not the name of the role.
+  const navItems = visibleItems(adminNavItems, session?.user?.permissions);
 
   const isActive = (href: string) => pathname === href;
   const isItemActive = (item: NavItem): boolean => {

@@ -56,10 +56,6 @@ export async function getPosContext(userId: string, credentialId: string) {
   };
 }
 
-export function isAdmin(role?: string | null) {
-  return role === "admin";
-}
-
 export type SaleTotalItem = {
   quantity: number;
   unitPrice: Prisma.Decimal | number | string;

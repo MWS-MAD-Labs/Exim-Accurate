@@ -1,3 +1,4 @@
+import { hasPermission } from "@/lib/access-control";
 import { resolveStaff, staffData, staffWhere } from "@/lib/staff-identity";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -6,7 +7,6 @@ import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { prisma } from "@/lib/prisma";
 import { dateOnlySchema, parseDateOnly } from "@/lib/pos";
-import { isAdmin } from "@/lib/pos-server";
 const createSchema = z.object({
   credentialId: z.string().uuid(),
   dates: z.array(dateOnlySchema).min(1),
@@ -16,7 +16,7 @@ const deleteSchema = z.object({ credentialId: z.string().uuid(), date: dateOnlyS
 
 
 async function authorize(userId: string, role: string | null | undefined, permissions: string[], credentialId: string) {
-  if (!isAdmin(role)) return { error: NextResponse.json({ error: "Admin access required" }, { status: 403 }) };
+  if (!hasPermission(permissions, "allowance.manage")) return { error: NextResponse.json({ error: "Admin access required" }, { status: 403 }) };
   const credential = await getOperationalPosCredential(userId, permissions, credentialId);
   if (!credential) return { error: NextResponse.json({ error: "Credential not found" }, { status: 404 }) };
   return { credential };

@@ -4,7 +4,7 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
 
-import { canOperatePos } from "@/lib/access-control";
+import { hasPermission } from "@/lib/access-control";
 import { authOptions } from "@/lib/auth";
 import { calculateTotals, saleRequestSchema } from "@/lib/pos";
 import { PaymentAllocationError, serializePayments } from "@/lib/pos-payments";
@@ -66,7 +66,7 @@ function allocationErrorResponse(error: PaymentAllocationError) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canOperatePos(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.checkout")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const parsed = saleRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

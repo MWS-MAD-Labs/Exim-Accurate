@@ -133,13 +133,6 @@ export function hasAnyPermission(
   return required.some((permission) => hasPermission(permissions, permission));
 }
 
-export function isRoleAllowed(
-  role: string | null | undefined,
-  allowed: AppRole[],
-) {
-  return !!role && allowed.includes(role as AppRole);
-}
-
 export function getRoleHome(
   role: string | null | undefined,
   permissions?: readonly string[] | null,
@@ -160,40 +153,4 @@ export function getPermissionHome(
   if (hasPermission(permissions, "pos.checkout")) return "/pos-cashier";
   if (hasPermission(permissions, "store.use")) return "/store";
   return "/login";
-}
-
-export function canAccessResourceManagement(
-  role: string | null | undefined,
-  permissions?: readonly string[],
-) {
-  return permissions
-    ? hasPermission(permissions, "borrowing.manage")
-    : isRoleAllowed(role, ["admin", "resource"]);
-}
-
-export function canOperatePos(
-  role: string | null | undefined,
-  permissions?: readonly string[],
-) {
-  return permissions
-    ? hasPermission(permissions, "pos.checkout")
-    : isRoleAllowed(role, ["admin", "cashier"]);
-}
-
-export function canBrowsePosCatalog(
-  role: string | null | undefined,
-  permissions?: readonly string[],
-) {
-  return permissions
-    ? hasPermission(permissions, "pos.catalog.read")
-    : isRoleAllowed(role, ["admin", "cashier", "staff"]);
-}
-
-export function canUseStaffStore(
-  role: string | null | undefined,
-  permissions?: readonly string[],
-) {
-  return permissions
-    ? hasPermission(permissions, "store.use")
-    : isRoleAllowed(role, ["admin", "staff"]);
 }

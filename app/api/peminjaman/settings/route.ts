@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 
 import { authOptions } from "@/lib/auth";
-import { canAccessResourceManagement } from "@/lib/access-control";
+import { hasPermission } from "@/lib/access-control";
 import { listWarehouses } from "@/lib/accurate/pos";
 import { getResourceCredential } from "@/lib/credential-access";
 import { getOrganizationIdForUser } from "@/lib/organization";
@@ -20,7 +20,7 @@ export async function GET() {
     if (!session?.user?.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (!canAccessResourceManagement(session.user.role)) {
+    if (!hasPermission(session.user.permissions, "borrowing.manage")) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     if (!session?.user?.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (!canAccessResourceManagement(session.user.role)) {
+    if (!hasPermission(session.user.permissions, "borrowing.manage")) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

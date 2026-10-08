@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { canUseStaffStore } from "@/lib/access-control";
+import { hasPermission } from "@/lib/access-control";
 import { authOptions } from "@/lib/auth";
 import { getOrganizationIdForUser } from "@/lib/organization";
 import { prisma } from "@/lib/prisma";
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id || !email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!canUseStaffStore(session.user.role)) {
+  if (!hasPermission(session.user.permissions, "store.use")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

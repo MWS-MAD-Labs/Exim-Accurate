@@ -1,3 +1,4 @@
+import { hasPermission } from "@/lib/access-control";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
@@ -15,7 +16,6 @@ import {
   jakartaDateStart,
 } from "@/lib/pos";
 import { resolveComparisonPeriod } from "@/lib/pos-analytics-periods";
-import { isAdmin } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
 
 
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!isAdmin(session.user.role)) {
+  if (!hasPermission(session.user.permissions, "analytics.read")) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 

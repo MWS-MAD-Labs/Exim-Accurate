@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getOutstandingCurrentAllowanceDebt, getOutstandingPreviousAllowanceDebt, getStaffAllowance } from "@/lib/pos-server";
-import { canOperatePos } from "@/lib/access-control";
+import { hasPermission } from "@/lib/access-control";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { dateOnlySchema, parseDateOnly } from "@/lib/pos";
 import { z } from "zod";
@@ -10,7 +10,7 @@ import { z } from "zod";
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canOperatePos(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.checkout")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const parsed = z.object({
     credentialId: z.string().uuid(),
     email: z.string().trim().email().transform((email) => email.toLowerCase()),

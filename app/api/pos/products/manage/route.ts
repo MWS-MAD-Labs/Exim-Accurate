@@ -1,9 +1,10 @@
+import { hasPermission } from "@/lib/access-control";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { PosProduct, Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isAdmin, withSerializableRetry } from "@/lib/pos-server";
+import { withSerializableRetry } from "@/lib/pos-server";
 import { getOrganizationIdForUser } from "@/lib/organization";
 import { z } from "zod";
 
@@ -31,7 +32,7 @@ const patchSchema = z.object({
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const credentialId = new URL(req.url).searchParams.get("credentialId");
   if (!credentialId) return NextResponse.json({ error: "Credential is required" }, { status: 400 });
   const organizationId = await getOrganizationIdForUser(session.user.id);
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const parsed = upsertSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid product" }, { status: 400 });
   const { credentialId, itemCode, itemName, unit, stock, buyPrice, sellPrice, isActive } = parsed.data;
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const parsed = patchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   const { id, ...updates } = parsed.data;
@@ -170,7 +171,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Product id is required" }, { status: 400 });
   const organizationId = await getOrganizationIdForUser(session.user.id);

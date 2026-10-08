@@ -119,7 +119,7 @@ function formatPeriod(period: Pick<Period, "startsAt" | "endsAt">) {
 export default function StaffAllowancePage() {
   const { t } = useLanguage();
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "admin";
+  const isAdmin = Boolean(session?.user?.permissions?.includes("allowance.manage"));
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [credentialId, setCredentialId] = useState<string | null>(null);
   const [staff, setStaff] = useState<Allowance[]>([]);

@@ -1,10 +1,10 @@
+import { hasPermission } from "@/lib/access-control";
 import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { retryPosSaleReceipts } from "@/lib/pos-sale-receipt";
-import { isAdmin } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
 
 const querySchema = z.object({
@@ -15,7 +15,7 @@ const querySchema = z.object({
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid query" }, { status: 400 });
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session.user.role)) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const parsed = querySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid request" }, { status: 400 });

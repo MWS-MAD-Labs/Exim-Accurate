@@ -1,3 +1,4 @@
+import { hasPermission } from "@/lib/access-control";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
@@ -14,7 +15,7 @@ import {
   jakartaDateKey,
   jakartaDateStart,
 } from "@/lib/pos";
-import { isAdmin, saleTotal } from "@/lib/pos-server";
+import { saleTotal } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
 
 const MAX_RANGE_DAYS = 366;
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!isAdmin(session.user.role)) {
+  if (!hasPermission(session.user.permissions, "pos.manage")) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 

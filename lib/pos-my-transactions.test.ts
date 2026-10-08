@@ -6,7 +6,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import ts from "typescript";
 import { z } from "zod";
-import { canUseStaffStore } from "./access-control";
+import { hasPermission } from "./access-control";
 
 // Execute the actual route with isolated auth/database modules, without opening a database connection.
 const source = ts.transpileModule(readFileSync(new URL("../app/api/pos/my-transactions/route.ts", import.meta.url), "utf8"), {
@@ -16,13 +16,13 @@ const source = ts.transpileModule(readFileSync(new URL("../app/api/pos/my-transa
 function harness(options: { user?: Record<string, unknown> | null; organizationId?: string | null; sales?: unknown[] } = {}) {
   const queries: Prisma.PosSaleFindManyArgs[] = [];
   const organizationUsers: string[] = [];
-  const user = options.user === undefined ? { id: "staff-user", email: "  STAFF@Example.com ", role: "staff" } : options.user;
+  const user = options.user === undefined ? { id: "staff-user", email: "  STAFF@Example.com ", role: "staff", permissions: ["store.use"] } : options.user;
   const modules: Record<string, unknown> = {
     "@prisma/client": { Prisma },
     "next-auth": { getServerSession: async () => user ? { user } : null },
     "next/server": { NextResponse },
     zod: { z },
-    "@/lib/access-control": { canUseStaffStore },
+    "@/lib/access-control": { hasPermission },
     "@/lib/auth": { authOptions: {} },
     "@/lib/organization": { getOrganizationIdForUser: async (id: string) => {
       organizationUsers.push(id);
@@ -66,7 +66,7 @@ function sale(index = 1) {
 const plain = (value: unknown) => JSON.parse(JSON.stringify(value));
 
 test("authentication, staff-store roles, and organization membership fail closed", async () => {
-  for (const user of [null, { id: "u", role: "staff" }, { id: "u", email: "  ", role: "staff" }, { email: "staff@example.com", role: "staff" }]) {
+  for (const user of [null, { id: "u", role: "staff", permissions: ["store.use"] }, { id: "u", email: "  ", role: "staff", permissions: ["store.use"] }, { email: "staff@example.com", role: "staff", permissions: ["store.use"] }]) {
     const state = harness({ user });
     assert.equal((await state.get()).status, 401);
     assert.equal(state.queries.length, 0);
@@ -83,7 +83,7 @@ test("authentication, staff-store roles, and organization membership fail closed
 
 test("staff and admins query only their normalized buyer email through the organization credential relation", async () => {
   for (const role of ["staff", "admin"]) {
-    const state = harness({ user: { id: "buyer", email: " STAFF@Example.com ", role } });
+    const state = harness({ user: { id: "buyer", email: " STAFF@Example.com ", role, permissions: ["store.use"] } });
     const response = await state.get("?limit=20");
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { transactions: [], nextCursor: null });
@@ -150,7 +150,7 @@ test("invalid cursors, arbitrary identity parameters, and unsupported limits are
 });
 
 test("a person with a Central id also sees purchases made under an earlier email", async () => {
-  const state = harness({ user: { id: "staff-user", email: "  NEW@Example.com ", role: "staff", centralPersonId: "person-1" } });
+  const state = harness({ user: { id: "staff-user", email: "  NEW@Example.com ", role: "staff", permissions: ["store.use"], centralPersonId: "person-1" } });
   assert.equal((await state.get()).status, 200);
   assert.deepEqual(plain(state.queries[0].where?.AND), [
     { OR: [{ staffPersonId: "person-1" }, { staffPersonId: null, staffEmail: "new@example.com" }] },

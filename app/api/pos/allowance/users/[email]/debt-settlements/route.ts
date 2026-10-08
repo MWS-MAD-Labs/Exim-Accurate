@@ -8,7 +8,7 @@ import { dateOnlySchema, parseDateOnly } from "@/lib/pos";
 import { prisma } from "@/lib/prisma";
 import { getOutstandingCurrentAllowanceDebt, getOutstandingPreviousAllowanceDebt, withSerializableRetry } from "@/lib/pos-server";
 import { recordValidatedDebtSettlement, validateDebtSettlement } from "@/lib/pos-debt-settlement";
-import { canOperatePos } from "@/lib/access-control";
+import { hasPermission } from "@/lib/access-control";
 
 const schema = z.object({
   credentialId: z.string().uuid(),
@@ -25,7 +25,7 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canOperatePos(session.user.role)) return NextResponse.json({ error: "POS operator access required" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.checkout")) return NextResponse.json({ error: "POS operator access required" }, { status: 403 });
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid debt payment" }, { status: 400 });

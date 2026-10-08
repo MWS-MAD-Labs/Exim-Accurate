@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { canUseStaffStore, getRoleHome } from "@/lib/access-control";
+import { getRoleHome, hasPermission } from "@/lib/access-control";
 
 export default async function StoreLayout({
   children,
@@ -13,7 +13,7 @@ export default async function StoreLayout({
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/store");
   }
-  if (!canUseStaffStore(session.user.role, session.user.permissions)) {
+  if (!hasPermission(session.user.permissions, "store.use")) {
     redirect(getRoleHome(session.user.role, session.user.permissions));
   }
 

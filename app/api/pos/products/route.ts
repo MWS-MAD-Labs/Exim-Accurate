@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getDefaultPosStore, getOutstandingPreviousAllowanceDebt, getPosContext, getStaffAllowance, resolveLocalPosProducts } from "@/lib/pos-server";
-import { canBrowsePosCatalog } from "@/lib/access-control";
+import { hasPermission } from "@/lib/access-control";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canBrowsePosCatalog(session.user.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.catalog.read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const params = new URL(req.url).searchParams;
   const requestedCredentialId = params.get("credentialId");
   const defaultStore = requestedCredentialId ? null : await getDefaultPosStore(session.user.id);

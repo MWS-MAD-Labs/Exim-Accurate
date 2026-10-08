@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
-import { canOperatePos } from "@/lib/access-control";
+import { hasPermission } from "@/lib/access-control";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { prisma } from "@/lib/prisma";
 
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!canOperatePos(session.user.role)) {
+  if (!hasPermission(session.user.permissions, "pos.checkout")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
