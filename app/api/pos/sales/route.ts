@@ -1,4 +1,4 @@
-import { resolveStaff } from "@/lib/staff-identity";
+import { hasActiveAccess, resolveStaff } from "@/lib/staff-identity";
 import crypto from "node:crypto";
 import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -100,11 +100,14 @@ export async function POST(req: NextRequest) {
     const registeredStaff = picked.personId
       ? await prisma.user.findFirst({
           where: { centralPersonId: picked.personId, organizationId: context.credential.organizationId },
-          select: { name: true, email: true, centralPersonId: true },
+          select: { name: true, email: true, centralPersonId: true, permissions: true, centralStatus: true },
         })
       : null;
     if (!registeredStaff) {
       return NextResponse.json({ error: "Staff email is not registered in this organization" }, { status: 409 });
+    }
+    if (!hasActiveAccess(registeredStaff)) {
+      return NextResponse.json({ error: "Akses staf ini sudah tidak aktif." }, { status: 409 });
     }
     canonicalStaffName = registeredStaff.name || staffName;
     saleStaffEmail = registeredStaff.email.toLowerCase();

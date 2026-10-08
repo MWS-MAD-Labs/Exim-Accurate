@@ -68,6 +68,8 @@ export async function GET(req: NextRequest) {
   const staff = await prisma.user.findMany({
     where: {
       organizationId: credential.organizationId,
+      // Someone who lost access to Exima is not offered at the counter.
+      NOT: { permissions: { isEmpty: true } },
       OR: [
         { email: { contains: search, mode: "insensitive" } },
         { name: { contains: search, mode: "insensitive" } },

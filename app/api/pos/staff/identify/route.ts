@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { hasPermission } from "@/lib/access-control";
 import { authOptions } from "@/lib/auth";
+import { badgeRefusal } from "@/lib/badge-messages";
 import { identifyStaffForCashier } from "@/lib/cashier-identify";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 
@@ -27,15 +28,7 @@ export async function POST(req: NextRequest) {
 
   const identity = await identifyStaffForCashier(parsed.data.value, credential.organizationId);
   if (!identity.ok) {
-    return NextResponse.json(
-      {
-        code: identity.reason === "revoked" ? "BADGE_REVOKED" : "BADGE_UNKNOWN",
-        error: identity.reason === "revoked"
-          ? "Badge sudah dicabut, minta staf membuka badge baru di halaman staf."
-          : "Badge tidak dikenali sebagai staf toko ini.",
-      },
-      { status: 404, headers: { "Cache-Control": "private, no-store" } },
-    );
+    return NextResponse.json(badgeRefusal(identity.reason), { status: 404, headers: { "Cache-Control": "private, no-store" } });
   }
   return NextResponse.json(
     { personId: identity.personId, email: identity.email, name: identity.name },

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { getResourceCredential } from "@/lib/credential-access";
+import { badgeRefusal } from "@/lib/badge-messages";
 import { prisma } from "@/lib/prisma";
 import { resolveBadgeWithCentral } from "@/lib/central-provision";
 
@@ -25,15 +26,7 @@ export async function POST(req: NextRequest) {
 
   const badge = await resolveBadgeWithCentral(parsed.data.value);
   if (!badge.ok) {
-    return NextResponse.json(
-      {
-        code: badge.reason === "revoked" ? "BADGE_REVOKED" : "BADGE_UNKNOWN",
-        error: badge.reason === "revoked"
-          ? "Badge sudah dicabut, ambil badge baru di halaman staf."
-          : "Badge tidak dikenali sebagai staf Exima.",
-      },
-      { status: 404 },
-    );
+    return NextResponse.json(badgeRefusal(badge.reason), { status: 404 });
   }
 
   // The person has to belong to the organization of the credential.

@@ -1,5 +1,6 @@
 "use server";
 
+import { badgeRefusal } from "@/lib/badge-messages";
 import { resolveBadgeWithCentral } from "@/lib/central-provision";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
             : null;
         if (!badge.ok || !member) {
             return NextResponse.json(
-                { error: badge.ok === false && badge.reason === "revoked" ? "Badge sudah dicabut, ambil badge baru di halaman staf." : "Badge tidak dikenali sebagai staf Exima." },
+                { error: badgeRefusal(badge.ok === false ? badge.reason : "unknown").error },
                 { status: 404 },
             );
         }

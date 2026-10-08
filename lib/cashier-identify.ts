@@ -1,10 +1,11 @@
+import type { BadgeRefusal } from "@/lib/badge-messages";
 import { resolveBadgeWithCentral } from "@/lib/central-provision";
 import { prisma } from "@/lib/prisma";
 import type { BadgeResult } from "@/lib/staff-identity";
 
 export type CashierIdentity =
   | { ok: true; personId: string; email: string; name: string | null }
-  | { ok: false; reason: "unknown" | "revoked" };
+  | { ok: false; reason: BadgeRefusal };
 
 type Deps = {
   resolve: (raw: string) => Promise<BadgeResult>;

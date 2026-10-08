@@ -23,7 +23,20 @@ export function staffData(ref: StaffRef) {
   return { staffPersonId: ref.personId, staffEmail: ref.email };
 }
 
-export type StaffUser = { id: string; name: string | null; email: string; centralPersonId: string | null; badgeVersion: number };
+export type StaffUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  centralPersonId: string | null;
+  badgeVersion: number;
+  permissions: readonly string[];
+  centralStatus: string | null;
+};
+
+// A badge works for someone who still has access to Exima. Whoever lost it in Central is turned away.
+export function hasActiveAccess(user: Pick<StaffUser, "permissions" | "centralStatus">) {
+  return user.permissions.length > 0 && user.centralStatus === "active";
+}
 export type StaffLookup = {
   byEmail(email: string): Promise<StaffUser | null>;
   byPersonId(personId: string): Promise<StaffUser | null>;
@@ -31,7 +44,7 @@ export type StaffLookup = {
 };
 
 export function prismaStaffLookup(db: Db = prisma): StaffLookup {
-  const select = { id: true, name: true, email: true, centralPersonId: true, badgeVersion: true } as const;
+  const select = { id: true, name: true, email: true, centralPersonId: true, badgeVersion: true, permissions: true, centralStatus: true } as const;
   return {
     byEmail: (email) => db.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, select }),
     byPersonId: (personId) => db.user.findUnique({ where: { centralPersonId: personId }, select }),
@@ -59,7 +72,7 @@ export async function resolveStaff(rawEmail: string, db: Db = prisma): Promise<S
 
 export type BadgeResult =
   | { ok: true; personId: string; email: string; name: string | null; via: "token" | "email" }
-  | { ok: false; reason: "unknown" | "revoked" };
+  | { ok: false; reason: "unknown" | "revoked" | "inactive" };
 
 // Cards printed before the signed badge hold the email. Accepted until this is switched off.
 export function legacyEmailBadgesAllowed() {
@@ -71,9 +84,11 @@ export function legacyEmailBadgesAllowed() {
 export async function resolveBadge(raw: string, lookup: StaffLookup = prismaStaffLookup()): Promise<BadgeResult> {
   const value = raw.trim();
   const toResult = (user: StaffUser, via: "token" | "email"): BadgeResult =>
-    user.centralPersonId
-      ? { ok: true, personId: user.centralPersonId, email: user.email.toLowerCase(), name: user.name, via }
-      : { ok: false, reason: "unknown" };
+    !user.centralPersonId
+      ? { ok: false, reason: "unknown" }
+      : !hasActiveAccess(user)
+        ? { ok: false, reason: "inactive" }
+        : { ok: true, personId: user.centralPersonId, email: user.email.toLowerCase(), name: user.name, via };
 
   if (looksLikeBadgeToken(value)) {
     const verified = verifyBadgeToken(value);

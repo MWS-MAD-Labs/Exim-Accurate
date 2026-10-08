@@ -1,16 +1,17 @@
 import assert from "node:assert/strict";
 import test, { afterEach } from "node:test";
 import { issueBadgeToken } from "./badge-token";
-import { resolveBadge, staffData, staffWhere, type StaffLookup, type StaffUser } from "./staff-identity";
+import { hasActiveAccess, resolveBadge, staffData, staffWhere, type StaffLookup, type StaffUser } from "./staff-identity";
 
 process.env.EXIMA_BADGE_SECRET = "a-test-secret-of-some-length";
 
-const ann: StaffUser = { id: "u1", name: "Ann", email: "ann.new@x.id", centralPersonId: "p1", badgeVersion: 2 };
-const local: StaffUser = { id: "u2", name: "Old", email: "old@x.id", centralPersonId: null, badgeVersion: 1 };
+const ann: StaffUser = { id: "u1", name: "Ann", email: "ann.new@x.id", centralPersonId: "p1", badgeVersion: 2, permissions: ["store.use"], centralStatus: "active" };
+const local: StaffUser = { id: "u2", name: "Old", email: "old@x.id", centralPersonId: null, badgeVersion: 1, permissions: ["store.use"], centralStatus: "active" };
+const gone: StaffUser = { id: "u3", name: "Gone", email: "gone@x.id", centralPersonId: "p3", badgeVersion: 1, permissions: [], centralStatus: "no_access" };
 
 const lookup: StaffLookup = {
-  byEmail: async (email) => (email === "ann.new@x.id" ? ann : email === "old@x.id" ? local : null),
-  byPersonId: async (id) => (id === "p1" ? ann : null),
+  byEmail: async (email) => (email === "ann.new@x.id" ? ann : email === "old@x.id" ? local : email === "gone@x.id" ? gone : null),
+  byPersonId: async (id) => (id === "p1" ? ann : id === "p3" ? gone : null),
   byPreviousEmail: async (email) => (email === "ann.old@x.id" ? { user: ann, replacedAt: new Date() } : null),
 };
 
@@ -52,4 +53,12 @@ test("rows are found by person id, with older rows still found by email", () => 
   });
   assert.deepEqual(staffWhere({ personId: null, email: "g@x.id" }), { staffEmail: "g@x.id" });
   assert.deepEqual(staffData({ personId: "p1", email: "a@x.id" }), { staffPersonId: "p1", staffEmail: "a@x.id" });
+});
+
+test("someone who lost access in Central is turned away, by badge and by email", async () => {
+  assert.deepEqual(await resolveBadge(issueBadgeToken("p3", 1), lookup), { ok: false, reason: "inactive" });
+  assert.deepEqual(await resolveBadge("gone@x.id", lookup), { ok: false, reason: "inactive" });
+  assert.equal(hasActiveAccess(gone), false);
+  assert.equal(hasActiveAccess({ permissions: ["store.use"], centralStatus: "unknown" }), false);
+  assert.equal(hasActiveAccess(ann), true);
 });
