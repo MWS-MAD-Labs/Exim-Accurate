@@ -36,6 +36,7 @@ import {
   IconTool,
 } from "@tabler/icons-react";
 import { USER_ROLE_META, type UserRole } from "@/lib/user-roles";
+import { longAgo, shortAgo } from "@/lib/time-ago";
 import type { UserStatus } from "@/lib/user-directory";
 
 interface ManagedUser {
@@ -108,20 +109,6 @@ function formatTime(value: string | null) {
   return value
     ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
     : "Not yet";
-}
-
-function timeAgo(value: string | null) {
-  if (!value) return "never";
-  const seconds = Math.max(Math.round((Date.now() - new Date(value).getTime()) / 1000), 0);
-  if (seconds < 60) return "just now";
-  const units: [number, string][] = [[86400, "day"], [3600, "hour"], [60, "minute"]];
-  for (const [size, name] of units) {
-    if (seconds >= size) {
-      const count = Math.floor(seconds / size);
-      return `${count} ${name}${count === 1 ? "" : "s"} ago`;
-    }
-  }
-  return "just now";
 }
 
 async function readError(response: Response) {
@@ -226,6 +213,16 @@ export function UserManagement() {
             People, roles and permissions come from Central and cannot be changed here.
           </Text>
         </Box>
+        {syncStatus && !syncStatus.last_error && (
+          <Tooltip
+            label={`Last change ${longAgo(syncStatus.synced_at)}. Checked every minute.`}
+            withArrow
+          >
+            <Badge variant="dot" color="green" size="lg" radius="sm" tt="none" fw={500}>
+              Synced · {shortAgo(syncStatus.checked_at)}
+            </Badge>
+          </Tooltip>
+        )}
       </Group>
 
       {syncStatus?.last_error ? (
@@ -237,14 +234,6 @@ export function UserManagement() {
             </Button>
           </Group>
         </Alert>
-      ) : syncStatus ? (
-        <Group gap={8}>
-          <Box w={8} h={8} style={{ borderRadius: "50%", background: "var(--mantine-color-green-6)" }} />
-          <Text size="sm" fw={500}>Synced with Central automatically</Text>
-          <Text size="sm" c="dimmed">
-            Checked {timeAgo(syncStatus.checked_at)}, last change {timeAgo(syncStatus.synced_at)}. It checks every minute.
-          </Text>
-        </Group>
       ) : null}
 
       <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }}>

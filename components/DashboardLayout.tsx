@@ -8,6 +8,7 @@ import {
   Text,
   Button,
   Avatar,
+  UnstyledButton,
   Menu,
   Divider,
   Box,
@@ -29,6 +30,7 @@ import {
   IconLogout,
   IconAdjustments,
   IconScan,
+  IconChevronDown,
   IconChevronRight,
   IconSettings,
   IconExternalLink,
@@ -46,6 +48,7 @@ import {
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
 import { useLanguage } from "@/lib/language";
+import { initialsOf, roleLabelOf } from "@/lib/initials";
 import { getRoleHome, hasAnyPermission, type AppPermission } from "@/lib/access-control";
 
 interface NavItem {
@@ -77,60 +80,46 @@ function UserMenu() {
     router.push("/auth/logout");
   };
 
-  const getInitials = (email?: string | null) => {
-    if (!email) return "U";
-    const parts = email.split("@")[0].split(/[._-]/);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return email.substring(0, 2).toUpperCase();
-  };
+  const email = session?.user?.email;
+  const name = session?.user?.name?.trim() || null;
+  const displayName = name || (email ? email.split("@")[0].split(/[._-]/).map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ") : "Pengguna");
+  const initials = initialsOf(name, email);
+  const role = roleLabelOf(session?.user?.role);
 
-  const getUserName = (email?: string | null) => {
-    if (!email) return "Pengguna";
-    const localPart = email.split("@")[0];
-    return localPart
-      .split(/[._-]/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
+  // The letters sit in the middle of the circle whatever the parent's text styles are.
+  const avatarStyles = {
+    placeholder: { display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0, fontWeight: 600 },
+  } as const;
 
   return (
-    <Menu position="bottom-end" withArrow shadow="lg" width={220}>
+    <Menu position="bottom-end" withArrow shadow="lg" width={240}>
       <Menu.Target>
-        <Button
-          variant="subtle"
-          px="xs"
-          style={{
-            height: "auto",
-            padding: "6px 10px",
-          }}
+        <UnstyledButton
+          aria-label="Account menu"
+          style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 8px", borderRadius: 10 }}
         >
-          <Group gap="sm">
-            <Avatar
-              size={32}
-              radius="xl"
-              color="brand"
-              variant="filled"
-              style={{
-                cursor: "pointer",
-              }}
-            >
-              {getInitials(session?.user?.email)}
-            </Avatar>
-            <Box visibleFrom="sm">
-              <Text size="sm" fw={500} lh={1.2}>
-                {getUserName(session?.user?.email)}
-              </Text>
-              <Text size="xs" c="dimmed" lh={1.2}>
-                {session?.user?.email}
-              </Text>
-            </Box>
-          </Group>
-        </Button>
+          <Avatar size={34} radius="xl" color="brand" variant="filled" styles={avatarStyles}>
+            {initials}
+          </Avatar>
+          <Box visibleFrom="sm" style={{ minWidth: 0, maxWidth: 160 }}>
+            <Text size="sm" fw={600} lh={1.2} truncate>{displayName}</Text>
+            {role && <Text size="xs" c="dimmed" lh={1.2} truncate>{role}</Text>}
+          </Box>
+          <IconChevronDown size={14} style={{ opacity: 0.55 }} />
+        </UnstyledButton>
       </Menu.Target>
 
       <Menu.Dropdown>
+        <Group gap="sm" px="sm" py="xs" wrap="nowrap">
+          <Avatar size={40} radius="xl" color="brand" variant="filled" styles={avatarStyles}>
+            {initials}
+          </Avatar>
+          <Box style={{ minWidth: 0 }}>
+            <Text size="sm" fw={700} lh={1.25} truncate>{displayName}</Text>
+            <Text size="xs" c="dimmed" lh={1.25} truncate>{email}</Text>
+          </Box>
+        </Group>
+        <Menu.Divider />
         <Menu.Label>{t.dashboard.userMenu.account}</Menu.Label>
         <Menu.Item
           leftSection={<IconUser size={16} />}
