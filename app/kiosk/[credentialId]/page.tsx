@@ -185,34 +185,52 @@ export default function KioskCheckoutPage() {
     }
   }, []);
 
-  // Handle badge scan (Step 1)
+  // Handle badge scan (Step 1). The server says who the badge belongs to.
   const handleBadgeScan = useCallback(
-    (scannedValue: string) => {
-      const trimmedEmail = scannedValue.trim().toLowerCase();
-      if (!trimmedEmail.includes("@")) return;
-
-      const info = parseStaffInfo(trimmedEmail);
-      setStaffEmail(trimmedEmail);
-      setStaffInfo(info);
+    async (scannedValue: string) => {
+      const value = scannedValue.trim();
+      if (!value) return;
       setScanInput("");
 
-      notifications.show(
-        {
-          title: language === "id" ? "Kartu ID Terdeteksi" : "ID Card Detected",
-          message: `${
-            language === "id" ? "Selamat datang" : "Welcome"
-          }, ${info?.name || trimmedEmail}!`,
-          color: "green",
-          icon: <IconCircleCheck size={16} />,
-          autoClose: 2000,
-        },
-        kioskNotificationsStore,
-      );
+      try {
+        const response = await fetch("/api/self-checkout/identify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credentialId, value }),
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.error || "Badge tidak dikenali");
 
-      // Auto advance to scan step after a short delay
-      setTimeout(() => setCurrentStep("scan"), 500);
+        const info = parseStaffInfo(data.email);
+        setStaffEmail(data.email);
+        setStaffInfo(info ? { ...info, name: data.name || info.name } : { name: data.name || data.email, dept: "" });
+
+        notifications.show(
+          {
+            title: language === "id" ? "Kartu ID Terdeteksi" : "ID Card Detected",
+            message: `${language === "id" ? "Selamat datang" : "Welcome"}, ${data.name || data.email}!`,
+            color: "green",
+            icon: <IconCircleCheck size={16} />,
+            autoClose: 2000,
+          },
+          kioskNotificationsStore,
+        );
+
+        // Auto advance to scan step after a short delay
+        setTimeout(() => setCurrentStep("scan"), 500);
+      } catch (error) {
+        notifications.show(
+          {
+            title: language === "id" ? "Kartu ID Ditolak" : "ID Card Rejected",
+            message: error instanceof Error ? error.message : "Badge tidak dikenali",
+            color: "red",
+            autoClose: 3000,
+          },
+          kioskNotificationsStore,
+        );
+      }
     },
-    [parseStaffInfo, language],
+    [parseStaffInfo, language, credentialId],
   );
 
   // Handle item scan (Step 2) - auto add to cart

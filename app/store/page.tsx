@@ -1,5 +1,6 @@
 "use client";
 
+import { MyBadge } from "@/components/store/MyBadge";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import {
@@ -48,7 +49,8 @@ import {
   IconHistory,
   IconRefresh,
 } from "@tabler/icons-react";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { createIdempotencyKey } from "@/lib/browser-id";
 import { createReservationQrPayload } from "@/lib/reservation-qr";
 import { useLanguage } from "@/lib/language";
@@ -152,6 +154,7 @@ function statusMeta(status: Reservation["status"]) {
 }
 
 export default function StorePage() {
+  const router = useRouter();
   const { data: session } = useSession();
   const { t } = useLanguage();
   const [cartOpened, cartHandlers] = useDisclosure(false);
@@ -382,6 +385,7 @@ export default function StorePage() {
             </Group>
             <Group gap="xs">
               <Text size="sm" c="dimmed" visibleFrom="sm">{session?.user?.email}</Text>
+              <MyBadge />
               <Button
                 variant="light"
                 leftSection={<IconShoppingBag size={17} />}
@@ -389,7 +393,7 @@ export default function StorePage() {
               >
                 Cart ({cartCount})
               </Button>
-              <ActionIcon variant="subtle" size="lg" aria-label="Sign out" onClick={() => void signOut({ callbackUrl: "/login" })}>
+              <ActionIcon variant="subtle" size="lg" aria-label="Sign out" onClick={() => router.push("/auth/logout")}>
                 <IconLogout size={19} />
               </ActionIcon>
             </Group>
