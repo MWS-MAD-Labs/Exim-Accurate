@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  ActionIcon,
   Alert,
   Avatar,
   Badge,
@@ -12,10 +11,8 @@ import {
   Center,
   Group,
   Loader,
-  Menu,
-  Modal,
+  Pagination,
   Paper,
-  PasswordInput,
   Select,
   SimpleGrid,
   Stack,
@@ -24,34 +21,30 @@ import {
   TextInput,
   ThemeIcon,
   Title,
+  Tooltip,
 } from "@mantine/core";
+import { useDebouncedValue } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
-  IconAlertCircle,
   IconCash,
   IconCheck,
-  IconDotsVertical,
-  IconKey,
-  IconPlus,
+  IconRefresh,
   IconSearch,
   IconShield,
-  IconTrash,
   IconUser,
   IconUsers,
   IconTool,
 } from "@tabler/icons-react";
-import {
-  USER_ROLE_META,
-  USER_ROLES,
-  type UserRole,
-} from "@/lib/user-roles";
+import { USER_ROLE_META, type UserRole } from "@/lib/user-roles";
+import type { UserStatus } from "@/lib/user-directory";
 
 interface ManagedUser {
   id: string;
   email: string;
   name: string | null;
   role: string;
-  createdAt: string;
+  status: UserStatus;
+  entitlementSyncedAt: string | null;
   _count: {
     accurateCredentials: number;
     exportJobs: number;
@@ -59,12 +52,34 @@ interface ManagedUser {
   };
 }
 
-const roleOptions = USER_ROLES.map((role) => ({
-  value: role,
-  label: USER_ROLE_META[role].label,
-}));
+interface Paging {
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+}
 
-const roleIcons: Record<UserRole, React.ReactNode> = {
+interface SyncStatus {
+  synced_at: string | null;
+  checked_at: string | null;
+  last_error: string | null;
+}
+
+const PAGE_SIZE = 20;
+
+const statusOptions = [
+  { value: "active", label: "Active" },
+  { value: "no_access", label: "No Access In Central" },
+  { value: "unknown", label: "Unknown In Central" },
+];
+
+const statusBadge: Record<UserStatus, { label: string; color: string; hint?: string } | null> = {
+  active: null,
+  no_access: { label: "No Access In Central", color: "red", hint: "Central knows this person but gives them no access to Exima now. Central does not keep the history of removals." },
+  unknown: { label: "Unknown In Central", color: "yellow", hint: "Central does not know this person, or this is an older local account without a Central identity." },
+};
+
+const roleIcons: Record<string, React.ReactNode> = {
   admin: <IconShield size={20} />,
   cashier: <IconCash size={20} />,
   resource: <IconTool size={20} />,
@@ -83,10 +98,30 @@ function initials(name: string | null, email: string) {
 
 function roleMeta(role: string) {
   return USER_ROLE_META[role as UserRole] || {
-    label: role,
-    description: "Legacy or custom role.",
+    label: role.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+    description: "Role made in Central.",
     color: "gray",
   };
+}
+
+function formatTime(value: string | null) {
+  return value
+    ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
+    : "Not yet";
+}
+
+function timeAgo(value: string | null) {
+  if (!value) return "never";
+  const seconds = Math.max(Math.round((Date.now() - new Date(value).getTime()) / 1000), 0);
+  if (seconds < 60) return "just now";
+  const units: [number, string][] = [[86400, "day"], [3600, "hour"], [60, "minute"]];
+  for (const [size, name] of units) {
+    if (seconds >= size) {
+      const count = Math.floor(seconds / size);
+      return `${count} ${name}${count === 1 ? "" : "s"} ago`;
+    }
+  }
+  return "just now";
 }
 
 async function readError(response: Response) {
@@ -96,27 +131,31 @@ async function readError(response: Response) {
 
 export function UserManagement() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [roles, setRoles] = useState<{ role: string; count: number }[]>([]);
+  const [paging, setPaging] = useState<Paging>({ page: 1, size: PAGE_SIZE, total: 0, totalPages: 1 });
   const [currentUserId, setCurrentUserId] = useState("");
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch] = useDebouncedValue(search, 300);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editUser, setEditUser] = useState<ManagedUser | null>(null);
-  const [passwordUser, setPasswordUser] = useState<ManagedUser | null>(null);
-  const [deleteUser, setDeleteUser] = useState<ManagedUser | null>(null);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("staff");
-  const [saving, setSaving] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/admin/users", { cache: "no-store" });
+      const params = new URLSearchParams({ page: String(page), size: String(PAGE_SIZE) });
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+      if (roleFilter) params.set("role", roleFilter);
+      if (statusFilter) params.set("status", statusFilter);
+      const response = await fetch(`/api/admin/users?${params}`, { cache: "no-store" });
       if (!response.ok) throw new Error(await readError(response));
       const data = await response.json();
       setUsers(data.users);
+      setRoles(data.roles);
+      setPaging(data.paging);
       setCurrentUserId(data.currentUserId);
     } catch (error) {
       notifications.show({
@@ -127,159 +166,55 @@ export function UserManagement() {
     } finally {
       setLoading(false);
     }
+  }, [page, debouncedSearch, roleFilter, statusFilter]);
+
+  const loadSyncStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/users/sync", { cache: "no-store" });
+      if (!response.ok) return;
+      setSyncStatus((await response.json()).status);
+    } catch {
+      setSyncStatus(null);
+    }
   }, []);
 
   useEffect(() => {
     void loadUsers();
   }, [loadUsers]);
 
-  const counts = useMemo(
-    () =>
-      USER_ROLES.reduce<Record<UserRole, number>>(
-        (result, userRole) => {
-          result[userRole] = users.filter((user) => user.role === userRole).length;
-          return result;
-        },
-        { admin: 0, cashier: 0, resource: 0, staff: 0 },
-      ),
-    [users],
-  );
+  useEffect(() => {
+    void loadSyncStatus();
+  }, [loadSyncStatus]);
 
-  const filteredUsers = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return users.filter(
-      (user) =>
-        (!roleFilter || user.role === roleFilter) &&
-        (!normalizedQuery ||
-          user.email.toLowerCase().includes(normalizedQuery) ||
-          user.name?.toLowerCase().includes(normalizedQuery)),
-    );
-  }, [query, roleFilter, users]);
-
-  const resetCreateForm = () => {
-    setName("");
-    setEmail("");
-    setPassword("");
-    setRole("staff");
+  const changeFilter = (setter: (value: string | null) => void) => (value: string | null) => {
+    setter(value);
+    setPage(1);
   };
 
-  const createUser = async () => {
-    setSaving(true);
+  const syncFromCentral = async () => {
+    setSyncing(true);
     try {
-      const response = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role }),
-      });
+      const response = await fetch("/api/admin/users/sync", { method: "POST" });
       if (!response.ok) throw new Error(await readError(response));
-
-      setCreateOpen(false);
-      resetCreateForm();
-      await loadUsers();
+      await Promise.all([loadUsers(), loadSyncStatus()]);
       notifications.show({
-        title: "User created",
-        message: `${email.toLowerCase()} can now sign in.`,
+        title: "Users checked",
+        message: "Exima is in step with Central.",
         color: "green",
         icon: <IconCheck size={16} />,
       });
     } catch (error) {
       notifications.show({
-        title: "Unable to create user",
+        title: "Unable to sync users",
         message: error instanceof Error ? error.message : "Please try again.",
         color: "red",
       });
     } finally {
-      setSaving(false);
+      setSyncing(false);
     }
   };
 
-  const updateUser = async () => {
-    if (!editUser) return;
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/admin/users/${editUser.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, role }),
-      });
-      if (!response.ok) throw new Error(await readError(response));
-
-      setEditUser(null);
-      await loadUsers();
-      notifications.show({
-        title: "User updated",
-        message: `${name} is now ${USER_ROLE_META[role].label}.`,
-        color: "green",
-        icon: <IconCheck size={16} />,
-      });
-    } catch (error) {
-      notifications.show({
-        title: "Unable to update role",
-        message: error instanceof Error ? error.message : "Please try again.",
-        color: "red",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const resetPassword = async () => {
-    if (!passwordUser) return;
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/admin/users/${passwordUser.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      if (!response.ok) throw new Error(await readError(response));
-
-      setPasswordUser(null);
-      setPassword("");
-      notifications.show({
-        title: "Password updated",
-        message: `A new password was set for ${passwordUser.email}.`,
-        color: "green",
-        icon: <IconCheck size={16} />,
-      });
-    } catch (error) {
-      notifications.show({
-        title: "Unable to update password",
-        message: error instanceof Error ? error.message : "Please try again.",
-        color: "red",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const removeUser = async () => {
-    if (!deleteUser) return;
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/admin/users/${deleteUser.id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error(await readError(response));
-
-      setDeleteUser(null);
-      await loadUsers();
-      notifications.show({
-        title: "User deleted",
-        message: `${deleteUser.email} and their owned data were removed.`,
-        color: "green",
-        icon: <IconCheck size={16} />,
-      });
-    } catch (error) {
-      notifications.show({
-        title: "Unable to delete user",
-        message: error instanceof Error ? error.message : "Please try again.",
-        color: "red",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
+  const roleOptions = roles.map((row) => ({ value: row.role, label: roleMeta(row.role).label }));
 
   return (
     <Stack gap="lg">
@@ -288,28 +223,44 @@ export function UserManagement() {
           <Text size="sm" c="dimmed" mb={4}>Administration</Text>
           <Title order={2}>User management</Title>
           <Text c="dimmed" size="sm" mt={4}>
-            Create accounts, assign access roles, and manage credentials.
+            People, roles and permissions come from Central and cannot be changed here.
           </Text>
         </Box>
-        <Button leftSection={<IconPlus size={18} />} onClick={() => setCreateOpen(true)}>
-          Add user
-        </Button>
       </Group>
 
+      {syncStatus?.last_error ? (
+        <Alert variant="light" color="orange" radius="md" icon={<IconRefresh size={18} />} title="Automatic sync is failing">
+          <Group justify="space-between" align="center" wrap="nowrap" gap="md">
+            <Text size="sm">{syncStatus.last_error}. It tries again every minute.</Text>
+            <Button size="xs" color="orange" variant="light" loading={syncing} onClick={syncFromCentral}>
+              Retry Now
+            </Button>
+          </Group>
+        </Alert>
+      ) : syncStatus ? (
+        <Group gap={8}>
+          <Box w={8} h={8} style={{ borderRadius: "50%", background: "var(--mantine-color-green-6)" }} />
+          <Text size="sm" fw={500}>Synced with Central automatically</Text>
+          <Text size="sm" c="dimmed">
+            Checked {timeAgo(syncStatus.checked_at)}, last change {timeAgo(syncStatus.synced_at)}. It checks every minute.
+          </Text>
+        </Group>
+      ) : null}
+
       <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }}>
-        {USER_ROLES.map((userRole) => {
-          const meta = USER_ROLE_META[userRole];
+        {roles.map(({ role, count }) => {
+          const meta = roleMeta(role);
           return (
-            <Card key={userRole} withBorder radius="md" padding="lg">
+            <Card key={role} withBorder radius="md" padding="lg">
               <Group justify="space-between" align="flex-start">
                 <Stack gap={3}>
                   <Text size="xs" tt="uppercase" fw={700} c="dimmed">
                     {meta.label}
                   </Text>
-                  <Text size="xl" fw={700}>{counts[userRole]}</Text>
+                  <Text size="xl" fw={700}>{count}</Text>
                 </Stack>
                 <ThemeIcon color={meta.color} variant="light" size="lg" radius="md">
-                  {roleIcons[userRole]}
+                  {roleIcons[role] ?? <IconUser size={20} />}
                 </ThemeIcon>
               </Group>
               <Text size="xs" c="dimmed" mt="sm">{meta.description}</Text>
@@ -325,8 +276,11 @@ export function UserManagement() {
               label="Search users"
               placeholder="Search by name or email"
               leftSection={<IconSearch size={16} />}
-              value={query}
-              onChange={(event) => setQuery(event.currentTarget.value)}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.currentTarget.value);
+                setPage(1);
+              }}
               style={{ flex: 1, minWidth: 220 }}
             />
             <Select
@@ -335,23 +289,32 @@ export function UserManagement() {
               clearable
               data={roleOptions}
               value={roleFilter}
-              onChange={setRoleFilter}
+              onChange={changeFilter(setRoleFilter)}
               w={180}
             />
+            <Select
+              label="Status"
+              placeholder="All"
+              clearable
+              data={statusOptions}
+              value={statusFilter}
+              onChange={changeFilter(setStatusFilter)}
+              w={220}
+            />
           </Group>
-          <Badge variant="light" size="lg">{filteredUsers.length} users</Badge>
+          <Badge variant="light" size="lg">{paging.total} users</Badge>
         </Group>
 
         {loading ? (
           <Center py={60}><Loader /></Center>
-        ) : filteredUsers.length === 0 ? (
+        ) : users.length === 0 ? (
           <Center py={60}>
             <Stack align="center" gap="xs">
               <ThemeIcon variant="light" color="gray" size={48} radius="xl">
                 <IconUsers size={24} />
               </ThemeIcon>
               <Text fw={600}>No users found</Text>
-              <Text size="sm" c="dimmed">Try changing the search or role filter.</Text>
+              <Text size="sm" c="dimmed">Try changing the search or the filters.</Text>
             </Stack>
           </Center>
         ) : (
@@ -362,14 +325,13 @@ export function UserManagement() {
                   <Table.Th>User</Table.Th>
                   <Table.Th>Role</Table.Th>
                   <Table.Th>Owned activity</Table.Th>
-                  <Table.Th>Created</Table.Th>
-                  <Table.Th ta="right">Actions</Table.Th>
+                  <Table.Th>Synced</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {filteredUsers.map((user) => {
+                {users.map((user) => {
                   const meta = roleMeta(user.role);
-                  const isCurrentUser = user.id === currentUserId;
+                  const flag = statusBadge[user.status];
                   return (
                     <Table.Tr key={user.id}>
                       <Table.Td>
@@ -378,7 +340,12 @@ export function UserManagement() {
                           <Box>
                             <Group gap="xs">
                               <Text fw={600} size="sm">{user.name || user.email}</Text>
-                              {isCurrentUser && <Badge size="xs" variant="outline">You</Badge>}
+                              {user.id === currentUserId && <Badge size="xs" variant="outline">You</Badge>}
+                              {flag && (
+                                <Tooltip label={flag.hint} multiline w={260} withArrow>
+                                  <Badge size="xs" color={flag.color} variant="light">{flag.label}</Badge>
+                                </Tooltip>
+                              )}
                             </Group>
                             <Text size="xs" c="dimmed">{user.email}</Text>
                           </Box>
@@ -393,48 +360,7 @@ export function UserManagement() {
                         </Text>
                       </Table.Td>
                       <Table.Td>
-                        <Text size="sm">
-                          {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(user.createdAt))}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td ta="right">
-                        <Menu position="bottom-end" withArrow>
-                          <Menu.Target>
-                            <ActionIcon variant="subtle" aria-label={`Manage ${user.email}`}>
-                              <IconDotsVertical size={18} />
-                            </ActionIcon>
-                          </Menu.Target>
-                          <Menu.Dropdown>
-                            <Menu.Item
-                              leftSection={<IconShield size={16} />}
-                              onClick={() => {
-                                setName(user.name || "");
-                                setRole(USER_ROLES.includes(user.role as UserRole) ? user.role as UserRole : "staff");
-                                setEditUser(user);
-                              }}
-                            >
-                              Edit user
-                            </Menu.Item>
-                            <Menu.Item
-                              leftSection={<IconKey size={16} />}
-                              onClick={() => {
-                                setPassword("");
-                                setPasswordUser(user);
-                              }}
-                            >
-                              Reset password
-                            </Menu.Item>
-                            <Menu.Divider />
-                            <Menu.Item
-                              color="red"
-                              leftSection={<IconTrash size={16} />}
-                              disabled={isCurrentUser}
-                              onClick={() => setDeleteUser(user)}
-                            >
-                              Delete user
-                            </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
+                        <Text size="sm">{formatTime(user.entitlementSyncedAt)}</Text>
                       </Table.Td>
                     </Table.Tr>
                   );
@@ -443,122 +369,16 @@ export function UserManagement() {
             </Table>
           </Table.ScrollContainer>
         )}
+
+        {paging.totalPages > 1 && (
+          <Group justify="space-between" mt="md">
+            <Text size="sm" c="dimmed">
+              Page {paging.page} of {paging.totalPages}
+            </Text>
+            <Pagination value={paging.page} total={paging.totalPages} onChange={setPage} />
+          </Group>
+        )}
       </Paper>
-
-      <Modal
-        opened={createOpen}
-        onClose={() => {
-          setCreateOpen(false);
-          resetCreateForm();
-        }}
-        title="Add user"
-        centered
-      >
-        <Stack>
-          <TextInput
-            label="Name"
-            placeholder="Full name"
-            value={name}
-            onChange={(event) => setName(event.currentTarget.value)}
-            required
-          />
-          <TextInput
-            label="Email"
-            placeholder="name@company.com"
-            value={email}
-            onChange={(event) => setEmail(event.currentTarget.value)}
-            required
-          />
-          <PasswordInput
-            label="Temporary password"
-            description="Use at least 8 characters."
-            value={password}
-            onChange={(event) => setPassword(event.currentTarget.value)}
-            required
-          />
-          <Select
-            label="Role"
-            data={roleOptions}
-            value={role}
-            onChange={(value) => value && setRole(value as UserRole)}
-            allowDeselect={false}
-          />
-          <Alert color={USER_ROLE_META[role].color} variant="light">
-            {USER_ROLE_META[role].description}
-          </Alert>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button loading={saving} disabled={!name.trim() || !email || password.length < 8} onClick={createUser}>
-              Create user
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-
-      <Modal opened={!!editUser} onClose={() => setEditUser(null)} title="Edit user" centered>
-        <Stack>
-          <Text size="sm">Update <Text span fw={700}>{editUser?.email}</Text>.</Text>
-          <TextInput
-            label="Name"
-            value={name}
-            onChange={(event) => setName(event.currentTarget.value)}
-            required
-          />
-          <Select
-            label="Role"
-            data={roleOptions}
-            value={role}
-            onChange={(value) => value && setRole(value as UserRole)}
-            allowDeselect={false}
-          />
-          <Alert color={USER_ROLE_META[role].color} variant="light">
-            {USER_ROLE_META[role].description}
-          </Alert>
-          {editUser?.id === currentUserId && role !== "admin" && (
-            <Alert color="orange" icon={<IconAlertCircle size={16} />}>
-              Your current session will lose admin access after this change.
-            </Alert>
-          )}
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setEditUser(null)}>Cancel</Button>
-            <Button loading={saving} disabled={!name.trim()} onClick={updateUser}>Save changes</Button>
-          </Group>
-        </Stack>
-      </Modal>
-
-      <Modal opened={!!passwordUser} onClose={() => setPasswordUser(null)} title="Reset password" centered>
-        <Stack>
-          <Text size="sm">Set a new password for <Text span fw={700}>{passwordUser?.email}</Text>.</Text>
-          <PasswordInput
-            label="New password"
-            description="Use at least 8 characters."
-            value={password}
-            onChange={(event) => setPassword(event.currentTarget.value)}
-            required
-          />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setPasswordUser(null)}>Cancel</Button>
-            <Button loading={saving} disabled={password.length < 8} onClick={resetPassword}>
-              Update password
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-
-      <Modal opened={!!deleteUser} onClose={() => setDeleteUser(null)} title="Delete user" centered>
-        <Stack>
-          <Alert color="red" icon={<IconAlertCircle size={16} />}>
-            This permanently deletes the account and all data owned by it through cascading relations.
-          </Alert>
-          <Text size="sm">
-            Delete <Text span fw={700}>{deleteUser?.email}</Text>? This action cannot be undone.
-          </Text>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setDeleteUser(null)}>Cancel</Button>
-            <Button color="red" loading={saving} onClick={removeUser}>Delete user</Button>
-          </Group>
-        </Stack>
-      </Modal>
     </Stack>
   );
 }

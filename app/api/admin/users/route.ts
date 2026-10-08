@@ -1,84 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { Prisma } from "@prisma/client";
-import { z } from "zod";
 import { getCurrentAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
-import { USER_ROLES } from "@/lib/user-roles";
+import { parseUserListQuery, userListWhere, userStatus } from "@/lib/user-directory";
 
-const createUserSchema = z.object({
-  name: z.string().trim().min(1, "Name is required."),
-  email: z.string().trim().email().transform((email) => email.toLowerCase()),
-  password: z.string().min(8, "Password must contain at least 8 characters."),
-  role: z.enum(USER_ROLES),
-});
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   const admin = await getCurrentAdmin();
   if (!admin) {
     return NextResponse.json({ error: "Admin access required." }, { status: 403 });
   }
 
-  const users = await prisma.user.findMany({
-    where: { organizationId: admin.organizationId },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      createdAt: true,
-      _count: {
-        select: {
-          accurateCredentials: true,
-          exportJobs: true,
-          importJobs: true,
+  const query = parseUserListQuery(new URL(request.url).searchParams);
+  const where = userListWhere(admin.organizationId, query);
+
+  const [total, users, roles] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        permissions: true,
+        centralPersonId: true,
+        centralStatus: true,
+        entitlementSyncedAt: true,
+        _count: {
+          select: {
+            accurateCredentials: true,
+            exportJobs: true,
+            importJobs: true,
+          },
         },
       },
-    },
-    orderBy: [{ createdAt: "desc" }, { email: "asc" }],
+      orderBy: [{ name: "asc" }, { email: "asc" }],
+      skip: (query.page - 1) * query.size,
+      take: query.size,
+    }),
+    // The role cards and the filter count everyone in the organization, not only this page.
+    prisma.user.groupBy({ by: ["role"], where: { organizationId: admin.organizationId }, _count: { _all: true } }),
+  ]);
+
+  return NextResponse.json({
+    users: users.map((user) => ({ ...user, status: userStatus(user) })),
+    currentUserId: admin.id,
+    paging: { page: query.page, size: query.size, total, totalPages: Math.max(Math.ceil(total / query.size), 1) },
+    roles: roles.map((row) => ({ role: row.role, count: row._count._all })).sort((a, b) => a.role.localeCompare(b.role)),
   });
-
-  return NextResponse.json({ users, currentUserId: admin.id });
-}
-
-export async function POST(request: NextRequest) {
-  const admin = await getCurrentAdmin();
-  if (!admin) {
-    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
-  }
-
-  const parsed = createUserSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message || "Invalid user details." },
-      { status: 400 },
-    );
-  }
-
-  try {
-    const user = await prisma.user.create({
-      data: {
-        organizationId: admin.organizationId,
-        email: parsed.data.email,
-        name: parsed.data.name,
-        password: await bcrypt.hash(parsed.data.password, 12),
-        role: parsed.data.role,
-      },
-      select: { id: true, email: true, name: true, role: true, createdAt: true },
-    });
-
-    return NextResponse.json({ user }, { status: 201 });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      return NextResponse.json(
-        { error: "A user with this email already exists." },
-        { status: 409 },
-      );
-    }
-
-    return NextResponse.json({ error: "Unable to create user." }, { status: 500 });
-  }
 }

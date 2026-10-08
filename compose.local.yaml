@@ -9,8 +9,12 @@ services:
       NODE_ENV: production
       PORT: 5758
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:5758}
-      WOKO_GOOGLE_OAUTH_CLIENT_ID: ${WOKO_GOOGLE_OAUTH_CLIENT_ID:-}
-      WOKO_GOOGLE_OAUTH_CLIENT_SECRET: ${WOKO_GOOGLE_OAUTH_CLIENT_SECRET:-}
+      HUB_BASE_URL: ${HUB_BASE_URL:-}
+      HUB_INTERNAL_SECRET: ${HUB_INTERNAL_SECRET:-}
+      HUB_SSO_APP_ID: ${HUB_SSO_APP_ID:-exima}
+      HUB_SSO_JWKS_URL: ${HUB_SSO_JWKS_URL:-}
+      CENTRAL_DATA_API_BASE_URL: ${CENTRAL_DATA_API_BASE_URL:-}
+      CENTRAL_DATA_API_TOKEN: ${CENTRAL_DATA_API_TOKEN:-}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:password@postgres:5432/exim_accurate?schema=public}
     depends_on:
       postgres:
