@@ -7,8 +7,9 @@ How a staff member is recognized at the kiosk and the cashier.
 The badge is a text signed by Exima: `exb1.<Central person id>.<version>.<signature>`. The signature is made with `EXIMA_BADGE_SECRET`, which only the server knows, so typing somebody's email or id into the reader gets nothing. Exima makes the badge itself:
 
 - **My Badge**: the button in the header of the staff store (`/store`) shows the QR of whoever is signed in. Show it on a phone at the kiosk or the cashier. Nothing to print.
-- **Printed sheets**: Admin > Badges lists everyone with access (search and pages), and **Print This Page** gives a sheet with the name and QR of each person.
-- **Lost or shared badge**: **Reissue** on Admin > Badges raises the person's badge version. Every badge made before it is refused ("Badge sudah dicabut") and the new one shows in My Badge.
+- **Printed sheets**: Admin > Badges is a table of everyone who still has access (search, 25, 50 or 100 per page). The badge text is not in the list: **Show badge** opens one person's QR, and **Print** makes a sheet of 24 badges per A4 (QR, name, small email, cut lines) for one person, the ticked rows, or everyone that matches the search (**Select all N that match**). The sheet exists on the page only while printing.
+- **Lost or shared badge**: **Reissue** on Admin > Badges raises the person's badge version. Every badge made before it is refused ("Badge sudah dicabut") and the new one shows in My Badge. The version lives in Exima's database, not in Central, so it takes effect at once at the kiosk, the cashier and My Badge.
+- **Someone who left**: when Central takes away a person's access, their badge and their card with the email are refused ("Akses staf ini sudah tidak aktif") and they are no longer offered at the cashier, after the next sync (a minute or two).
 
 Because the badge holds the person id and not the email, a new email in Central changes nothing about the badge or the allowance.
 
