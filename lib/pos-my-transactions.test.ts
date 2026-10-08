@@ -148,3 +148,11 @@ test("invalid cursors, arbitrary identity parameters, and unsupported limits are
     assert.equal(state.queries.length, 0);
   }
 });
+
+test("a person with a Central id also sees purchases made under an earlier email", async () => {
+  const state = harness({ user: { id: "staff-user", email: "  NEW@Example.com ", role: "staff", centralPersonId: "person-1" } });
+  assert.equal((await state.get()).status, 200);
+  assert.deepEqual(plain(state.queries[0].where?.AND), [
+    { OR: [{ staffPersonId: "person-1" }, { staffPersonId: null, staffEmail: "new@example.com" }] },
+  ]);
+});

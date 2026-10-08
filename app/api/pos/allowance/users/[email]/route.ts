@@ -1,3 +1,4 @@
+import { resolveStaff, staffData, staffWhere } from "@/lib/staff-identity";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
@@ -26,7 +27,7 @@ export async function GET(
     message: "periodStart must not be after periodEnd",
   }).safeParse(Object.fromEntries(new URL(req.url).searchParams));
   if (!query.success) return NextResponse.json({ error: query.error.issues[0]?.message || "Invalid query" }, { status: 400 });
-  const credential = await getOperationalPosCredential(session.user.id, session.user.role, query.data.credentialId);
+  const credential = await getOperationalPosCredential(session.user.id, session.user.permissions, query.data.credentialId);
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
 
   const staffEmail = decodeURIComponent((await params).email).toLowerCase().trim();
@@ -35,7 +36,8 @@ export async function GET(
   const requestedPeriod = query.data.periodStart && query.data.periodEnd
     ? { startsAt: parseDateOnly(query.data.periodStart), endsAt: parseDateOnly(query.data.periodEnd) }
     : undefined;
-  const allowance = await getStaffAllowance(query.data.credentialId, staffEmail, new Date(), requestedPeriod);
+  const staff = await resolveStaff(staffEmail);
+  const allowance = await getStaffAllowance(query.data.credentialId, staff.email, new Date(), requestedPeriod);
   const periodStartsAt = startOfDate(new Date(allowance.period.startsAt));
   const periodEndsAt = startOfDate(new Date(allowance.period.endsAt));
   const periodEndExclusive = new Date(periodEndsAt);
@@ -43,13 +45,13 @@ export async function GET(
 
   const [daysOff, sales, adjustments, debtSettlements, currentDebt, previousDebt, userIdentity, latestSaleIdentity] = await Promise.all([
     prisma.posStaffDayOff.findMany({
-      where: { credentialId: query.data.credentialId, staffEmail, date: { gte: periodStartsAt, lt: periodEndExclusive } },
+      where: { credentialId: query.data.credentialId, AND: [staffWhere(staff)], date: { gte: periodStartsAt, lt: periodEndExclusive } },
       orderBy: { date: "asc" },
     }),
     prisma.posSale.findMany({
       where: {
         credentialId: query.data.credentialId,
-        staffEmail,
+        AND: [staffWhere(staff)],
         status: { not: "voided" },
         allowanceUsed: { gt: 0 },
         OR: [
@@ -70,27 +72,27 @@ export async function GET(
       orderBy: { createdAt: "desc" },
     }),
     prisma.posStaffAllowanceAdjustment.findMany({
-      where: { credentialId: query.data.credentialId, staffEmail },
+      where: { credentialId: query.data.credentialId, AND: [staffWhere(staff)] },
       select: { id: true, periodStartsAt: true, periodEndsAt: true, amount: true, note: true, createdAt: true, updatedAt: true, createdBy: { select: { email: true } } },
       orderBy: { updatedAt: "desc" },
     }),
     prisma.posStaffAllowanceDebtSettlement.findMany({
       where: {
         credentialId: query.data.credentialId,
-        staffEmail,
+        AND: [staffWhere(staff)],
         OR: [{ saleId: null }, { sale: { status: { not: "voided" } } }],
       },
       select: { id: true, periodStartsAt: true, periodEndsAt: true, amount: true, paymentMethod: true, note: true, createdAt: true, createdBy: { select: { email: true } } },
       orderBy: { createdAt: "desc" },
     }),
-    getOutstandingCurrentAllowanceDebt(query.data.credentialId, staffEmail, new Date(), requestedPeriod),
-    getOutstandingPreviousAllowanceDebt(query.data.credentialId, staffEmail, new Date(), requestedPeriod),
+    getOutstandingCurrentAllowanceDebt(query.data.credentialId, staff.email, new Date(), requestedPeriod),
+    getOutstandingPreviousAllowanceDebt(query.data.credentialId, staff.email, new Date(), requestedPeriod),
     prisma.user.findFirst({
-      where: { organizationId: credential.organizationId, email: staffEmail },
+      where: { organizationId: credential.organizationId, ...(staff.personId ? { centralPersonId: staff.personId } : { email: staff.email }) },
       select: { name: true },
     }),
     prisma.posSale.findFirst({
-      where: { credentialId: query.data.credentialId, staffEmail, staffName: { not: null } },
+      where: { credentialId: query.data.credentialId, AND: [staffWhere(staff)], staffName: { not: null } },
       select: { staffName: true },
       orderBy: { createdAt: "desc" },
     }),

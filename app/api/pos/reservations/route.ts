@@ -8,19 +8,19 @@ import { allocateSalePayment, lockPosSynchronization, saleTotal, canonicalizeReq
 import crypto from "node:crypto";
 import { approvedReservationDebt, ReservationPaymentError } from "@/lib/pos-reservation-payment";
 import { PaymentAllocationError } from "@/lib/pos-payments";
-import { isRoleAllowed } from "@/lib/access-control";
+import { hasPermission } from "@/lib/access-control";
 import { getOrganizationIdForUser } from "@/lib/organization";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isRoleAllowed(session.user.role, ["admin", "cashier", "staff"])) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.catalog.read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const params = new URL(req.url).searchParams;
   const mine = params.get("mine") !== "false";
   const organizationId = await getOrganizationIdForUser(session.user.id);
   if (!organizationId) return NextResponse.json({ error: "Organization not found" }, { status: 403 });
-  const canReadAny = !mine && isRoleAllowed(session.user.role, ["admin", "cashier"]);
+  const canReadAny = !mine && hasPermission(session.user.permissions, "pos.checkout");
   const activeCredentials = canReadAny
     ? await prisma.accurateCredentials.findMany({
         where: {
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isRoleAllowed(session.user.role, ["admin", "staff"])) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "store.use")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const parsed = reservationRequestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid reservation" }, { status: 400 });
   const { credentialId: requestedCredentialId, idempotencyKey, payment, items: requestedItems } = parsed.data;
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
         const updated = await tx.posStockAllocation.updateMany({ where: { id: allocation.id, heldQuantity: { lte: product.stock - item.quantity } }, data: { heldQuantity: { increment: item.quantity } } });
         if (updated.count !== 1) throw new Error("INSUFFICIENT_STOCK");
       }
-      return tx.posReservation.create({ data: { userId: session.user.id, credentialId, reference: makeReservationReference(), idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, staffEmail: session.user.email, staffName: session.user.name, preferredPaymentMethod, paymentStrategy: payment.strategy, externalPaymentMethod, approvedResultingDebt, expiresAt, items: { create: items } }, include: { items: true } });
+      return tx.posReservation.create({ data: { userId: session.user.id, credentialId, reference: makeReservationReference(), idempotencyKey, requestFingerprint: fingerprint, warehouseId: context.settings!.warehouseId, warehouseName: context.settings!.warehouseName, staffEmail: session.user.email, staffPersonId: session.user.centralPersonId, staffName: session.user.name, preferredPaymentMethod, paymentStrategy: payment.strategy, externalPaymentMethod, approvedResultingDebt, expiresAt, items: { create: items } }, include: { items: true } });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10_000, timeout: 120_000 }).catch(async (error: unknown) => {
       if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") return null;
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -135,17 +135,17 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isRoleAllowed(session.user.role, ["admin", "cashier", "staff"])) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!hasPermission(session.user.permissions, "pos.catalog.read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json().catch(() => null) as { id?: string; action?: string } | null;
   if (!body?.id || body.action !== "cancel") return NextResponse.json({ error: "Invalid lifecycle action" }, { status: 400 });
-  const canManageAny = isRoleAllowed(session.user.role, ["admin", "cashier"]);
+  const canManageAny = hasPermission(session.user.permissions, "pos.checkout");
   const reservation = await prisma.posReservation.findUnique({
     where: { id: body.id },
     include: { items: true },
   });
   if (!reservation) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
   if (canManageAny) {
-    const credential = await getOperationalPosCredential(session.user.id, session.user.role, reservation.credentialId);
+    const credential = await getOperationalPosCredential(session.user.id, session.user.permissions, reservation.credentialId);
     if (!credential) return NextResponse.json({ error: "Reservation is not available to this POS operator" }, { status: 403 });
   } else if (reservation.userId !== session.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

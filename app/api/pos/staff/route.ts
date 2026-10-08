@@ -1,3 +1,5 @@
+import { looksLikeBadgeToken } from "@/lib/badge-token";
+import { resolveBadge } from "@/lib/staff-identity";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
@@ -32,7 +34,7 @@ export async function GET(req: NextRequest) {
 
   const credential = await getOperationalPosCredential(
     session.user.id,
-    session.user.role,
+    session.user.permissions,
     parsed.data.credentialId,
   );
   if (!credential) {
@@ -43,6 +45,22 @@ export async function GET(req: NextRequest) {
   if (!search) {
     return NextResponse.json(
       { staff: [] },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+
+  // A signed badge scanned into the search box finds its owner.
+  if (looksLikeBadgeToken(search)) {
+    const badge = await resolveBadge(search);
+    if (!badge.ok) {
+      return NextResponse.json({ staff: [] }, { headers: { "Cache-Control": "private, no-store" } });
+    }
+    const owner = await prisma.user.findFirst({
+      where: { centralPersonId: badge.personId, organizationId: credential.organizationId },
+      select: { email: true, name: true },
+    });
+    return NextResponse.json(
+      { staff: owner ? [owner] : [] },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   }

@@ -1,3 +1,4 @@
+import { resolveStaff, staffData, staffWhere } from "@/lib/staff-identity";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
@@ -28,12 +29,13 @@ export async function POST(
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid debt payment" }, { status: 400 });
-  const credential = await getOperationalPosCredential(session.user.id, session.user.role, parsed.data.credentialId);
+  const credential = await getOperationalPosCredential(session.user.id, session.user.permissions, parsed.data.credentialId);
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
 
   const staffEmail = decodeURIComponent((await params).email).toLowerCase().trim();
   if (!z.string().email().safeParse(staffEmail).success) return NextResponse.json({ error: "Invalid staff email" }, { status: 400 });
 
+  const staff = await resolveStaff(staffEmail);
   const requestedStartsAt = parseDateOnly(parsed.data.periodStartsAt);
   const requestedEndsAt = parseDateOnly(parsed.data.periodEndsAt);
   const requestedPeriod = { startsAt: requestedStartsAt, endsAt: requestedEndsAt };
@@ -66,7 +68,7 @@ export async function POST(
       createSettlement: () => tx.posStaffAllowanceDebtSettlement.create({
         data: {
           credentialId: parsed.data.credentialId,
-          staffEmail,
+          ...staffData(staff),
           periodStartsAt: requestedStartsAt,
           periodEndsAt: requestedEndsAt,
           amount: parsed.data.amount,

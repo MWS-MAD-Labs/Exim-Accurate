@@ -1,3 +1,4 @@
+import { resolveStaff, staffData, staffWhere } from "@/lib/staff-identity";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import type { PosAccurateCredentials, PosProduct } from "@/lib/accurate/pos";
@@ -120,7 +121,7 @@ export async function getStaffAllowance(
   requestedPeriod?: AllowancePeriod,
   db: PosDatabaseClient = prisma,
 ) {
-  const normalizedEmail = staffEmail.toLowerCase().trim();
+  const staff = await resolveStaff(staffEmail, db);
   const settings = await db.posSettings.findUnique({ where: { credentialId } });
   const allowancePerWorkingDay = Number(settings?.allowancePerWorkingDay ?? 0);
   const workingDays = settings?.workingDays ?? [1, 2, 3, 4, 5];
@@ -137,24 +138,22 @@ export async function getStaffAllowance(
 
   const [daysOff, adjustment, spent] = await Promise.all([
     db.posStaffDayOff.findMany({
-      where: { credentialId, staffEmail: normalizedEmail, date: { gte: period.startsAt, lt: periodEndExclusive } },
+      where: { credentialId, AND: [staffWhere(staff)], date: { gte: period.startsAt, lt: periodEndExclusive } },
       select: { date: true },
     }),
-    db.posStaffAllowanceAdjustment.findUnique({
+    db.posStaffAllowanceAdjustment.findFirst({
       where: {
-        credentialId_staffEmail_periodStartsAt_periodEndsAt: {
-          credentialId,
-          staffEmail: normalizedEmail,
-          periodStartsAt: period.startsAt,
-          periodEndsAt: period.endsAt,
-        },
+        credentialId,
+        AND: [staffWhere(staff)],
+        periodStartsAt: period.startsAt,
+        periodEndsAt: period.endsAt,
       },
       select: { amount: true },
     }),
     db.posSale.aggregate({
       where: {
         credentialId,
-        staffEmail: normalizedEmail,
+        AND: [staffWhere(staff)],
         status: { not: "voided" },
         allowanceUsed: { gt: 0 },
         OR: [
@@ -180,7 +179,8 @@ export async function getStaffAllowance(
   );
 
   return {
-    staffEmail: normalizedEmail,
+    staffEmail: staff.email,
+    staffPersonId: staff.personId,
     ...breakdown,
     total: breakdown.totalAllowance,
     used: breakdown.allowanceSpent,
@@ -232,12 +232,12 @@ export async function getOutstandingAllowanceDebtForPeriod(
   payday: Date | null = null,
   db: PosDatabaseClient = prisma,
 ) {
-  const normalizedEmail = staffEmail.toLowerCase().trim();
-  const allowance = await getStaffAllowance(credentialId, normalizedEmail, now, period, db);
+  const staff = await resolveStaff(staffEmail, db);
+  const allowance = await getStaffAllowance(credentialId, staff.email, now, period, db);
   const settlements = await db.posStaffAllowanceDebtSettlement.aggregate({
     where: {
       credentialId,
-      staffEmail: normalizedEmail,
+      AND: [staffWhere(staff)],
       periodStartsAt: startOfDate(period.startsAt),
       periodEndsAt: startOfDate(period.endsAt),
       OR: [{ saleId: null }, { sale: { status: { not: "voided" } } }],
@@ -310,7 +310,9 @@ export async function lockStaffAllowancePeriod(
   staffEmail: string,
   period: AllowancePeriod,
 ) {
-  const lockKey = `${credentialId}:${staffEmail.toLowerCase().trim()}:${period.startsAt.toISOString()}:${period.endsAt.toISOString()}`;
+  // Locked by person, so an old and a new email of the same staff member share one lock.
+  const staff = await resolveStaff(staffEmail, tx);
+  const lockKey = `${credentialId}:${staff.personId ?? staff.email}:${period.startsAt.toISOString()}:${period.endsAt.toISOString()}`;
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
 }
 
@@ -330,11 +332,12 @@ export async function reconcileSaleImmediateDebtSettlement(
     await tx.posStaffAllowanceDebtSettlement.deleteMany({ where: { saleId: input.saleId } });
     return null;
   }
+  const staff = await resolveStaff(input.staffEmail, tx);
   return tx.posStaffAllowanceDebtSettlement.upsert({
     where: { saleId: input.saleId },
     create: {
       credentialId: input.credentialId,
-      staffEmail: input.staffEmail.toLowerCase().trim(),
+      ...staffData(staff),
       periodStartsAt: startOfDate(input.period.startsAt),
       periodEndsAt: startOfDate(input.period.endsAt),
       amount: input.settlement.amount,
@@ -346,7 +349,7 @@ export async function reconcileSaleImmediateDebtSettlement(
     },
     update: {
       credentialId: input.credentialId,
-      staffEmail: input.staffEmail.toLowerCase().trim(),
+      ...staffData(staff),
       periodStartsAt: startOfDate(input.period.startsAt),
       periodEndsAt: startOfDate(input.period.endsAt),
       amount: input.settlement.amount,

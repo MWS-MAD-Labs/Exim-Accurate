@@ -38,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const reservation = await prisma.posReservation.findUnique({ where: { id }, include: { items: true, sale: { include: saleInclude } } });
   if (!reservation) return NextResponse.json({ error: "Reservation not found" }, { status: 404 });
-  if (!await getOperationalPosCredential(session.user.id, session.user.role, reservation.credentialId)) {
+  if (!await getOperationalPosCredential(session.user.id, session.user.permissions, reservation.credentialId)) {
     return NextResponse.json({ error: "Reservation is not available to this POS operator" }, { status: 403 });
   }
   if (reservation.sale) {
@@ -77,6 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           paymentStrategy: allocation.strategy,
           buyerType: "staff",
           staffEmail: reservation.staffEmail.toLowerCase().trim(),
+          staffPersonId: reservation.staffPersonId,
           staffName: reservation.staffName,
           allowanceUsed: allocation.allowanceUsed,
           allowancePeriodStartsAt: allocation.period?.startsAt,

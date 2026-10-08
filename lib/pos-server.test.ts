@@ -65,6 +65,9 @@ test("upserts an automatic split settlement linked to its sale", async () => {
   let payload: unknown;
   const period = { startsAt: new Date("2026-08-23T00:00:00.000Z"), endsAt: new Date("2026-09-22T00:00:00.000Z") };
   const tx = {
+    user: {
+      findFirst: async () => ({ id: "u1", name: "Staff", email: "staff@example.com", centralPersonId: "person-1" }),
+    },
     posStaffAllowanceDebtSettlement: {
       upsert: async (input: unknown) => {
         payload = input;
@@ -85,6 +88,7 @@ test("upserts an automatic split settlement linked to its sale", async () => {
     where: { saleId: "sale-1" },
     create: {
       credentialId: "credential-1",
+      staffPersonId: "person-1",
       staffEmail: "staff@example.com",
       periodStartsAt: startOfDate(period.startsAt),
       periodEndsAt: startOfDate(period.endsAt),
@@ -96,6 +100,7 @@ test("upserts an automatic split settlement linked to its sale", async () => {
     },
     update: {
       credentialId: "credential-1",
+      staffPersonId: "person-1",
       staffEmail: "staff@example.com",
       periodStartsAt: startOfDate(period.startsAt),
       periodEndsAt: startOfDate(period.endsAt),

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   const parsed = querySchema.safeParse(Object.fromEntries(new URL(req.url).searchParams));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid query" }, { status: 400 });
-  const credential = await getOperationalPosCredential(session.user.id, session.user.role, parsed.data.credentialId);
+  const credential = await getOperationalPosCredential(session.user.id, session.user.permissions, parsed.data.credentialId);
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
 
   const deliveries = await prisma.posSale.findMany({
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = querySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid request" }, { status: 400 });
-  const credential = await getOperationalPosCredential(session.user.id, session.user.role, parsed.data.credentialId);
+  const credential = await getOperationalPosCredential(session.user.id, session.user.permissions, parsed.data.credentialId);
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
 
   after(async () => {

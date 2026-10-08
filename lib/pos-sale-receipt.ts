@@ -141,13 +141,15 @@ export async function sendPosSaleReceipt(saleId: string) {
     });
     if (!sale?.staffEmail) throw new Error("Sale receipt data is incomplete");
 
-    const normalizedEmail = sale.staffEmail.toLowerCase().trim();
+    // The receipt goes to the email the person has now, found by the person id when the sale has one.
     const registeredStaff = await prisma.user.findFirst({
       where: {
         organizationId: sale.credential.organizationId,
-        email: normalizedEmail,
+        ...(sale.staffPersonId
+          ? { centralPersonId: sale.staffPersonId }
+          : { email: { equals: sale.staffEmail.trim(), mode: "insensitive" as const } }),
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, email: true },
     });
     if (!registeredStaff) {
       await prisma.posSale.update({
@@ -167,7 +169,7 @@ export async function sendPosSaleReceipt(saleId: string) {
     }));
     const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
     await sendEmail({
-      to: normalizedEmail,
+      to: registeredStaff.email.toLowerCase(),
       ...buildReceiptMessage({
         saleId: sale.id,
         customerName: registeredStaff.name ?? sale.staffName,

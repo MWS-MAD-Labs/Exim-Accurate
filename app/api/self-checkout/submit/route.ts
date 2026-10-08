@@ -1,5 +1,6 @@
 "use server";
 
+import { resolveBadgeWithCentral } from "@/lib/central-provision";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -66,14 +67,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Body request tidak valid" }, { status: 400 });
     }
 
-    const { credentialId, staffEmail, items } = body;
+    const { credentialId, items } = body;
+    let staffEmail = body.staffEmail;
 
     if (!credentialId) {
         return NextResponse.json({ error: "ID kredensial wajib diisi" }, { status: 400 });
     }
 
-    if (!staffEmail || !staffEmail.includes("@")) {
-        return NextResponse.json({ error: "Email staf yang valid wajib diisi" }, { status: 400 });
+    if (!staffEmail || !staffEmail.trim()) {
+        return NextResponse.json({ error: "Badge atau email staf wajib diisi" }, { status: 400 });
     }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -90,11 +92,28 @@ export async function POST(req: NextRequest) {
 
     try {
         // Get credentials
-        let credential = await getResourceCredential(session.user.id, session.user.role, credentialId);
+        let credential = await getResourceCredential(session.user.id, session.user.permissions, credentialId);
 
         if (!credential) {
             return NextResponse.json({ error: "Kredensial tidak ditemukan" }, { status: 404 });
         }
+
+        // Who is buying is decided here: the scanned value must be a staff member of this organization.
+        const badge = await resolveBadgeWithCentral(staffEmail);
+        const member = badge.ok
+            ? await prisma.user.findFirst({
+                where: { centralPersonId: badge.personId, organizationId: credential.organizationId },
+                select: { name: true },
+            })
+            : null;
+        if (!badge.ok || !member) {
+            return NextResponse.json(
+                { error: badge.ok === false && badge.reason === "revoked" ? "Badge sudah dicabut, ambil badge baru di halaman staf." : "Badge tidak dikenali sebagai staf Exima." },
+                { status: 404 },
+            );
+        }
+        staffEmail = badge.email;
+        const staffPersonId = badge.personId;
 
         const resourceSettings = await prisma.resourceSettings.findUnique({
             where: { organizationId: credential.organizationId },
@@ -107,7 +126,8 @@ export async function POST(req: NextRequest) {
         }
 
         // Parse staff info from email
-        const { name: staffName, department: staffDept } = parseStaffInfo(staffEmail);
+        const { name: parsedName, department: staffDept } = parseStaffInfo(staffEmail);
+        const staffName = member.name || parsedName;
 
         // Ensure we have a valid session
         if (!credential.session || !credential.host) {
@@ -177,6 +197,7 @@ export async function POST(req: NextRequest) {
             createSession: () => prisma.checkoutSession.create({
                 data: {
                     staffEmail,
+                    staffPersonId,
                     staffName,
                     staffDept,
                     credentialId,

@@ -27,37 +27,54 @@ export async function GET(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid query" }, { status: 400 });
 
   const { credentialId, search, periodStart, periodEnd } = parsed.data;
-  const credential = await getOperationalPosCredential(session.user.id, session.user.role, credentialId);
+  const credential = await getOperationalPosCredential(session.user.id, session.user.permissions, credentialId);
   if (!credential) return NextResponse.json({ error: "Credential not found" }, { status: 404 });
   const [settings, users, salesStaff, reservationStaff] = await Promise.all([
     prisma.posSettings.findUnique({ where: { credentialId } }),
     prisma.user.findMany({
       where: {
         organizationId: credential.organizationId,
-        role: { in: ["admin", "staff"] },
+        permissions: { has: "store.use" },
       },
-      select: { email: true, name: true },
+      select: { email: true, name: true, centralPersonId: true },
     }),
     prisma.posSale.findMany({
       where: { credentialId, staffEmail: { not: null } },
-      distinct: ["staffEmail"],
-      select: { staffEmail: true, staffName: true },
+      distinct: ["staffPersonId", "staffEmail"],
+      select: { staffEmail: true, staffName: true, staffPersonId: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.posReservation.findMany({
       where: { credentialId },
-      distinct: ["staffEmail"],
-      select: { staffEmail: true, staffName: true },
+      distinct: ["staffPersonId", "staffEmail"],
+      select: { staffEmail: true, staffName: true, staffPersonId: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);
 
-  const staff = new Map<string, string | null>();
-  for (const user of users) staff.set(user.email.toLowerCase(), user.name);
+  // A staff member is one person even when the email changed: rows are grouped by the person id,
+  // and by email only for people that have no id (guests).
+  type Member = { key: string; personId: string | null; email: string; name: string | null };
+  const members = new Map<string, Member>();
+  const keyByEmail = new Map<string, string>();
+  const addMember = (member: Member) => {
+    members.set(member.key, member);
+    keyByEmail.set(member.email, member.key);
+  };
+  for (const user of users) {
+    const email = user.email.toLowerCase();
+    addMember({ key: user.centralPersonId ?? email, personId: user.centralPersonId, email, name: user.name });
+  }
   for (const entry of [...reservationStaff, ...salesStaff]) {
     const email = entry.staffEmail?.toLowerCase().trim();
-    if (email && !staff.get(email)) staff.set(email, entry.staffName || null);
+    if (!email) continue;
+    const key = entry.staffPersonId ?? keyByEmail.get(email) ?? email;
+    const existing = members.get(key);
+    if (!existing) addMember({ key, personId: entry.staffPersonId, email, name: entry.staffName || null });
+    else if (!existing.name && entry.staffName) existing.name = entry.staffName;
   }
+  const rowKey = (row: { staffPersonId: string | null; staffEmail: string | null }) =>
+    row.staffPersonId ?? keyByEmail.get(row.staffEmail?.toLowerCase().trim() ?? "") ?? row.staffEmail ?? "";
   const normalizedSearch = search?.toLowerCase();
   const requestedPeriod = periodStart && periodEnd
     ? { startsAt: parseDateOnly(periodStart), endsAt: parseDateOnly(periodEnd) }
@@ -68,13 +85,16 @@ export async function GET(req: NextRequest) {
     new Date(),
     requestedPeriod,
   );
-  const matchingStaff = [...staff.entries()]
-    .filter(([email, name]) => !normalizedSearch || email.includes(normalizedSearch) || name?.toLowerCase().includes(normalizedSearch))
-    .sort(([emailA], [emailB]) => emailA.localeCompare(emailB));
+  const matchingStaff = [...members.values()]
+    .filter((member) => !normalizedSearch || member.email.includes(normalizedSearch) || member.name?.toLowerCase().includes(normalizedSearch))
+    .sort((a, b) => a.email.localeCompare(b.email));
 
   if (!matchingStaff.length) return NextResponse.json([]);
 
-  const staffEmails = matchingStaff.map(([staffEmail]) => staffEmail);
+  const staffPersonIds = matchingStaff.flatMap((member) => (member.personId ? [member.personId] : []));
+  const staffEmails = matchingStaff.map((member) => member.email);
+  // Rows of these people: by person id, and older rows without one by email.
+  const staffIn = { OR: [{ staffPersonId: { in: staffPersonIds } }, { staffPersonId: null, staffEmail: { in: staffEmails } }] };
   const periodEndExclusive = new Date(period.endsAt);
   periodEndExclusive.setDate(periodEndExclusive.getDate() + 1);
   const previousPeriodAnchor = new Date(period.startsAt);
@@ -90,24 +110,24 @@ export async function GET(req: NextRequest) {
     prisma.posStaffDayOff.findMany({
       where: {
         credentialId,
-        staffEmail: { in: staffEmails },
+        AND: [staffIn],
         date: { gte: period.startsAt, lt: periodEndExclusive },
       },
-      select: { staffEmail: true, date: true },
+      select: { staffEmail: true, staffPersonId: true, date: true },
     }),
     prisma.posStaffAllowanceAdjustment.findMany({
       where: {
         credentialId,
-        staffEmail: { in: staffEmails },
+        AND: [staffIn],
         periodStartsAt: period.startsAt,
         periodEndsAt: period.endsAt,
       },
-      select: { staffEmail: true, amount: true },
+      select: { staffEmail: true, staffPersonId: true, amount: true },
     }),
     prisma.posSale.findMany({
       where: {
         credentialId,
-        staffEmail: { in: staffEmails },
+        AND: [staffIn],
         status: { not: "voided" },
         allowanceUsed: { gt: 0 },
         OR: [
@@ -115,29 +135,29 @@ export async function GET(req: NextRequest) {
           { allowancePeriodStartsAt: null, createdAt: { gte: period.startsAt, lt: periodEndExclusive } },
         ],
       },
-      select: { allowanceUsed: true, staffEmail: true },
+      select: { allowanceUsed: true, staffEmail: true, staffPersonId: true },
     }),
     prisma.posStaffDayOff.findMany({
       where: {
         credentialId,
-        staffEmail: { in: staffEmails },
+        AND: [staffIn],
         date: { gte: previousPeriod.startsAt, lt: previousPeriodEndExclusive },
       },
-      select: { staffEmail: true, date: true },
+      select: { staffEmail: true, staffPersonId: true, date: true },
     }),
     prisma.posStaffAllowanceAdjustment.findMany({
       where: {
         credentialId,
-        staffEmail: { in: staffEmails },
+        AND: [staffIn],
         periodStartsAt: previousPeriod.startsAt,
         periodEndsAt: previousPeriod.endsAt,
       },
-      select: { staffEmail: true, amount: true },
+      select: { staffEmail: true, staffPersonId: true, amount: true },
     }),
     prisma.posSale.findMany({
       where: {
         credentialId,
-        staffEmail: { in: staffEmails },
+        AND: [staffIn],
         status: { not: "voided" },
         allowanceUsed: { gt: 0 },
         OR: [
@@ -145,14 +165,14 @@ export async function GET(req: NextRequest) {
           { allowancePeriodStartsAt: null, createdAt: { gte: previousPeriod.startsAt, lt: previousPeriodEndExclusive } },
         ],
       },
-      select: { allowanceUsed: true, staffEmail: true },
+      select: { allowanceUsed: true, staffEmail: true, staffPersonId: true },
     }),
     prisma.posStaffAllowanceDebtSettlement.groupBy({
-      by: ["staffEmail", "periodStartsAt", "periodEndsAt"],
+      by: ["staffPersonId", "staffEmail", "periodStartsAt", "periodEndsAt"],
       where: {
         credentialId,
-        staffEmail: { in: staffEmails },
         AND: [
+          staffIn,
           {
             OR: [
               { periodStartsAt: period.startsAt, periodEndsAt: period.endsAt },
@@ -168,72 +188,73 @@ export async function GET(req: NextRequest) {
 
   const daysOffByStaff = new Map<string, Date[]>();
   for (const entry of daysOff) {
-    const current = daysOffByStaff.get(entry.staffEmail) ?? [];
+    const current = daysOffByStaff.get(rowKey(entry)) ?? [];
     current.push(entry.date);
-    daysOffByStaff.set(entry.staffEmail, current);
+    daysOffByStaff.set(rowKey(entry), current);
   }
-  const adjustmentByStaff = new Map(adjustments.map((entry) => [entry.staffEmail, Number(entry.amount)]));
+  const adjustmentByStaff = new Map(adjustments.map((entry) => [rowKey(entry), Number(entry.amount)]));
   const spentMap = new Map<string, number>();
   for (const entry of spentByStaff) {
-    if (entry.staffEmail) spentMap.set(entry.staffEmail, (spentMap.get(entry.staffEmail) ?? 0) + Number(entry.allowanceUsed));
+    spentMap.set(rowKey(entry), (spentMap.get(rowKey(entry)) ?? 0) + Number(entry.allowanceUsed));
   }
   const previousDaysOffByStaff = new Map<string, Date[]>();
   for (const entry of previousDaysOff) {
-    const current = previousDaysOffByStaff.get(entry.staffEmail) ?? [];
+    const current = previousDaysOffByStaff.get(rowKey(entry)) ?? [];
     current.push(entry.date);
-    previousDaysOffByStaff.set(entry.staffEmail, current);
+    previousDaysOffByStaff.set(rowKey(entry), current);
   }
-  const previousAdjustmentByStaff = new Map(previousAdjustments.map((entry) => [entry.staffEmail, Number(entry.amount)]));
+  const previousAdjustmentByStaff = new Map(previousAdjustments.map((entry) => [rowKey(entry), Number(entry.amount)]));
   const previousSpentMap = new Map<string, number>();
   for (const entry of previousSpentByStaff) {
-    if (entry.staffEmail) previousSpentMap.set(entry.staffEmail, (previousSpentMap.get(entry.staffEmail) ?? 0) + Number(entry.allowanceUsed));
+    previousSpentMap.set(rowKey(entry), (previousSpentMap.get(rowKey(entry)) ?? 0) + Number(entry.allowanceUsed));
   }
   const settlementMap = new Map(settlementsByStaff.map((entry) => [
-    `${entry.staffEmail}:${entry.periodStartsAt.toISOString()}:${entry.periodEndsAt.toISOString()}`,
+    `${rowKey(entry)}:${entry.periodStartsAt.toISOString()}:${entry.periodEndsAt.toISOString()}`,
     Number(entry._sum.amount ?? 0),
   ]));
-  const settlementAmount = (staffEmail: string, debtPeriod: { startsAt: Date; endsAt: Date }) => settlementMap.get(
-    `${staffEmail}:${debtPeriod.startsAt.toISOString()}:${debtPeriod.endsAt.toISOString()}`,
+  const settlementAmount = (staffKey: string, debtPeriod: { startsAt: Date; endsAt: Date }) => settlementMap.get(
+    `${staffKey}:${debtPeriod.startsAt.toISOString()}:${debtPeriod.endsAt.toISOString()}`,
   ) ?? 0;
   const dailyRate = Number(settings?.allowancePerWorkingDay ?? 0);
   const workingDays = settings?.workingDays ?? [1, 2, 3, 4, 5];
   const holidayDates = settings?.holidayDates ?? [];
 
-  const results = matchingStaff.map(([staffEmail, staffName]) => {
+  const results = matchingStaff.map(({ key: staffKey, email: staffEmail, name: staffName, personId }) => {
     const breakdown = calculateStaffAllowanceBreakdown(
       dailyRate,
       workingDays,
       period,
       holidayDates,
-      daysOffByStaff.get(staffEmail) ?? [],
-      adjustmentByStaff.get(staffEmail) ?? 0,
-      spentMap.get(staffEmail) ?? 0,
+      daysOffByStaff.get(staffKey) ?? [],
+      adjustmentByStaff.get(staffKey) ?? 0,
+      spentMap.get(staffKey) ?? 0,
     );
     const previousBreakdown = calculateStaffAllowanceBreakdown(
       dailyRate,
       workingDays,
       previousPeriod,
       holidayDates,
-      previousDaysOffByStaff.get(staffEmail) ?? [],
-      previousAdjustmentByStaff.get(staffEmail) ?? 0,
-      previousSpentMap.get(staffEmail) ?? 0,
+      previousDaysOffByStaff.get(staffKey) ?? [],
+      previousAdjustmentByStaff.get(staffKey) ?? 0,
+      previousSpentMap.get(staffKey) ?? 0,
     );
     const currentDebt = buildPreviousAllowanceDebt(
       breakdown.remainingAllowance,
-      settlementAmount(staffEmail, period),
+      settlementAmount(staffKey, period),
       period,
       null,
       new Date(),
     );
     const previousDebt = buildPreviousAllowanceDebt(
       previousBreakdown.remainingAllowance,
-      settlementAmount(staffEmail, previousPeriod),
+      settlementAmount(staffKey, previousPeriod),
       previousPeriod,
       getStaffPaydayForPeriod(period, settings?.staffPaydayDay ?? 28),
       new Date(),
     );
     return {
       staffEmail,
+      staffPersonId: personId,
       staffName,
       ...breakdown,
       total: breakdown.totalAllowance,

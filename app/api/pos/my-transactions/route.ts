@@ -70,7 +70,10 @@ export async function GET(req: NextRequest) {
 
   const sales = await prisma.posSale.findMany({
     where: {
-      staffEmail: email,
+      // By the person id, so purchases made under an earlier email still show up.
+      ...(session.user.centralPersonId
+        ? { AND: [{ OR: [{ staffPersonId: session.user.centralPersonId }, { staffPersonId: null, staffEmail: email }] }] }
+        : { staffEmail: email }),
       buyerType: "staff",
       credential: { organizationId },
       // These are completed local purchases; status tracks Accurate synchronization.

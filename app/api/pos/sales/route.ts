@@ -1,3 +1,4 @@
+import { resolveStaff } from "@/lib/staff-identity";
 import crypto from "node:crypto";
 import { after, NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -89,25 +90,32 @@ export async function POST(req: NextRequest) {
   }
   const items = canonicalSaleItems(requestedItems, products);
   let canonicalStaffName = staffName;
+  // Who the staff member is comes from the server: the person id when the email is known, the email alone for a guest.
+  let saleStaffEmail = normalizedStaffEmail;
+  let saleStaffPersonId: string | null = null;
   if (buyerType === "staff" && normalizedStaffEmail) {
-    const registeredStaff = await prisma.user.findFirst({
-      where: {
-        email: normalizedStaffEmail,
-        organizationId: context.credential.organizationId,
-      },
-      select: { name: true },
-    });
+    // The cashier picked this person from the staff list, so the email is looked up as it is
+    // now, or as it was before Central changed it.
+    const picked = await resolveStaff(normalizedStaffEmail);
+    const registeredStaff = picked.personId
+      ? await prisma.user.findFirst({
+          where: { centralPersonId: picked.personId, organizationId: context.credential.organizationId },
+          select: { name: true, email: true, centralPersonId: true },
+        })
+      : null;
     if (!registeredStaff) {
       return NextResponse.json({ error: "Staff email is not registered in this organization" }, { status: 409 });
     }
     canonicalStaffName = registeredStaff.name || staffName;
+    saleStaffEmail = registeredStaff.email.toLowerCase();
+    saleStaffPersonId = registeredStaff.centralPersonId;
   }
   const fingerprint = crypto.createHash("sha256").update(JSON.stringify({
     credentialId,
     payment,
     items,
     buyerType,
-    staffEmail: normalizedStaffEmail,
+    staff: saleStaffPersonId ?? saleStaffEmail,
   })).digest("hex");
 
   const existing = await prisma.posSale.findUnique({
@@ -138,7 +146,7 @@ export async function POST(req: NextRequest) {
       const allocation = await allocateSalePayment(tx, {
         credentialId,
         buyerType,
-        staffEmail: normalizedStaffEmail,
+        staffEmail: saleStaffEmail,
         total: saleTotal(items),
         payment,
       });
@@ -153,7 +161,8 @@ export async function POST(req: NextRequest) {
           paymentMethod: allocation.paymentMethod,
           paymentStrategy: allocation.strategy,
           buyerType,
-          staffEmail: normalizedStaffEmail,
+          staffEmail: saleStaffEmail,
+          staffPersonId: saleStaffPersonId,
           staffName: canonicalStaffName,
           allowanceUsed: allocation.allowanceUsed,
           allowancePeriodStartsAt: allocation.period?.startsAt,
@@ -165,11 +174,11 @@ export async function POST(req: NextRequest) {
         },
         include: saleInclude,
       });
-      if (allocation.period && normalizedStaffEmail) {
+      if (allocation.period && saleStaffEmail) {
         await reconcileSaleImmediateDebtSettlement(tx, {
           saleId: sale.id,
           credentialId,
-          staffEmail: normalizedStaffEmail,
+          staffEmail: saleStaffEmail,
           period: allocation.period,
           createdById: session.user.id,
           settlement: allocation.immediateDebtSettlement,

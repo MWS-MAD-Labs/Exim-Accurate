@@ -23,7 +23,7 @@ export function classifyAllowanceNotification(remaining: number, outstandingDebt
   if (remaining > 0.005) return { scenario: "remaining_balance" as const, amount: remaining };
   return null;
 }
-type NotificationRecipient = { email: string; name: string | null };
+type NotificationRecipient = { email: string; name: string | null; personId: string | null };
 type ClaimResult =
   | { status: "claimed"; notificationId: string }
   | { status: "already_notified" }
@@ -162,21 +162,33 @@ function buildNotificationMessage(input: {
 async function claimNotification(input: {
   credentialId: string;
   staffEmail: string;
+  staffPersonId: string | null;
   periodStartsAt: Date;
   periodEndsAt: Date;
   reminderDay: 0 | 1;
   scenario: NotificationScenario;
   amount: number;
 }) {
-  const key = {
-    credentialId_staffEmail_periodStartsAt_periodEndsAt_reminderDay: {
-      credentialId: input.credentialId,
-      staffEmail: input.staffEmail,
-      periodStartsAt: input.periodStartsAt,
-      periodEndsAt: input.periodEndsAt,
-      reminderDay: input.reminderDay,
-    },
-  };
+  // One reminder per person and period, even when the email changed in between.
+  const key = input.staffPersonId
+    ? {
+        credentialId_staffPersonId_periodStartsAt_periodEndsAt_reminderDay: {
+          credentialId: input.credentialId,
+          staffPersonId: input.staffPersonId,
+          periodStartsAt: input.periodStartsAt,
+          periodEndsAt: input.periodEndsAt,
+          reminderDay: input.reminderDay,
+        },
+      }
+    : {
+        credentialId_staffEmail_periodStartsAt_periodEndsAt_reminderDay: {
+          credentialId: input.credentialId,
+          staffEmail: input.staffEmail,
+          periodStartsAt: input.periodStartsAt,
+          periodEndsAt: input.periodEndsAt,
+          reminderDay: input.reminderDay,
+        },
+      };
   const existing = await prisma.posAllowanceNotification.findUnique({ where: key });
   if (!existing) {
     try {
@@ -206,34 +218,46 @@ async function claimNotification(input: {
 async function getNotificationRecipients(credentialId: string, organizationId: string) {
   const [users, salesStaff, reservationStaff] = await Promise.all([
     prisma.user.findMany({
-      where: { organizationId, role: { in: ["admin", "staff"] } },
-      select: { email: true, name: true },
+      where: { organizationId, permissions: { has: "store.use" } },
+      select: { email: true, name: true, centralPersonId: true },
     }),
     prisma.posSale.findMany({
       where: { credentialId, staffEmail: { not: null } },
-      distinct: ["staffEmail"],
-      select: { staffEmail: true, staffName: true },
+      distinct: ["staffPersonId", "staffEmail"],
+      select: { staffEmail: true, staffName: true, staffPersonId: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.posReservation.findMany({
       where: { credentialId },
-      distinct: ["staffEmail"],
-      select: { staffEmail: true, staffName: true },
+      distinct: ["staffPersonId", "staffEmail"],
+      select: { staffEmail: true, staffName: true, staffPersonId: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);
 
+  // One recipient per person, at the email the person has now. An email a person used before
+  // only counts for people without an id (guests).
   const recipients = new Map<string, NotificationRecipient>();
+  const knownPeople = new Set<string>();
   for (const user of users) {
     const email = user.email.toLowerCase().trim();
-    recipients.set(email, { email, name: user.name });
+    recipients.set(email, { email, name: user.name, personId: user.centralPersonId });
+    if (user.centralPersonId) knownPeople.add(user.centralPersonId);
   }
+  const previousEmails = new Set(
+    (await prisma.userEmailHistory.findMany({ select: { email: true } })).map((row) => row.email),
+  );
   for (const entry of [...reservationStaff, ...salesStaff]) {
     const email = entry.staffEmail?.toLowerCase().trim();
     if (!email) continue;
+    if (entry.staffPersonId && knownPeople.has(entry.staffPersonId)) {
+      // Same person as a user above; only the name may be missing.
+      continue;
+    }
+    if (previousEmails.has(email)) continue;
     const existing = recipients.get(email);
-    if (!existing) recipients.set(email, { email, name: entry.staffName || null });
-    else if (!existing.name && entry.staffName) recipients.set(email, { email, name: entry.staffName });
+    if (!existing) recipients.set(email, { email, name: entry.staffName || null, personId: entry.staffPersonId });
+    else if (!existing.name && entry.staffName) recipients.set(email, { ...existing, name: entry.staffName });
   }
   return [...recipients.values()];
 }
@@ -285,6 +309,7 @@ export async function sendPosAllowanceCutoffNotifications(now = new Date()) {
           const claim = await claimNotification({
             credentialId: setting.credentialId,
             staffEmail: recipient.email,
+            staffPersonId: recipient.personId,
             periodStartsAt: period.startsAt,
             periodEndsAt: period.endsAt,
             reminderDay,
