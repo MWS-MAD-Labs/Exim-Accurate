@@ -19,6 +19,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx scripts/seed-user.ts",
     "db:map-central-organization": "tsx scripts/map-central-organization.ts",
+    "pos:walkthrough": "tsx --env-file=.env scripts/pos-walkthrough.ts",
     "badge:check": "tsx --env-file=.env scripts/badge-check.ts check",
     "badge:issue": "tsx --env-file=.env scripts/badge-check.ts issue",
     "staff:audit": "tsx --env-file=.env scripts/staff-audit.ts",
