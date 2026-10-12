@@ -1,3 +1,4 @@
+import { centralConnection } from "@/lib/central-config";
 import { normalizePermissions } from "@/lib/access-control";
 import { lookupEntitlement } from "@/lib/central-access";
 import { resolveCentralOrganization } from "@/lib/central-organization";
@@ -18,11 +19,11 @@ export function clearProvisionMemoryForTest() {
 type CentralEmployee = { person_id: string; full_name: string; email: string; status: string };
 
 async function lookupEmployee(by: { personId: string } | { email: string }): Promise<CentralEmployee | null> {
-  const base = process.env.CENTRAL_DATA_API_BASE_URL?.trim().replace(/\/$/, "");
-  const token = process.env.CENTRAL_DATA_API_TOKEN?.trim();
-  if (!base || !token) return null;
+  const connection = centralConnection();
+  if (!connection) return null;
+  const { base, token } = connection;
   try {
-    const url = new URL(`${base}/api/internal/employees/lookup`);
+    const url = new URL(`${base}/employees/lookup`);
     if ("personId" in by) url.searchParams.set("person_id", by.personId);
     else url.searchParams.set("email", by.email);
     const response = await fetch(url, {

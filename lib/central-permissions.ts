@@ -2,6 +2,7 @@
 // The token has to belong to the API client made for Exima, with the
 // application_permissions:write scope.
 import { errorForNetwork, errorForResponse } from "@/lib/central-errors";
+import { centralApiBase, centralApiToken } from "@/lib/central-config";
 
 export type PermissionManifestEntry = { key: string; description?: string; requires?: string[] };
 export type RegisteredPermission = {
@@ -32,13 +33,16 @@ function env(name: string) {
 }
 
 async function call<T>(path: string, init: { method: "GET" | "PUT"; body?: unknown } = { method: "GET" }) {
-  const base = env("CENTRAL_DATA_API_BASE_URL").replace(/\/$/, "");
+  const base = centralApiBase();
+  const token = centralApiToken();
+  if (!base) throw new Error("CENTRAL_API_BASE_URL is not configured");
+  if (!token) throw new Error("CENTRAL_API_TOKEN is not configured");
   let response: Response;
   try {
-    response = await fetch(`${base}/api/internal/application-permissions${path}`, {
+    response = await fetch(`${base}/application-permissions${path}`, {
       method: init.method,
       headers: {
-        authorization: `Bearer ${env("CENTRAL_DATA_API_TOKEN")}`,
+        authorization: `Bearer ${token}`,
         ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
       },
       ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),

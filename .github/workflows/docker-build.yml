@@ -59,11 +59,14 @@ jobs:
 
       - name: Send permissions
         env:
+          CENTRAL_API_BASE_URL: ${{ secrets.CENTRAL_API_BASE_URL }}
+          CENTRAL_API_TOKEN: ${{ secrets.CENTRAL_API_TOKEN }}
+          # The older secret names still work until they are moved.
           CENTRAL_DATA_API_BASE_URL: ${{ secrets.CENTRAL_DATA_API_BASE_URL }}
           CENTRAL_DATA_API_TOKEN: ${{ secrets.CENTRAL_DATA_API_TOKEN }}
         run: |
-          if [ -z "$CENTRAL_DATA_API_BASE_URL" ] || [ -z "$CENTRAL_DATA_API_TOKEN" ]; then
-            echo "::error::CENTRAL_DATA_API_BASE_URL and CENTRAL_DATA_API_TOKEN secrets are not set."
+          if { [ -z "$CENTRAL_API_BASE_URL" ] || [ -z "$CENTRAL_API_TOKEN" ]; } && { [ -z "$CENTRAL_DATA_API_BASE_URL" ] || [ -z "$CENTRAL_DATA_API_TOKEN" ]; }; then
+            echo "::error::CENTRAL_API_BASE_URL and CENTRAL_API_TOKEN secrets are not set."
             exit 1
           fi
           npx tsx scripts/sync-permissions.ts sync --retries 5 --wait 20

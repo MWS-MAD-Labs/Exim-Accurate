@@ -1,5 +1,6 @@
 import { InMemoryReplayStore, verifyRelayToken } from "mws-central-auth/server";
 import { normalizePermissions } from "@/lib/access-control";
+import { centralConnection } from "@/lib/central-config";
 import { eximaAccessMode, isBypassEmail } from "@/lib/central-access";
 import { organizationProblem, resolveCentralOrganization } from "@/lib/central-organization";
 import { linkableEntitlementId } from "@/lib/central-user-sync";
@@ -115,14 +116,15 @@ export function decodeRelayEntitlement(token: string): RelayEntitlement {
 }
 
 async function lookupCentralEmployee(personId: string) {
-  const baseUrl = requiredEnvironment("CENTRAL_DATA_API_BASE_URL").replace(/\/$/, "");
-  const url = new URL(`${baseUrl}/api/internal/employees/lookup`);
+  const connection = centralConnection();
+  if (!connection) throw new Error("CENTRAL_API_BASE_URL and CENTRAL_API_TOKEN are not configured");
+  const url = new URL(`${connection.base}/employees/lookup`);
   url.searchParams.set("person_id", personId);
   let response: Response;
   try {
     response = await fetch(url, {
       headers: {
-        authorization: `Bearer ${requiredEnvironment("CENTRAL_DATA_API_TOKEN")}`,
+        authorization: `Bearer ${connection.token}`,
         accept: "application/json",
       },
       signal: AbortSignal.timeout(10_000),

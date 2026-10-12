@@ -21,8 +21,8 @@ HUB_BASE_URL=https://app.mws.web.id
 HUB_INTERNAL_SECRET=replace-with-the-shared-hub-secret
 HUB_SSO_APP_ID=exima
 HUB_SSO_JWKS_URL=https://app.mws.web.id/.well-known/jwks.json
-CENTRAL_DATA_API_BASE_URL=https://db.mws.web.id
-CENTRAL_DATA_API_TOKEN=token-prefix.secret
+CENTRAL_API_BASE_URL=https://db.mws.web.id/api/internal
+CENTRAL_API_TOKEN=token-prefix.secret
 
 ACCURATE_APP_KEY=...
 ACCURATE_SIGNATURE_SECRET=...

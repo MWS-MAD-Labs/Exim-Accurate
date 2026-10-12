@@ -1,3 +1,4 @@
+import { centralConnection } from "@/lib/central-config";
 import { normalizePermissions } from "@/lib/access-control";
 import { resolveCentralOrganization } from "@/lib/central-organization";
 import { prisma } from "@/lib/prisma";
@@ -132,14 +133,14 @@ export function planSync(
 export const SYNC_APPLICATION_ID = () => process.env.HUB_SSO_APP_ID?.trim() || "exima";
 
 export async function fetchCentralAccess(): Promise<{ rows: CentralAccessRow[]; key: string }> {
-  const base = process.env.CENTRAL_DATA_API_BASE_URL?.trim().replace(/\/$/, "");
-  const token = process.env.CENTRAL_DATA_API_TOKEN?.trim();
-  if (!base || !token) throw new Error("Central API is not configured");
+  const connection = centralConnection();
+  if (!connection) throw new Error("Central API is not configured");
+  const { base, token } = connection;
   const applicationId = SYNC_APPLICATION_ID();
   const rows: CentralAccessRow[] = [];
   let key = "";
   for (let page = 1; ; page += 1) {
-    const url = new URL(`${base}/api/internal/application-entitlements`);
+    const url = new URL(`${base}/application-entitlements`);
     url.searchParams.set("application_id", applicationId);
     url.searchParams.set("page", String(page));
     url.searchParams.set("size", "100");
@@ -172,11 +173,11 @@ export type SyncSummary = {
 
 // Does Central know this person at all? Told apart from "no access" so the list can say which.
 export async function lookupCentralPerson(personId: string): Promise<"exists" | "missing" | "error"> {
-  const base = process.env.CENTRAL_DATA_API_BASE_URL?.trim().replace(/\/$/, "");
-  const token = process.env.CENTRAL_DATA_API_TOKEN?.trim();
-  if (!base || !token) return "error";
+  const connection = centralConnection();
+  if (!connection) return "error";
+  const { base, token } = connection;
   try {
-    const url = new URL(`${base}/api/internal/employees/lookup`);
+    const url = new URL(`${base}/employees/lookup`);
     url.searchParams.set("person_id", personId);
     const response = await fetch(url, {
       headers: { authorization: `Bearer ${token}`, accept: "application/json" },

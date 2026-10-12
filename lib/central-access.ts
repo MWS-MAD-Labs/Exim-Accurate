@@ -1,3 +1,4 @@
+import { centralConnection } from "@/lib/central-config";
 import { normalizePermissions } from "@/lib/access-control";
 
 // Whether Exima keeps checking a signed-in person against Central's Application Access.
@@ -40,10 +41,10 @@ export function isBypassEmail(email: string) {
 }
 
 export async function lookupEntitlement(personId: string): Promise<CentralEntitlement | null> {
-  const base = process.env.CENTRAL_DATA_API_BASE_URL?.trim().replace(/\/$/, "");
-  const token = process.env.CENTRAL_DATA_API_TOKEN?.trim();
-  if (!base || !token) throw new Error("Central API is not configured");
-  const url = new URL(`${base}/api/internal/application-entitlements/lookup`);
+  const connection = centralConnection();
+  if (!connection) throw new Error("Central API is not configured");
+  const { base, token } = connection;
+  const url = new URL(`${base}/application-entitlements/lookup`);
   url.searchParams.set("person_id", personId);
   url.searchParams.set("application_id", process.env.HUB_SSO_APP_ID?.trim() || "exima");
   const response = await fetch(url, {
