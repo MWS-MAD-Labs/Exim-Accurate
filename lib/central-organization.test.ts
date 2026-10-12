@@ -15,8 +15,7 @@ function fakeDb(rows: Row[], options: { conflictOnce?: boolean } = {}) {
         const row = rows.find((item) => item.centralOrganizationId === where.centralOrganizationId);
         return row ? { id: row.id } : null;
       },
-      findMany: async ({ take }: { take: number }) => rows.filter((row) => row.centralOrganizationId === null).slice(0, take).map((row) => ({ id: row.id })),
-      count: async () => rows.length,
+      findMany: async ({ take }: { take: number }) => rows.slice(0, take).map((row) => ({ id: row.id, name: row.id, centralOrganizationId: row.centralOrganizationId })),
       create: async ({ data }: { data: { name: string; centralOrganizationId: string } }) => {
         calls.create += 1;
         if (conflict) {
@@ -67,9 +66,25 @@ test("several organizations are never guessed", async () => {
   process.env.CENTRAL_ORGANIZATION_ID = "org_x";
   const db = fakeDb([{ id: "a", centralOrganizationId: null }, { id: "b", centralOrganizationId: null }]);
   assert.equal(await resolveCentralOrganization(db, "org_x"), null);
-  const other = fakeDb([{ id: "a", centralOrganizationId: "org_other" }]);
-  assert.equal(await resolveCentralOrganization(other, "org_x"), null);
-  assert.equal(other.calls.update + other.calls.create, 0);
+  const mixed = fakeDb([{ id: "a", centralOrganizationId: "org_other" }, { id: "b", centralOrganizationId: null }]);
+  assert.equal(await resolveCentralOrganization(mixed, "org_x"), null);
+  assert.equal(db.calls.update + mixed.calls.update + db.calls.create + mixed.calls.create, 0);
+});
+
+test("the only organization takes the new id when it was mapped to an older one, and says so", async () => {
+  process.env.CENTRAL_ORGANIZATION_ID = "org_x";
+  const db = fakeDb([{ id: "default-organization", centralOrganizationId: "exima" }]);
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (message: string) => warnings.push(message);
+  try {
+    assert.deepEqual(await resolveCentralOrganization(db, "org_x"), { id: "default-organization" });
+  } finally {
+    console.warn = original;
+  }
+  assert.equal(db.rows[0]!.centralOrganizationId, "org_x");
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0]!, /was mapped to exima, now mapped to org_x/);
 });
 
 test("an organization other than the one in the .env is not mapped", async () => {

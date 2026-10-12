@@ -1,11 +1,11 @@
 // Finds the local organization for the one Central names. A deployment set up with CENTRAL_ORGANIZATION_ID
 // (from the .env block Central gives) maps its own organization the first time it is needed, so nobody has to
-// run db:map-central-organization by hand.
+// run db:map-central-organization by hand. The only organization there is takes the id, also when it was mapped
+// to an older one.
 type OrganizationDb = {
   organization: {
     findUnique(args: { where: { centralOrganizationId: string }; select: { id: true } }): Promise<{ id: string } | null>;
-    findMany(args: { where: { centralOrganizationId: null }; select: { id: true }; take: number }): Promise<{ id: string }[]>;
-    count(): Promise<number>;
+    findMany(args: { select: { id: true; name: true; centralOrganizationId: true }; take: number }): Promise<{ id: string; name: string; centralOrganizationId: string | null }[]>;
     create(args: { data: { name: string; centralOrganizationId: string }; select: { id: true } }): Promise<{ id: string }>;
     update(args: { where: { id: string }; data: { centralOrganizationId: string }; select: { id: true } }): Promise<{ id: string }>;
   };
@@ -29,16 +29,19 @@ export async function resolveCentralOrganization(db: OrganizationDb, centralOrga
   if (configuredCentralOrganization() !== centralOrganizationId) return null;
 
   try {
-    const total = await db.organization.count();
-    if (total === 0) {
+    // Two are enough to know there is a choice to make.
+    const all = await db.organization.findMany({ select: { id: true, name: true, centralOrganizationId: true }, take: 2 });
+    if (all.length === 0) {
       return await db.organization.create({ data: { name: "Exima", centralOrganizationId }, select: { id: true } });
     }
-    const unmapped = await db.organization.findMany({ where: { centralOrganizationId: null }, select: { id: true }, take: 2 });
-    // Several organizations, or ones already mapped elsewhere, are left to the script.
-    if (total === 1 && unmapped.length === 1) {
-      return await db.organization.update({ where: { id: unmapped[0]!.id }, data: { centralOrganizationId }, select: { id: true } });
+    // With several organizations nothing is guessed, the script maps each one.
+    if (all.length > 1) return null;
+    const only = all[0]!;
+    // An older id (Central used to call it "exima") is replaced by the one this deployment is set up for.
+    if (only.centralOrganizationId) {
+      console.warn(`[organization] ${only.name} was mapped to ${only.centralOrganizationId}, now mapped to ${centralOrganizationId} (CENTRAL_ORGANIZATION_ID)`);
     }
-    return null;
+    return await db.organization.update({ where: { id: only.id }, data: { centralOrganizationId }, select: { id: true } });
   } catch (error) {
     // Another sign-in mapped it at the same moment.
     if (isUniqueConflict(error)) return find(db, centralOrganizationId);
