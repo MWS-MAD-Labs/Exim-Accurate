@@ -53,6 +53,7 @@ import {
   toggleAllowanceFirst as nextAllowanceFirstChoice,
   type CashierPaymentChoice,
 } from "@/lib/pos-cashier-payment";
+import { fetchList } from "@/lib/fetch-list";
 
 interface Credential {
   id: string;
@@ -191,12 +192,10 @@ export default function PosCashierPage() {
   const newTransactionButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    void fetch("/api/credentials")
-      .then((r) => r.json())
-      .then((data) => {
-        setCredentials(data);
-        if (data.length === 1) setCredentialId(data[0].id);
-      });
+    void fetchList<Credential>("/api/credentials").then((data) => {
+      setCredentials(data);
+      if (data.length === 1) setCredentialId(data[0].id);
+    });
   }, []);
 
   useEffect(() => {

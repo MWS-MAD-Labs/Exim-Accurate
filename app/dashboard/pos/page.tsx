@@ -39,6 +39,7 @@ import {
 
 import { PersistentScanner } from "@/components/PersistentScanner";
 import { useLanguage } from "@/lib/language";
+import { fetchList } from "@/lib/fetch-list";
 
 interface Credential {
   id: string;
@@ -161,12 +162,10 @@ export default function PosStockManagementPage() {
   }, [t.common.error]);
 
   useEffect(() => {
-    void fetch("/api/credentials")
-      .then((response) => response.json())
-      .then((data: Credential[]) => {
-        setCredentials(data);
-        if (data.length === 1) void loadCatalog(data[0].id);
-      });
+    void fetchList<Credential>("/api/credentials").then((data) => {
+      setCredentials(data);
+      if (data.length === 1) void loadCatalog(data[0].id);
+    });
   }, [loadCatalog]);
 
   useEffect(() => {

@@ -25,6 +25,8 @@ Deploy the services in this order. Do not enable the Hub entitlement gate before
    npm run db:map-central-organization -- <local-organization-id> <central-organization-id>
    ```
 
+   The local organization stays in Exima because it owns the data: the Accurate credentials, the POS settings and the borrowable items point at it. Daily Check-in has no such table, it only compares the organization id of an entitlement with its `.env`. Either way an application is tied to one Central organization by the block of `.env` lines Central gives.
+
 3. Bring everyone with access into the local user list:
 
    ```sh

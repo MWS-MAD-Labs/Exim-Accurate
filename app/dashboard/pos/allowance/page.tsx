@@ -24,6 +24,7 @@ import { IconCalendarOff, IconEdit, IconSearch, IconTrash } from "@tabler/icons-
 import { useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/lib/language";
+import { fetchList } from "@/lib/fetch-list";
 
 interface Credential { id: string; appKey: string }
 interface Period { startsAt: string; endsAt: string; isCustom: boolean }
@@ -144,7 +145,7 @@ export default function StaffAllowancePage() {
   const staffRequestSequence = useRef(0);
 
   useEffect(() => {
-    void fetch("/api/credentials").then((response) => response.json()).then((data: Credential[]) => {
+    void fetchList<Credential>("/api/credentials").then((data) => {
       setCredentials(data);
       if (data[0]) setCredentialId(data[0].id);
     });

@@ -16,6 +16,7 @@ import { DatePicker } from "@mantine/dates";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/lib/language";
 import { getRecurringAllowancePeriod, toDateOnlyValue, toggleHolidayDate } from "@/lib/pos";
+import { fetchList } from "@/lib/fetch-list";
 
 interface Credential {
   id: string;
@@ -102,12 +103,10 @@ export default function PosSettingsPage() {
   };
 
   useEffect(() => {
-    void fetch("/api/credentials")
-      .then((response) => response.json())
-      .then((data: Credential[]) => {
-        setCredentials(data);
-        if (data.length === 1) void loadForCredential(data[0].id);
-      });
+    void fetchList<Credential>("/api/credentials").then((data) => {
+      setCredentials(data);
+      if (data.length === 1) void loadForCredential(data[0].id);
+    });
   }, []);
 
   const toggleNoAllowance = (date: Date) => {
