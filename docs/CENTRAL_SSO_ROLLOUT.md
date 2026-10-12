@@ -19,7 +19,7 @@ Deploy the services in this order. Do not enable the Hub entitlement gate before
 ## 3. Exima
 
 1. Deploy migrations through `20260929120000_add_entitlement_projection_remove_password`.
-2. Map every local organization:
+2. Put `CENTRAL_ORGANIZATION_ID` from the `.env` block Central gives in Exima's `.env`. The organization is mapped the first time somebody signs in or `users:sync` runs: the one local organization that is not mapped yet is mapped to it, and an empty database gets one called Exima. Only that id is mapped on its own, and only when there is nothing to choose between. With several organizations, map each by hand:
 
    ```sh
    npm run db:map-central-organization -- <local-organization-id> <central-organization-id>

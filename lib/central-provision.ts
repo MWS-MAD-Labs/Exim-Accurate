@@ -1,5 +1,6 @@
 import { normalizePermissions } from "@/lib/access-control";
 import { lookupEntitlement } from "@/lib/central-access";
+import { resolveCentralOrganization } from "@/lib/central-organization";
 import { linkableEntitlementId } from "@/lib/central-user-sync";
 import { prisma } from "@/lib/prisma";
 import { resolveBadge, type BadgeResult } from "@/lib/staff-identity";
@@ -54,10 +55,7 @@ export async function provisionFromCentral(raw: string, now = Date.now()): Promi
   const permissions = normalizePermissions(entitlement.permissions);
   if (permissions.length === 0) return false;
 
-  const organization = await prisma.organization.findFirst({
-    where: { centralOrganizationId: entitlement.organization_id },
-    select: { id: true },
-  });
+  const organization = await resolveCentralOrganization(prisma, entitlement.organization_id);
   if (!organization) return false;
 
   const email = employee.email.trim().toLowerCase();

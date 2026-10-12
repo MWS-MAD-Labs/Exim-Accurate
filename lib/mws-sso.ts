@@ -1,6 +1,7 @@
 import { InMemoryReplayStore, verifyRelayToken } from "mws-central-auth/server";
 import { normalizePermissions } from "@/lib/access-control";
 import { eximaAccessMode, isBypassEmail } from "@/lib/central-access";
+import { organizationProblem, resolveCentralOrganization } from "@/lib/central-organization";
 import { linkableEntitlementId } from "@/lib/central-user-sync";
 import { errorForNetwork, errorForResponse } from "@/lib/central-errors";
 import { endsSessions } from "@/lib/session-policy";
@@ -164,11 +165,8 @@ export async function authenticateHubCode(code: string, state: string) {
   }
 
   const project = () => prisma.$transaction(async (transaction) => {
-    const organization = await transaction.organization.findUnique({
-      where: { centralOrganizationId: entitlement.organization_id },
-      select: { id: true },
-    });
-    if (!organization) throw new Error("Central organization is not mapped in Exima");
+    const organization = await resolveCentralOrganization(transaction, entitlement.organization_id);
+    if (!organization) throw new Error(organizationProblem(entitlement.organization_id));
 
     const linkedByPerson = await transaction.user.findUnique({ where: { centralPersonId: relay.sub } });
     // The person decides who this is. An access that comes from a group has one id for

@@ -1,4 +1,5 @@
 import { normalizePermissions } from "@/lib/access-control";
+import { resolveCentralOrganization } from "@/lib/central-organization";
 import { prisma } from "@/lib/prisma";
 import { createFailureTracker } from "@/lib/sync-failures";
 import { endsSessions } from "@/lib/session-policy";
@@ -191,6 +192,8 @@ export async function lookupCentralPerson(personId: string): Promise<"exists" | 
 
 export async function syncUsersFromCentral(): Promise<SyncSummary> {
   const { rows, key } = await fetchCentralAccess();
+  // The organization named in the .env is mapped here if it was not yet, before people are placed in it.
+  for (const id of new Set(rows.map((row) => row.organization_id))) await resolveCentralOrganization(prisma, id);
   const [users, organizations] = await Promise.all([
     prisma.user.findMany({
       select: {
