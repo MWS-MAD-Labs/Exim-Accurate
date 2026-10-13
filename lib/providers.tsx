@@ -4,17 +4,19 @@ import { MantineProvider } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import { SessionProvider, useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { sessionRevoked } from "./session-recheck";
 import { theme } from "./theme";
 import { LanguageProvider } from "./language";
 
-// A session another app's sign-out ended comes back with an empty id once the tab refreshes it on focus.
-// /login hands the person to the Hub.
+// A session another app's sign-out ended gets the person to the Hub (/login hands them over) once the tab shows it.
 function SessionRecheck() {
   const { data, status } = useSession();
+  const pathname = usePathname();
   useEffect(() => {
-    if (status === "authenticated" && !data?.user?.id) window.location.href = "/login";
-  }, [data, status]);
+    if (sessionRevoked(status, data?.user?.id, pathname)) window.location.href = "/login";
+  }, [data, status, pathname]);
   return null;
 }
 
