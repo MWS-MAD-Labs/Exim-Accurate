@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
-import { closeOrRedirectHtml, hubHomeUrl } from "@/lib/hub-home";
+import { hubHomeUrl } from "@/lib/hub-home";
 import { notifyHubAppLogout } from "@/lib/mws-sso";
 
 export async function GET(request: Request) {
@@ -12,9 +12,7 @@ export async function GET(request: Request) {
   }
 
   const destination = hubHomeUrl() ?? new URL("/login", request.url).toString();
-  const response = new NextResponse(closeOrRedirectHtml(destination), {
-    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
-  });
+  const response = NextResponse.redirect(destination);
   for (const name of ["next-auth.session-token", "__Secure-next-auth.session-token"]) {
     response.cookies.set(name, "", {
       path: "/",
