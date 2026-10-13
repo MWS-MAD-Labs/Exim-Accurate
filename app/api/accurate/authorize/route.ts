@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getBaseUrl } from "@/lib/url";
 import { getOrganizationIdForUser } from "@/lib/organization";
+import { checkRedirectUri } from "@/lib/accurate-oauth";
 import { hasPermission } from "@/lib/access-control";
 
 export async function GET(req: NextRequest) {
@@ -27,6 +28,11 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
+
+  // A wrong address only shows up as a page from Accurate that does not say which part is wrong, so it is checked here.
+  const check = checkRedirectUri(redirectUri, getBaseUrl(req));
+  if (check.error) return NextResponse.json({ error: check.error }, { status: 500 });
+  if (check.warning) console.warn(`[accurate] ${check.warning}`);
 
   // Scopes required by inventory adjustment and POS product synchronization.
   const scopes = [
