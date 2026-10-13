@@ -1,3 +1,4 @@
+import { hubHomeUrl } from "@/lib/hub-home";
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -35,10 +36,17 @@ export function requiredPermissions(request: NextRequest): AppPermission[] {
 }
 
 export async function proxy(request: NextRequest) {
+  // The sign-in page is the Hub. It only shows here to explain why a sign-in failed.
+  if (request.nextUrl.pathname === "/login") {
+    const hub = hubHomeUrl();
+    return hub && !request.nextUrl.searchParams.has("error") ? NextResponse.redirect(hub) : NextResponse.next();
+  }
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   const isApi = request.nextUrl.pathname.startsWith("/api/");
   if (!token?.id) {
     if (isApi) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const hub = hubHomeUrl();
+    if (hub) return NextResponse.redirect(hub);
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", `${request.nextUrl.pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
@@ -64,7 +72,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/admin/:path*", "/dashboard/:path*", "/kiosk/:path*", "/pos-cashier/:path*", "/store/:path*",
+    "/login", "/admin/:path*", "/dashboard/:path*", "/kiosk/:path*", "/pos-cashier/:path*", "/store/:path*",
     "/accurate/callback", "/api/admin/:path*", "/api/analytics/:path*", "/api/dashboard/:path*",
     "/api/export/:path*", "/api/import/:path*", "/api/peminjaman/:path*", "/api/self-checkout/:path*",
     "/api/pos/:path*", "/api/credentials", "/api/accurate/:path*",

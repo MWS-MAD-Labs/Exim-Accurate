@@ -44,13 +44,6 @@ export function getHubLaunchUrl(state: string) {
   return url.toString();
 }
 
-export function getHubLogoutUrl(email: string, returnUrl: string) {
-  const url = new URL("/auth/logout", hubBaseUrl());
-  url.searchParams.set("redirect", returnUrl);
-  url.searchParams.set("email", email);
-  return url.toString();
-}
-
 async function exchangeHubCode(code: string, state: string) {
   let response: Response;
   try {
