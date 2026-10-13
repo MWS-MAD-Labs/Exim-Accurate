@@ -3,6 +3,7 @@ import test, { beforeEach } from "node:test";
 import {
   clearAccessCacheForTest,
   decideSession,
+  lookupEntitlement,
   eximaAccessMode,
   resolveAccess,
   type Access,
@@ -80,4 +81,23 @@ test("a role change reaches the session in enforce", () => {
   assert.equal(decideSession("enforce", granted({ permissions: ["store.use"] }), current), "update");
   assert.equal(decideSession("enforce", granted({ version: 2 }), current), "update");
   assert.equal(decideSession("warn", granted({ role: "CASHIER_LEAD" }), current), "keep");
+});
+
+test("a retired application answer from Central ends access instead of reading as Central being down", async () => {
+  process.env.CENTRAL_API_BASE_URL = "http://central.test/api/internal";
+  process.env.CENTRAL_API_TOKEN = "t";
+  const original = globalThis.fetch;
+  const reply = (status: number, body: unknown) => async () => new Response(JSON.stringify(body), { status });
+  try {
+    globalThis.fetch = reply(403, { errors: "Application retired", code: "application_retired" }) as typeof fetch;
+    assert.equal(await lookupEntitlement("p1"), null);
+    const access = await resolveAccess(person);
+    assert.equal(access.status, "no_access");
+
+    globalThis.fetch = reply(401, { errors: "Unauthorized" }) as typeof fetch;
+    await assert.rejects(() => lookupEntitlement("p1"));
+    assert.equal((await resolveAccess(person)).status, "central_unavailable");
+  } finally {
+    globalThis.fetch = original;
+  }
 });

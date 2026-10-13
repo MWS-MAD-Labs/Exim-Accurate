@@ -52,7 +52,9 @@ export async function lookupEntitlement(personId: string): Promise<CentralEntitl
     signal: AbortSignal.timeout(5_000),
     cache: "no-store",
   });
-  const body = (await response.json().catch(() => null)) as { data?: CentralEntitlement | null } | null;
+  const body = (await response.json().catch(() => null)) as { data?: CentralEntitlement | null; code?: string } | null;
+  // Central stopped this application. Nobody has access, so sessions must end.
+  if (response.status === 403 && body?.code === "application_retired") return null;
   if (!response.ok || !body || !("data" in body)) throw new Error("Central entitlement lookup failed");
   return body.data ?? null;
 }
