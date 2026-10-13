@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
-import { getHubLaunchUrl } from "@/lib/mws-sso";
+import { hubSso } from "@/lib/mws-sso";
 
 export async function GET(request: Request) {
   try {
-    const initiationNonce = randomUUID();
-    const response = NextResponse.redirect(getHubLaunchUrl(initiationNonce));
-    response.cookies.set("exima.sso-state", initiationNonce, {
-      httpOnly: true,
+    const { url, cookie } = hubSso().launch.begin();
+    const response = NextResponse.redirect(url);
+    response.cookies.set(cookie.name, cookie.value, {
+      httpOnly: cookie.httpOnly,
+      sameSite: cookie.sameSite,
+      path: cookie.path,
+      maxAge: cookie.maxAgeSeconds,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/auth/sso",
-      maxAge: 300,
     });
     return response;
   } catch {

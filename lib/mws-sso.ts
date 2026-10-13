@@ -1,4 +1,4 @@
-import { InMemoryReplayStore, verifyRelayToken } from "mws-central-auth/server";
+import { createHubSso, HubExchangeError, InMemoryReplayStore, verifyRelayToken } from "mws-central-auth/server";
 import { normalizePermissions } from "@/lib/access-control";
 import { centralConnection } from "@/lib/central-config";
 import { eximaAccessMode, isBypassEmail } from "@/lib/central-access";
@@ -33,55 +33,25 @@ function requiredEnvironment(name: string) {
   return value;
 }
 
-function hubBaseUrl() {
-  return requiredEnvironment("HUB_BASE_URL").replace(/\/$/, "");
-}
-
-export function getHubLaunchUrl(state: string) {
-  const appId = requiredEnvironment("HUB_SSO_APP_ID");
-  const url = new URL(`/apps/${encodeURIComponent(appId)}/launch`, hubBaseUrl());
-  url.searchParams.set("state", state);
-  return url.toString();
+// Everything about the Hub sign-in and sign-out flow comes from the shared package.
+export function hubSso() {
+  return createHubSso({
+    hubBaseUrl: requiredEnvironment("HUB_BASE_URL"),
+    appId: requiredEnvironment("HUB_SSO_APP_ID"),
+    internalSecret: requiredEnvironment("HUB_INTERNAL_SECRET"),
+    stateCookieName: "exima.sso-state",
+  });
 }
 
 async function exchangeHubCode(code: string, state: string) {
-  let response: Response;
   try {
-    response = await fetch(`${hubBaseUrl()}/sso/exchange`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-hub-internal-secret": requiredEnvironment("HUB_INTERNAL_SECRET"),
-      },
-      body: JSON.stringify({ code, state, appId: requiredEnvironment("HUB_SSO_APP_ID") }),
-      signal: AbortSignal.timeout(5_000),
-      cache: "no-store",
-    });
+    return await hubSso().exchange(code, state);
   } catch (error) {
-    throw errorForNetwork(error);
-  }
-  const body = (await response.json().catch(() => null)) as { data?: { token?: string } } | null;
-  if (response.status >= 500) throw errorForResponse(response.status);
-  if (!response.ok || !body?.data?.token) throw new Error("Hub code exchange failed");
-  return body.data.token;
-}
-
-// Tells the Hub this person signed out here, so it ends their sessions in the other apps. The Hub's own stays.
-// Best effort: a Hub that does not answer must not keep the person from signing out.
-export async function notifyHubAppLogout(email: string, centralPersonId: string): Promise<void> {
-  try {
-    await fetch(`${hubBaseUrl()}/sso/app-logout`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-hub-internal-secret": requiredEnvironment("HUB_INTERNAL_SECRET"),
-      },
-      body: JSON.stringify({ appId: requiredEnvironment("HUB_SSO_APP_ID"), email, central_id: centralPersonId }),
-      signal: AbortSignal.timeout(3_000),
-      cache: "no-store",
-    });
-  } catch (error) {
-    console.warn("[sso] Hub app-logout failed", error instanceof Error ? error.message : error);
+    if (error instanceof HubExchangeError) {
+      if (error.status === null) throw errorForNetwork(error);
+      if (error.status >= 500) throw errorForResponse(error.status);
+    }
+    throw new Error("Hub code exchange failed");
   }
 }
 
@@ -155,7 +125,7 @@ export async function authenticateHubCode(code: string, state: string) {
   const token = await exchangeHubCode(code, state);
   const relay = await verifyRelayToken(token, {
     audience: requiredEnvironment("HUB_SSO_APP_ID"),
-    jwksUrl: process.env.HUB_SSO_JWKS_URL?.trim() || `${hubBaseUrl()}/.well-known/jwks.json`,
+    jwksUrl: process.env.HUB_SSO_JWKS_URL?.trim() || hubSso().jwksUrl(),
     replayStore,
   });
   const entitlement = decodeRelayEntitlement(token);

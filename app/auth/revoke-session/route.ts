@@ -1,37 +1,23 @@
 import { NextResponse } from "next/server";
-import {
-  HubInternalRequestVerificationError,
-  parseHubRevocationPayload,
-  verifyHubInternalSecret,
-} from "mws-central-auth/server";
+import { hubSso } from "@/lib/mws-sso";
 import { prisma } from "@/lib/prisma";
 
+// The Hub calls this when a person signed out of another app, or this application was retired.
 export async function POST(request: Request) {
-  const secret = process.env.HUB_INTERNAL_SECRET;
-  if (!secret || !verifyHubInternalSecret(request.headers.get("x-hub-internal-secret"), secret)) {
-    return NextResponse.json({ revoked: false }, { status: 401 });
-  }
-
+  let sso;
   try {
-    const raw = await request.json().catch(() => null);
-    // The Hub sends `all` when Central retired the application: every session ends.
-    if (raw && typeof raw === "object" && (raw as { all?: unknown }).all === true) {
-      const result = await prisma.user.updateMany({ data: { sessionVersion: { increment: 1 } } });
-      return NextResponse.json({ revoked: result.count > 0 });
-    }
-    const payload = parseHubRevocationPayload(raw);
-    if (!payload.central_id) {
-      return NextResponse.json({ revoked: false }, { status: 400 });
-    }
-    const result = await prisma.user.updateMany({
-      where: { centralPersonId: payload.central_id },
-      data: { sessionVersion: { increment: 1 } },
-    });
-    return NextResponse.json({ revoked: result.count > 0 });
-  } catch (error) {
-    if (error instanceof HubInternalRequestVerificationError) {
-      return NextResponse.json({ revoked: false }, { status: 400 });
-    }
+    sso = hubSso();
+  } catch {
     return NextResponse.json({ revoked: false }, { status: 503 });
   }
+  const result = await sso.revoke.handle({
+    secret: request.headers.get("x-hub-internal-secret"),
+    body: await request.json().catch(() => null),
+    apply: async ({ personId, email, all }) => {
+      const where = all ? {} : personId ? { centralPersonId: personId } : { email: email!.trim().toLowerCase() };
+      const updated = await prisma.user.updateMany({ where, data: { sessionVersion: { increment: 1 } } });
+      return updated.count > 0;
+    },
+  });
+  return NextResponse.json(result.body, { status: result.status });
 }
