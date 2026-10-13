@@ -158,7 +158,10 @@ export async function GET(req: NextRequest) {
     return redirectWithStatus(req, "status=connected");
   } catch (error: unknown) {
     const errorName = error instanceof Error ? error.name : "UnknownError";
-    console.error(`[accurate/callback] OAuth connection failed: ${errorName}`);
+    const reason = error instanceof Error ? error.message.slice(0, 300) : "";
+    console.error(
+      `[accurate/callback] OAuth connection failed: ${errorName}: ${reason}`,
+    );
     return redirectWithStatus(
       req,
       "status=error&message=Gagal%20menyimpan%20koneksi%20Accurate.%20Silakan%20coba%20hubungkan%20kembali.",
