@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationIdForUser } from "@/lib/organization";
+import { credentialView } from "@/lib/credential-view";
+import { hasPermission } from "@/lib/access-control";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -12,8 +14,8 @@ export async function GET() {
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
   }
 
-  const role = session.user.role;
-  if (!["admin", "cashier", "staff", "resource"].includes(role)) {
+  const view = credentialView(session.user.permissions);
+  if (view === "none") {
     return NextResponse.json([]);
   }
 
@@ -24,9 +26,9 @@ export async function GET() {
 
   const credentials = await prisma.accurateCredentials.findMany({
     where:
-      role === "admin"
+      view === "all"
         ? { organizationId }
-        : role === "resource"
+        : view === "connected"
           ? { organizationId, disconnectedAt: null }
           : { organizationId, disconnectedAt: null, posSettings: { is: { isActive: true } } },
     select: {
@@ -49,7 +51,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
   }
 
-  if (session.user.role !== "admin") {
+  if (!hasPermission(session.user.permissions, "credentials.manage")) {
     return NextResponse.json({ error: "Akses admin diperlukan" }, { status: 403 });
   }
 

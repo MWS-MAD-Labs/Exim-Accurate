@@ -35,7 +35,7 @@ import {
   IconUsers,
   IconTool,
 } from "@tabler/icons-react";
-import { USER_ROLE_META, type UserRole } from "@/lib/user-roles";
+import { roleTone } from "@/lib/user-roles";
 import { syncDotState, syncTooltipLines } from "@/lib/sync-label";
 import type { UserStatus } from "@/lib/user-directory";
 
@@ -44,6 +44,7 @@ interface ManagedUser {
   email: string;
   name: string | null;
   role: string;
+  permissions: string[];
   status: UserStatus;
   entitlementSyncedAt: string | null;
   _count: {
@@ -80,11 +81,11 @@ const statusBadge: Record<UserStatus, { label: string; color: string; hint?: str
   unknown: { label: "Unknown In Central", color: "yellow", hint: "Central does not know this person, or this is an older local account without a Central identity." },
 };
 
-const roleIcons: Record<string, React.ReactNode> = {
-  admin: <IconShield size={20} />,
-  cashier: <IconCash size={20} />,
-  resource: <IconTool size={20} />,
-  staff: <IconUser size={20} />,
+const iconOf = {
+  shield: <IconShield size={20} />,
+  cash: <IconCash size={20} />,
+  tool: <IconTool size={20} />,
+  user: <IconUser size={20} />,
 };
 
 function initials(name: string | null, email: string) {
@@ -95,14 +96,6 @@ function initials(name: string | null, email: string) {
     .map((part) => part[0])
     .join("")
     .toUpperCase();
-}
-
-function roleMeta(role: string) {
-  return USER_ROLE_META[role as UserRole] || {
-    label: role.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
-    description: "Role made in Central.",
-    color: "gray",
-  };
 }
 
 function formatTime(value: string | null) {
@@ -148,7 +141,7 @@ function SyncDot({ status }: { status: SyncStatus }) {
 
 export function UserManagement() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
-  const [roles, setRoles] = useState<{ role: string; count: number }[]>([]);
+  const [roles, setRoles] = useState<{ role: string; count: number; permissions: string[] }[]>([]);
   const [paging, setPaging] = useState<Paging>({ page: 1, size: PAGE_SIZE, total: 0, totalPages: 1 });
   const [currentUserId, setCurrentUserId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -231,7 +224,7 @@ export function UserManagement() {
     }
   };
 
-  const roleOptions = roles.map((row) => ({ value: row.role, label: roleMeta(row.role).label }));
+  const roleOptions = roles.map((row) => ({ value: row.role, label: roleTone(row.role, row.permissions).label }));
 
   return (
     <Stack gap="lg">
@@ -261,8 +254,8 @@ export function UserManagement() {
       ) : null}
 
       <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }}>
-        {roles.map(({ role, count }) => {
-          const meta = roleMeta(role);
+        {roles.map(({ role, count, permissions }) => {
+          const meta = roleTone(role, permissions);
           return (
             <Card key={role} withBorder radius="md" padding="lg">
               <Group justify="space-between" align="flex-start">
@@ -273,7 +266,7 @@ export function UserManagement() {
                   <Text size="xl" fw={700}>{count}</Text>
                 </Stack>
                 <ThemeIcon color={meta.color} variant="light" size="lg" radius="md">
-                  {roleIcons[role] ?? <IconUser size={20} />}
+                  {iconOf[meta.icon]}
                 </ThemeIcon>
               </Group>
               <Text size="xs" c="dimmed" mt="sm">{meta.description}</Text>
@@ -343,7 +336,7 @@ export function UserManagement() {
               </Table.Thead>
               <Table.Tbody>
                 {users.map((user) => {
-                  const meta = roleMeta(user.role);
+                  const meta = roleTone(user.role, user.permissions);
                   const flag = statusBadge[user.status];
                   return (
                     <Table.Tr key={user.id}>

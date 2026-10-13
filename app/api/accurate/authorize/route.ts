@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getBaseUrl } from "@/lib/url";
 import { getOrganizationIdForUser } from "@/lib/organization";
+import { hasPermission } from "@/lib/access-control";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
       new URL("/login?callbackUrl=/dashboard/credentials", baseUrl)
     );
   }
-  if (session.user.role !== "admin") {
+  if (!hasPermission(session.user.permissions, "accurate.manage")) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 

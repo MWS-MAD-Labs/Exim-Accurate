@@ -1,3 +1,4 @@
+import { seesAllSales } from "@/lib/credential-view";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -17,7 +18,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     where: {
       id,
       credential: { organizationId },
-      ...(session.user.role === "admin" ? {} : { userId: session.user.id }),
+      ...(seesAllSales(session.user.permissions) ? {} : { userId: session.user.id }),
     },
     include: { items: true },
   });

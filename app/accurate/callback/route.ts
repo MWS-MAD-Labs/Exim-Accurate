@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { resolveHost } from "@/lib/accurate/client";
 import { getBaseUrl } from "@/lib/url";
 import { getOrganizationIdForUser } from "@/lib/organization";
+import { hasPermission } from "@/lib/access-control";
 
 function redirectWithStatus(req: NextRequest, search: string) {
   const baseUrl = getBaseUrl(req);
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
       new URL("/login?callbackUrl=/dashboard/credentials", baseUrl),
     );
   }
-  if (session.user.role !== "admin") {
+  if (!hasPermission(session.user.permissions, "accurate.manage")) {
     return redirectWithStatus(req, "status=error&message=Akses%20admin%20diperlukan");
   }
 
