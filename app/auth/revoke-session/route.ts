@@ -13,7 +13,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const payload = parseHubRevocationPayload(await request.json().catch(() => null));
+    const raw = await request.json().catch(() => null);
+    // The Hub sends `all` when Central retired the application: every session ends.
+    if (raw && typeof raw === "object" && (raw as { all?: unknown }).all === true) {
+      const result = await prisma.user.updateMany({ data: { sessionVersion: { increment: 1 } } });
+      return NextResponse.json({ revoked: result.count > 0 });
+    }
+    const payload = parseHubRevocationPayload(raw);
     if (!payload.central_id) {
       return NextResponse.json({ revoked: false }, { status: 400 });
     }
