@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hubHomeUrl } from "./hub-home";
+import { closeOrRedirectHtml, hubHomeUrl } from "./hub-home";
 
 test("gives the Hub front page, whatever path the address carries", () => {
   process.env.HUB_BASE_URL = "http://localhost:5175/apps/";
@@ -12,4 +12,11 @@ test("is null when the Hub address is missing or not an address", () => {
   assert.equal(hubHomeUrl(), null);
   process.env.HUB_BASE_URL = "not an address";
   assert.equal(hubHomeUrl(), null);
+});
+
+test("the leave page closes the tab, falls back to the address, and keeps the address inside the script", () => {
+  const html = closeOrRedirectHtml('http://hub.test/"</script><b>');
+  assert.match(html, /window\.close\(\)/);
+  assert.match(html, /location\.replace\("http:\/\/hub\.test\/\\"\\u003c\/script>/);
+  assert.equal(html.includes("</script><b>"), false);
 });

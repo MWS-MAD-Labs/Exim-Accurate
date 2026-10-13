@@ -1,10 +1,20 @@
+import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { hubHomeUrl } from "@/lib/hub-home";
+import { authOptions } from "@/lib/auth";
+import { closeOrRedirectHtml, hubHomeUrl } from "@/lib/hub-home";
+import { notifyHubAppLogout } from "@/lib/mws-sso";
 
 export async function GET(request: Request) {
-  // Only this app's session ends. The Hub stays signed in and is where the person picks an app again.
+  // The Hub ends this person's sessions in the other apps. The Hub's own session stays.
+  const session = await getServerSession(authOptions);
+  if (session?.user?.email && session.user.centralPersonId) {
+    await notifyHubAppLogout(session.user.email, session.user.centralPersonId);
+  }
+
   const destination = hubHomeUrl() ?? new URL("/login", request.url).toString();
-  const response = NextResponse.redirect(destination);
+  const response = new NextResponse(closeOrRedirectHtml(destination), {
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+  });
   for (const name of ["next-auth.session-token", "__Secure-next-auth.session-token"]) {
     response.cookies.set(name, "", {
       path: "/",

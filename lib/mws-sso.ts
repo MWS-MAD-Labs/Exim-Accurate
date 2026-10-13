@@ -66,6 +66,25 @@ async function exchangeHubCode(code: string, state: string) {
   return body.data.token;
 }
 
+// Tells the Hub this person signed out here, so it ends their sessions in the other apps. The Hub's own stays.
+// Best effort: a Hub that does not answer must not keep the person from signing out.
+export async function notifyHubAppLogout(email: string, centralPersonId: string): Promise<void> {
+  try {
+    await fetch(`${hubBaseUrl()}/sso/app-logout`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-hub-internal-secret": requiredEnvironment("HUB_INTERNAL_SECRET"),
+      },
+      body: JSON.stringify({ appId: requiredEnvironment("HUB_SSO_APP_ID"), email, central_id: centralPersonId }),
+      signal: AbortSignal.timeout(3_000),
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.warn("[sso] Hub app-logout failed", error instanceof Error ? error.message : error);
+  }
+}
+
 // Central role keys look like CASHIER_LEAD. Exima keeps them lowercase.
 const CENTRAL_ROLE_KEY = /^[A-Z][A-Z0-9_]*$/;
 
