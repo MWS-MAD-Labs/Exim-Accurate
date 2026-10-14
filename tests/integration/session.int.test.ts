@@ -89,6 +89,30 @@ describe("the account behind a Hub session", () => {
     assert.equal(await prisma.userEmailHistory.count({ where: { user: { centralPersonId: person.sub } } }), 1);
   });
 
+  it("brings the email up to date when the token carries a new one, without a change of access", async () => {
+    world.entitlement = entitlement({ organization_id: TEST_ORG });
+    await resolveSessionUser({ ...person, source: "employee" });
+    // The last check is old enough to look again.
+    await prisma.user.update({ where: { email: person.email }, data: { entitlementSyncedAt: new Date(Date.now() - 30 * 60_000) } });
+
+    world.employee = { ...employee, email: emailOf("rina-baru") };
+    const moved = await resolveSessionUser({ sub: person.sub, email: emailOf("rina-baru"), source: "employee" });
+    assert.equal(moved?.email, emailOf("rina-baru"));
+    assert.equal(moved?.entitlementVersion, 1);
+    assert.equal(await prisma.userEmailHistory.count({ where: { user: { centralPersonId: person.sub } } }), 1);
+    assert.equal(await prisma.user.count({ where: { centralPersonId: person.sub } }), 1);
+  });
+
+  it("does not ask Central again for a new email within ten minutes of the last check", async () => {
+    world.entitlement = entitlement({ organization_id: TEST_ORG });
+    await resolveSessionUser({ ...person, source: "employee" });
+    const lookups = () => world.calls.filter((call) => call.endsWith("/employees/lookup")).length;
+    const before = lookups();
+    // Just checked, so a different email in the token waits.
+    await resolveSessionUser({ sub: person.sub, email: emailOf("rina-baru"), source: "employee" });
+    assert.equal(lookups(), before);
+  });
+
   it("cuts the permissions to nothing for a role that carries none Exima knows, and never makes the account", async () => {
     world.entitlement = entitlement({ organization_id: TEST_ORG, permissions: [] });
     assert.equal(await resolveSessionUser({ ...person, source: "employee" }), null);

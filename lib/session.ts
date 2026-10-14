@@ -42,6 +42,16 @@ const userSelect = {
   centralStatus: true,
 } as const;
 
+// The Hub token carries the email Central has now. When it differs from the account's, the account is brought up to
+// date, but at most once in this long: an email that belongs to another account is not taken, so without the wait every
+// request would ask Central again.
+const EMAIL_RECHECK_MS = 10 * 60 * 1000;
+
+export function emailIsStale(stored: string | undefined, current: string, syncedAt: Date | null, now: number = Date.now()): boolean {
+  if (!stored || stored.trim().toLowerCase() === current.trim().toLowerCase()) return false;
+  return !syncedAt || now - syncedAt.getTime() > EMAIL_RECHECK_MS;
+}
+
 // The local account of the person behind a verified Hub token, or null when Central gave them no access to Exima.
 export async function resolveSessionUser(claims: Pick<HubSessionClaims, "sub" | "email" | "source">): Promise<SessionUser | null> {
   if (claims.source !== "employee") return null;
@@ -56,17 +66,22 @@ export async function resolveSessionUser(claims: Pick<HubSessionClaims, "sub" | 
   }
   if (access.status !== "granted" || !access.entitlement) return null;
 
-  const existing = await prisma.user.findUnique({ where: { centralPersonId: claims.sub }, select: userSelect });
-
+  const found = await prisma.user.findUnique({
+    where: { centralPersonId: claims.sub },
+    select: { ...userSelect, entitlementSyncedAt: true },
+  });
   const entitlement = parseEntitlement(access.entitlement);
-  const current =
-    existing &&
-    existing.centralStatus === "active" &&
-    existing.role === entitlement.role &&
-    existing.entitlementVersion === entitlement.version &&
-    existing.permissions.length === entitlement.permissions.length &&
-    existing.permissions.every((permission) => entitlement.permissions.includes(permission as never));
-  if (current) return existing;
+  if (found) {
+    const { entitlementSyncedAt, ...existing } = found;
+    const current =
+      existing.centralStatus === "active" &&
+      !emailIsStale(existing.email, claims.email, entitlementSyncedAt) &&
+      existing.role === entitlement.role &&
+      existing.entitlementVersion === entitlement.version &&
+      existing.permissions.length === entitlement.permissions.length &&
+      existing.permissions.every((permission) => entitlement.permissions.includes(permission as never));
+    if (current) return existing;
+  }
 
   await projectEmployee({ id: claims.sub, email: claims.email }, entitlement);
   return prisma.user.findUnique({ where: { centralPersonId: claims.sub }, select: userSelect });
