@@ -121,6 +121,12 @@ export const theme = createTheme({
 
   // Component-specific overrides
   components: {
+    // A square box with only a hint of a corner. The default radius would make it almost round.
+    Checkbox: {
+      defaultProps: {
+        radius: "xs",
+      },
+    },
     Button: {
       defaultProps: {
         radius: "md",
