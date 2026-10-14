@@ -77,7 +77,9 @@ function UserMenu() {
   const router = useRouter();
 
   const handleSignOut = () => {
-    router.push("/auth/logout");
+    // Leaves Exima for the Hub, so a full page load and not a client route change.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = "/auth/logout";
   };
 
   const email = session?.user?.email;
