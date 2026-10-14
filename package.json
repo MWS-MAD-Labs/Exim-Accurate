@@ -25,7 +25,8 @@
     "staff:audit": "tsx --env-file=.env scripts/staff-audit.ts",
     "users:sync": "tsx --env-file=.env scripts/sync-users.ts",
     "permissions:sync": "tsx --env-file=.env scripts/sync-permissions.ts sync",
-    "permissions:check": "tsx --env-file=.env scripts/sync-permissions.ts check"
+    "permissions:check": "tsx --env-file=.env scripts/sync-permissions.ts check",
+    "test:integration": "tsx --test --test-concurrency=1 tests/integration/*.int.test.ts"
   },
   "dependencies": {
     "@mantine/core": "^7.15.2",
