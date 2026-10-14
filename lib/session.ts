@@ -49,11 +49,14 @@ export async function resolveSessionUser(claims: Pick<HubSessionClaims, "sub" | 
   const access = await resolveAccess({ email: claims.email, personId: claims.sub });
   if (access.status === "central_unavailable") throw new CentralUnavailableError("Central could not be asked");
 
-  const existing = await prisma.user.findUnique({ where: { centralPersonId: claims.sub }, select: userSelect });
-
   // Accounts that always get in (a wrong Central setup must not lock everybody out) keep what they have.
-  if (access.status === "bypass") return existing && existing.centralStatus !== "no_access" ? existing : null;
+  if (access.status === "bypass") {
+    const kept = await prisma.user.findUnique({ where: { centralPersonId: claims.sub }, select: userSelect });
+    return kept && kept.centralStatus !== "no_access" ? kept : null;
+  }
   if (access.status !== "granted" || !access.entitlement) return null;
+
+  const existing = await prisma.user.findUnique({ where: { centralPersonId: claims.sub }, select: userSelect });
 
   const entitlement = parseEntitlement(access.entitlement);
   const current =
