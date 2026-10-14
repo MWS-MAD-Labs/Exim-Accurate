@@ -2,17 +2,24 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [staging, main]
+  pull_request:
+    branches: [staging, main]
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  test:
-    name: Run Tests & Lint
+  checks:
+    name: Unit Tests, Lint, Type Check And Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -34,16 +41,74 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      - name: Run Linting & Type Check
+      - name: Run Tests, Lint And Type Check
         run: npm test
+
+      # A type check that passes does not mean the app builds. The values are placeholders, nothing is contacted.
+      - name: Build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/exima_build?schema=public
+          HUB_BASE_URL: https://hub.example.test
+          HUB_SSO_APP_ID: exima
+          CENTRAL_API_BASE_URL: https://central.example.test/api/internal
+          CENTRAL_API_TOKEN: build.placeholder
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
+
+  integration:
+    name: Integration Tests (Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpassword123
+          POSTGRES_DB: exima_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:testpassword123@127.0.0.1:5432/exima_test?schema=public
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      # Every migration has to apply on an empty database, the way a new deployment gets it.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Run integration tests
+        run: npm run test:integration
 
   # The permission list of this version has to reach Central before the new container replaces the old
   # one. If it cannot (Central down, not deployed with the endpoints yet, or it refuses the list) this
   # job fails, the redeploy below does not run, and the version that is running stays as it is.
+  # staging sends to the staging Central, main to the production one, from the Environment of that name.
   sync-permissions:
     name: Send Permission List To Central
-    needs: test
+    needs: [checks, integration]
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -61,20 +126,19 @@ jobs:
         env:
           CENTRAL_API_BASE_URL: ${{ secrets.CENTRAL_API_BASE_URL }}
           CENTRAL_API_TOKEN: ${{ secrets.CENTRAL_API_TOKEN }}
-          # The older secret names still work until they are moved.
-          CENTRAL_DATA_API_BASE_URL: ${{ secrets.CENTRAL_DATA_API_BASE_URL }}
-          CENTRAL_DATA_API_TOKEN: ${{ secrets.CENTRAL_DATA_API_TOKEN }}
         run: |
-          if { [ -z "$CENTRAL_API_BASE_URL" ] || [ -z "$CENTRAL_API_TOKEN" ]; } && { [ -z "$CENTRAL_DATA_API_BASE_URL" ] || [ -z "$CENTRAL_DATA_API_TOKEN" ]; }; then
-            echo "::error::CENTRAL_API_BASE_URL and CENTRAL_API_TOKEN secrets are not set."
+          if [ -z "$CENTRAL_API_BASE_URL" ] || [ -z "$CENTRAL_API_TOKEN" ]; then
+            echo "::error::CENTRAL_API_BASE_URL and CENTRAL_API_TOKEN are not set in the GitHub Environment."
             exit 1
           fi
           npx tsx scripts/sync-permissions.ts sync --retries 5 --wait 20
 
   build-and-push:
     name: Build & Push Docker Image
-    needs: test
+    needs: [checks, integration]
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -95,13 +159,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # main gives latest, which the production stack pulls. staging gives staging, which the staging stack pulls.
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=staging,enable=${{ github.ref == 'refs/heads/staging' }}
             type=sha,prefix=
 
       - name: Build and push Docker image
@@ -115,24 +181,27 @@ jobs:
   redeploy:
     name: Trigger Komodo Redeploy
     needs: [build-and-push, sync-permissions]
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 5
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
     steps:
       - name: Call Komodo Webhook
         env:
           WEBHOOK_URL: ${{ secrets.KOMODO_WEBHOOK_URL }}
           WEBHOOK_SECRET: ${{ secrets.KOMODO_WEBHOOK_SECRET }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
-            echo "Error: KOMODO_WEBHOOK_URL secret not found. Manual redeploy required."
+            echo "Error: KOMODO_WEBHOOK_URL is not set in the GitHub Environment. Manual redeploy required."
             exit 1
           fi
 
           # Use a minimal payload that mimics a GitHub push event
-          PAYLOAD='{"event":"push","ref":"refs/heads/main","repository":{"full_name":"${{ github.repository }}"}}'
-          
+          PAYLOAD='{"event":"push","ref":"refs/heads/'"$BRANCH"'","repository":{"full_name":"${{ github.repository }}"}}'
+
           if [ -n "$WEBHOOK_SECRET" ]; then
-            echo "Triggering signed Komodo redeploy..."
+            echo "Triggering signed Komodo redeploy ($BRANCH)..."
             # HMAC SHA256 signature
             SIGNATURE=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | sed 's/^.* //')
             curl --fail-with-body --show-error -X POST \
@@ -142,7 +211,7 @@ jobs:
               -d "$PAYLOAD" \
               "$WEBHOOK_URL"
           else
-            echo "Triggering unsigned Komodo redeploy..."
+            echo "Triggering unsigned Komodo redeploy ($BRANCH)..."
             curl --fail-with-body --show-error -X POST \
               -H "Content-Type: application/json" \
               -H "X-GitHub-Event: push" \

@@ -80,6 +80,25 @@ Use `compose.prebuilt.yaml` when deploying the prebuilt GHCR image. The app serv
 docker compose -f compose.prebuilt.yaml up -d
 ```
 
+## Staging and production
+
+The pipeline (`.github/workflows/ci-cd.yml`) checks every pull request and every push to `staging` and `main`: unit tests, lint, type check, `next build`, and the integration tests against Postgres. A push to `staging` or `main` that passes then sends the permission list to Central, builds the image and calls the Komodo webhook.
+
+| Branch | Image tag | GitHub Environment | Komodo stack |
+| --- | --- | --- | --- |
+| `main` | `latest` | `production` | production |
+| `staging` | `staging` | `staging` | staging |
+
+Each GitHub Environment holds its own `CENTRAL_API_BASE_URL`, `CENTRAL_API_TOKEN`, `KOMODO_WEBHOOK_URL` and `KOMODO_WEBHOOK_SECRET`. The staging stack sets `EXIMA_IMAGE_TAG=staging` so `compose.prebuilt.yaml` pulls the staging image; the production stack leaves it unset and gets `latest`.
+
+Run the integration tests locally against a throwaway database, never the development one:
+
+```sh
+docker run -d --name exima-testdb -e POSTGRES_PASSWORD=t -e POSTGRES_DB=exima_test -p 5498:5432 postgres:16-alpine
+DATABASE_URL="postgresql://postgres:t@localhost:5498/exima_test?schema=public" npx prisma migrate deploy
+DATABASE_URL="postgresql://postgres:t@localhost:5498/exima_test?schema=public" npm run test:integration
+```
+
 The container entrypoint automatically runs `prisma migrate deploy` before starting Next.js. Do not use `prisma db push` in production.
 
 Komodo procedures should run `Sync Stack` followed by `Deploy Stack`. Configure the `exima` stack to use only `compose.prebuilt.yaml`; legacy paths such as `compose.yaml` or `docker-compose.komodo.yml` are not present. The explicit pull policy is required because a normal Compose deploy can otherwise reuse a locally cached `latest` image.

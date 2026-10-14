@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/mws-mad-labs/exim-accurate:latest
+    image: ghcr.io/mws-mad-labs/exim-accurate:${EXIMA_IMAGE_TAG:-latest}
     pull_policy: always
     restart: unless-stopped
     env_file:
