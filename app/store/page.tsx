@@ -38,7 +38,7 @@ import {
   IconCheck,
   IconClock,
   IconCash,
-  IconLogout,
+  IconArrowBackUp,
   IconMinus,
   IconPlus,
   IconQrcode,
@@ -393,8 +393,11 @@ export default function StorePage() {
               >
                 Cart ({cartCount})
               </Button>
-              <ActionIcon variant="subtle" size="lg" aria-label="Sign out" onClick={() => router.push("/auth/logout")}>
-                <IconLogout size={19} />
+              <ActionIcon variant="subtle" size="lg" aria-label="Back to Hub" onClick={() => {
+                  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                  window.location.href = "/auth/hub";
+                }}>
+                <IconArrowBackUp size={19} />
               </ActionIcon>
             </Group>
           </Group>

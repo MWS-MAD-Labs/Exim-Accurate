@@ -26,7 +26,7 @@ import {
   IconFileImport,
   IconKey,
   IconUser,
-  IconLogout,
+  IconArrowBackUp,
   IconAdjustments,
   IconScan,
   IconChevronDown,
@@ -79,7 +79,7 @@ function UserMenu() {
   const handleSignOut = () => {
     // Leaves Exima for the Hub, so a full page load and not a client route change.
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = "/auth/logout";
+    window.location.href = "/auth/hub";
   };
 
   const email = session?.user?.email;
@@ -136,11 +136,11 @@ function UserMenu() {
         </Menu.Item>
         <Menu.Divider />
         <Menu.Item
-          leftSection={<IconLogout size={16} />}
+          leftSection={<IconArrowBackUp size={16} />}
           color="red"
           onClick={handleSignOut}
         >
-          {t.dashboard.userMenu.logout}
+          {t.dashboard.userMenu.backToHub}
         </Menu.Item>
       </Menu.Dropdown>
     </Menu>

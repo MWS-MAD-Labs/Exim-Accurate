@@ -2,7 +2,6 @@ export const id = {
   common: {
     home: "Beranda",
     login: "Masuk",
-    logout: "Keluar",
     settings: "Pengaturan",
     processing: "Memproses...",
     back: "Kembali",
@@ -198,7 +197,7 @@ export const id = {
       settings: "Pengaturan",
       links: "Tautan",
       openKiosk: "Buka Mode Kiosk",
-      logout: "Keluar",
+      backToHub: "Kembali ke Hub",
     },
     status: {
       connected: "Terhubung ke Accurate",

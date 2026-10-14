@@ -2,7 +2,6 @@ export const en = {
   common: {
     home: "Home",
     login: "Login",
-    logout: "Logout",
     settings: "Settings",
     processing: "Processing...",
     back: "Back",
@@ -199,7 +198,7 @@ export const en = {
       settings: "Settings",
       links: "Links",
       openKiosk: "Open Kiosk Mode",
-      logout: "Logout",
+      backToHub: "Back to Hub",
     },
     status: {
       connected: "Connected to Accurate",
