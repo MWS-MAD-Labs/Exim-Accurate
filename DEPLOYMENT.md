@@ -91,6 +91,23 @@ The pipeline (`.github/workflows/ci-cd.yml`) checks every pull request and every
 
 Each GitHub Environment holds its own `CENTRAL_API_BASE_URL`, `CENTRAL_API_TOKEN`, `KOMODO_WEBHOOK_URL` and `KOMODO_WEBHOOK_SECRET`. The staging stack sets `EXIMA_IMAGE_TAG=staging` so `compose.prebuilt.yaml` pulls the staging image; the production stack leaves it unset and gets `latest`.
 
+### First deploy to staging
+
+Do these in order. Exima only reads the Hub session, so the Hub and Central have to be ready first.
+
+1. **Central staging.** Run `bunx prisma migrate deploy`, deploy the version that has Shared Hub Session, and set Exima to Shared Hub Session in the application settings. Make sure Exima has its roles and groups, otherwise everyone gets a 403. Put your email in `PROTECTED_SUPER_ADMIN_EMAILS`.
+2. **Hub staging.** Deploy the version with the shared session (it adds the `refresh_tokens` and `sso_exchange_seen` tables) and set `HUB_COOKIE_DOMAIN` to the parent domain. Exima staging must be a subdomain of that domain, or the `hub_at` cookie never reaches it.
+3. **GitHub.** Create the `staging` branch from the branch that has this work (`main` still has next-auth). Create the `staging` and `production` Environments with `CENTRAL_API_BASE_URL`, `CENTRAL_API_TOKEN`, `KOMODO_WEBHOOK_URL` and `KOMODO_WEBHOOK_SECRET`. Move the production values that are repository secrets into `production`, or the next `main` deploy fails when it sends the permission list.
+4. **Komodo staging.** Use `compose.prebuilt.yaml` with `EXIMA_IMAGE_TAG=staging`. The app needs `DATABASE_URL`, `NEXTAUTH_URL` (the staging address, still used to build redirect addresses), `HUB_BASE_URL`, `HUB_SSO_APP_ID=exima`, `CENTRAL_API_BASE_URL`, `CENTRAL_API_TOKEN`, `CENTRAL_ORGANIZATION_ID`, `CRON_SECRET` and the Accurate values. `NEXTAUTH_SECRET`, `EXIMA_CENTRAL_ACCESS_MODE` and `HUB_INTERNAL_SECRET` are no longer read.
+5. **Push `staging`** and watch the run: checks, integration, send permissions, build and push, redeploy.
+6. **Try it by hand.** Open Exima from the Hub card. Press Back to Hub. Sign out of the Hub and check that Exima asks to sign in again. Sign in with an account that has no access and check the "no access" page. Make one POS sale and one kiosk loan.
+
+Things to know before production:
+
+- The migrations on this branch include `20260928090000_add_central_identity_and_scope_kiosk`, which deletes the rows of `KioskSyncData` (the cron fills them again) and drops its `userId` column. Back up the database first.
+- Every old session ends on the first deploy, because next-auth is gone. Everyone signs in through the Hub.
+- Routes that change data trust the Hub cookie on the parent domain and do not check `Origin`, so a page on a sibling subdomain could send a request with the cookie. Close this before production.
+
 Run the integration tests locally against a throwaway database, never the development one:
 
 ```sh
