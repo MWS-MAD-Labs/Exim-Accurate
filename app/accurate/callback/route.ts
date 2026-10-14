@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { resolveHost } from "@/lib/accurate/client";
 import { getBaseUrl } from "@/lib/url";
@@ -15,7 +14,7 @@ function redirectWithStatus(req: NextRequest, search: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user) {
     const baseUrl = getBaseUrl(req);
     return NextResponse.redirect(

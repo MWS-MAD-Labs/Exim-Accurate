@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getOrganizationIdForUser } from "@/lib/organization";
 import { credentialView } from "@/lib/credential-view";
 import { hasPermission } from "@/lib/access-control";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
 
   if (!session?.user) {
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
@@ -45,7 +44,7 @@ export async function GET() {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
 
   if (!session?.user) {
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });

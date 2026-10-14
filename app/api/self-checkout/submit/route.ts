@@ -3,8 +3,7 @@
 import { badgeRefusal } from "@/lib/badge-messages";
 import { resolveBadgeWithCentral } from "@/lib/central-provision";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import {
     MissingItemCostError,
@@ -55,7 +54,7 @@ function parseStaffInfo(email: string): { name: string; department: string } {
 }
 
 export async function POST(req: NextRequest) {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session?.user) {
         return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });

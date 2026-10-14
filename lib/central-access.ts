@@ -1,12 +1,6 @@
 import { centralConnection } from "@/lib/central-config";
 import { normalizePermissions } from "@/lib/access-control";
 
-// Whether Exima keeps checking a signed-in person against Central's Application Access.
-//   off     - not checked (default)
-//   warn    - checked and logged, nobody is turned away
-//   enforce - turned away without access, and role changes in Central reach the session
-export type AccessMode = "off" | "warn" | "enforce";
-
 export type CentralEntitlement = {
   id: string;
   organization_id: string;
@@ -18,13 +12,6 @@ export type CentralEntitlement = {
 
 export type AccessStatus = "granted" | "bypass" | "no_access" | "no_permission" | "central_unavailable";
 export type Access = { status: AccessStatus; entitlement: CentralEntitlement | null };
-
-export function eximaAccessMode(): AccessMode {
-  const raw = (process.env.EXIMA_CENTRAL_ACCESS_MODE || "off").trim().toLowerCase();
-  if (raw === "warn" || raw === "enforce") return raw;
-  if (raw !== "off") console.error(`EXIMA_CENTRAL_ACCESS_MODE "${raw}" is not off, warn or enforce. Using off.`);
-  return "off";
-}
 
 function cacheMs() {
   const seconds = Number(process.env.EXIMA_CENTRAL_ACCESS_CACHE_SECONDS);
@@ -55,6 +42,8 @@ export async function lookupEntitlement(personId: string): Promise<CentralEntitl
   const body = (await response.json().catch(() => null)) as { data?: CentralEntitlement | null; code?: string } | null;
   // Central stopped this application. Nobody has access, so sessions must end.
   if (response.status === 403 && body?.code === "application_retired") return null;
+  // Central does not know this person at all: nothing to allow.
+  if (response.status === 404) return null;
   if (!response.ok || !body || !("data" in body)) throw new Error("Central entitlement lookup failed");
   return body.data ?? null;
 }
@@ -91,27 +80,4 @@ export async function resolveAccess(
   // A role that carries nothing Exima knows cannot open anything.
   if (normalizePermissions(entitlement.permissions).length === 0) return { status: "no_permission", entitlement };
   return { status: "granted", entitlement };
-}
-
-export type SessionDecision = "keep" | "end" | "update";
-
-// What a signed-in session does once Central has answered.
-export function decideSession(
-  mode: AccessMode,
-  access: Access,
-  current: { role: string; permissions: readonly string[]; entitlementVersion: number },
-): SessionDecision {
-  if (mode === "off" || access.status === "bypass" || access.status === "central_unavailable") return "keep";
-  if (access.status === "no_access" || access.status === "no_permission") {
-    return mode === "enforce" ? "end" : "keep";
-  }
-  const entitlement = access.entitlement;
-  if (mode !== "enforce" || !entitlement) return "keep";
-  const permissions = normalizePermissions(entitlement.permissions);
-  const same =
-    current.role === entitlement.role.toLowerCase() &&
-    current.entitlementVersion === entitlement.version &&
-    current.permissions.length === permissions.length &&
-    current.permissions.every((permission) => permissions.includes(permission as never));
-  return same ? "keep" : "update";
 }

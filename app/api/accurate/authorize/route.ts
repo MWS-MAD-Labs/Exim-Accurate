@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getBaseUrl } from "@/lib/url";
 import { getOrganizationIdForUser } from "@/lib/organization";
@@ -8,7 +7,7 @@ import { checkRedirectUri } from "@/lib/accurate-oauth";
 import { hasPermission } from "@/lib/access-control";
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user) {
     const baseUrl = getBaseUrl(req);
     return NextResponse.redirect(

@@ -1,11 +1,10 @@
 import { after, NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 import { assertReservationDebtAuthorized, reservationPickupPaymentIntent, ReservationPaymentError } from "@/lib/pos-reservation-payment";
 
 import { hasPermission } from "@/lib/access-control";
-import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { PaymentAllocationError, serializePayments } from "@/lib/pos-payments";
 import { allocateSalePayment, getPosContext, lockPosSynchronization, reconcileSaleImmediateDebtSettlement, saleTotal, withSerializableRetry } from "@/lib/pos-server";
@@ -30,7 +29,7 @@ function responseFor(sale: Prisma.PosSaleGetPayload<{ include: typeof saleInclud
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "pos.checkout")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   // Confirmation only: caller-supplied payment fields never override the reservation.

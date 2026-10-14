@@ -1,3 +1,9 @@
+> **Update (shared session).** Exima no longer has its own sign-in, sign-out or session, and next-auth is gone. It reads
+> the Hub's session (a short access token in a cookie on the parent domain, see the Hub README), asks Central what the
+> person may do here, and keeps the local account to match. `HUB_INTERNAL_SECRET`, `HUB_SSO_JWKS_URL`, `NEXTAUTH_SECRET`
+> and `EXIMA_CENTRAL_ACCESS_MODE` are not used any more (Central is always asked, and an answer is kept for
+> `EXIMA_CENTRAL_ACCESS_CACHE_SECONDS`). The parts below about the sign-in handoff describe the earlier flow.
+
 # Central SSO and Entitlement Rollout
 
 Deploy the services in this order. Do not enable the Hub entitlement gate before Central grants and Exima organization mappings exist.

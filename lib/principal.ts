@@ -1,10 +1,9 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/session";
 import { hasPermission, type AppPermission } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 export async function getCurrentPrincipal() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return null;
 
   return prisma.user.findUnique({

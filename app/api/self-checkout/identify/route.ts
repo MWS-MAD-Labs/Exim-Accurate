@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
 import { getResourceCredential } from "@/lib/credential-access";
 import { badgeRefusal } from "@/lib/badge-messages";
 import { prisma } from "@/lib/prisma";
@@ -15,7 +14,7 @@ const bodySchema = z.object({
 // Turns what a badge reader typed into the staff member it belongs to. The kiosk shows the
 // name from here and sends the email from here, so who is buying is decided on the server.
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));

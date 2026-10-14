@@ -1,11 +1,10 @@
 import { hasActiveAccess, resolveStaff } from "@/lib/staff-identity";
 import crypto from "node:crypto";
 import { after, NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { Prisma } from "@prisma/client";
 
 import { hasPermission } from "@/lib/access-control";
-import { authOptions } from "@/lib/auth";
 import { calculateTotals, saleRequestSchema } from "@/lib/pos";
 import { PaymentAllocationError, serializePayments } from "@/lib/pos-payments";
 import {
@@ -64,7 +63,7 @@ function allocationErrorResponse(error: PaymentAllocationError) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "pos.checkout")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

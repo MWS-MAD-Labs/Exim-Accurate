@@ -1,15 +1,14 @@
 "use server";
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { listBorrowableItemCodes } from "@/lib/peminjaman";
 import { getResourceCredential } from "@/lib/credential-access";
 
 // GET — List borrowing sessions with filters
 export async function GET(req: NextRequest) {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -1,9 +1,8 @@
 import { hasPermission } from "@/lib/access-control";
 import { resolveStaff, staffData, staffWhere } from "@/lib/staff-identity";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
 
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { prisma } from "@/lib/prisma";
@@ -14,7 +13,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ email: string }> },
 ) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "allowance.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 

@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 import test, { beforeEach } from "node:test";
 import {
   clearAccessCacheForTest,
-  decideSession,
   lookupEntitlement,
-  eximaAccessMode,
   resolveAccess,
   type Access,
   type CentralEntitlement,
@@ -23,17 +21,8 @@ const entitlement = (over: Partial<CentralEntitlement> = {}): CentralEntitlement
 
 beforeEach(() => {
   clearAccessCacheForTest();
-  delete process.env.EXIMA_CENTRAL_ACCESS_MODE;
   delete process.env.EXIMA_CENTRAL_ACCESS_BYPASS_EMAILS;
   delete process.env.EXIMA_CENTRAL_ACCESS_CACHE_SECONDS;
-});
-
-test("mode defaults to off and ignores nonsense", () => {
-  assert.equal(eximaAccessMode(), "off");
-  process.env.EXIMA_CENTRAL_ACCESS_MODE = "ENFORCE";
-  assert.equal(eximaAccessMode(), "enforce");
-  process.env.EXIMA_CENTRAL_ACCESS_MODE = "loud";
-  assert.equal(eximaAccessMode(), "off");
 });
 
 test("resolveAccess tells the five outcomes apart", async () => {
@@ -66,23 +55,6 @@ test("only active access is cached", async () => {
 const current = { role: "staff", permissions: ["store.use", "pos.catalog.read"], entitlementVersion: 1 };
 const granted = (over: Partial<CentralEntitlement> = {}): Access => ({ status: "granted", entitlement: entitlement(over) });
 
-test("a session ends only in enforce, and only without access", () => {
-  const gone: Access = { status: "no_access", entitlement: null };
-  assert.equal(decideSession("enforce", gone, current), "end");
-  assert.equal(decideSession("warn", gone, current), "keep");
-  assert.equal(decideSession("off", gone, current), "keep");
-  assert.equal(decideSession("enforce", { status: "central_unavailable", entitlement: null }, current), "keep");
-  assert.equal(decideSession("enforce", { status: "bypass", entitlement: null }, current), "keep");
-});
-
-test("a role change reaches the session in enforce", () => {
-  assert.equal(decideSession("enforce", granted(), current), "keep");
-  assert.equal(decideSession("enforce", granted({ role: "CASHIER_LEAD" }), current), "update");
-  assert.equal(decideSession("enforce", granted({ permissions: ["store.use"] }), current), "update");
-  assert.equal(decideSession("enforce", granted({ version: 2 }), current), "update");
-  assert.equal(decideSession("warn", granted({ role: "CASHIER_LEAD" }), current), "keep");
-});
-
 test("a retired application answer from Central ends access instead of reading as Central being down", async () => {
   process.env.CENTRAL_API_BASE_URL = "http://central.test/api/internal";
   process.env.CENTRAL_API_TOKEN = "t";
@@ -93,6 +65,9 @@ test("a retired application answer from Central ends access instead of reading a
     assert.equal(await lookupEntitlement("p1"), null);
     const access = await resolveAccess(person);
     assert.equal(access.status, "no_access");
+
+    globalThis.fetch = reply(404, { errors: "Person not found" }) as typeof fetch;
+    assert.equal(await lookupEntitlement("p1"), null);
 
     globalThis.fetch = reply(401, { errors: "Unauthorized" }) as typeof fetch;
     await assert.rejects(() => lookupEntitlement("p1"));

@@ -1,9 +1,8 @@
 "use server";
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { Prisma } from "@prisma/client";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatDateOnly, listBorrowableItemCodes } from "@/lib/peminjaman";
 import { getResourceCredential } from "@/lib/credential-access";
@@ -26,7 +25,7 @@ function isMissingSchemaError(error: unknown) {
 }
 
 export async function GET(req: NextRequest) {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -1,8 +1,7 @@
 import { hasPermission } from "@/lib/access-control";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
 
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { prisma } from "@/lib/prisma";
@@ -10,7 +9,7 @@ import { calculateStaffAllowanceBreakdown, dateOnlySchema, parseDateOnly } from 
 import { buildPreviousAllowanceDebt, getStaffPaydayForPeriod, resolveStaffAllowancePeriod } from "@/lib/pos-server";
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "allowance.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 

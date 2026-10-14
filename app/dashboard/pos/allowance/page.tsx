@@ -21,7 +21,7 @@ import {
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import { IconCalendarOff, IconEdit, IconSearch, IconTrash } from "@tabler/icons-react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/session-client";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/lib/language";
 import { fetchList } from "@/lib/fetch-list";

@@ -21,13 +21,12 @@ import {
   IconShieldCheck,
 } from "@tabler/icons-react";
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
 
 const errorMessages: Record<string, string> = {
-  CredentialsSignin: "Akun Anda belum memiliki akses Exima atau proses SSO gagal.",
-  sso: "Proses masuk melalui MWS Hub gagal. Silakan coba lagi.",
+  no_access: "Akun Anda belum memiliki akses Exima. Hubungi administrator.",
+  sso: "Tidak dapat membuka Exima dari MWS Hub. Silakan coba lagi dari Hub.",
   revoked: "Sesi Anda telah berakhir. Silakan masuk kembali melalui MWS Hub.",
   UPSTREAM_UNREACHABLE: "MWS Hub atau Central sedang tidak dapat dihubungi. Coba lagi sebentar lagi.",
 };
@@ -41,7 +40,7 @@ function LoginContent() {
 
   const handleSignIn = () => {
     setLoading(true);
-    router.push("/auth/hub");
+    router.push("/login/hub");
   };
 
   return (
@@ -101,8 +100,8 @@ function LoginContent() {
                 <Group wrap="nowrap" align="flex-start">
                   <ThemeIcon variant="light" color="teal" radius="xl"><IconLock size={18} /></ThemeIcon>
                   <Box>
-                    <Text fw={600} size="sm">Token tidak masuk ke browser</Text>
-                    <Text size="xs" c="dimmed">Exima menukar kode sekali pakai dengan Hub melalui koneksi server-to-server.</Text>
+                    <Text fw={600} size="sm">Keluar hanya di Hub</Text>
+                    <Text size="xs" c="dimmed">Exima memakai sesi Hub. Keluar dari Hub berarti keluar dari semua aplikasi.</Text>
                   </Box>
                 </Group>
               </Stack>

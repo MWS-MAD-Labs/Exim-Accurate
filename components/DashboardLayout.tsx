@@ -18,7 +18,7 @@ import {
   rem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/session-client";
 import { usePathname, useRouter } from "next/navigation";
 import {
   IconDashboard,

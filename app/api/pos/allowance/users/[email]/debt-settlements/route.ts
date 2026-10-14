@@ -1,8 +1,7 @@
 import { resolveStaff, staffData, staffWhere } from "@/lib/staff-identity";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { z } from "zod";
-import { authOptions } from "@/lib/auth";
 import { getOperationalPosCredential } from "@/lib/credential-access";
 import { dateOnlySchema, parseDateOnly } from "@/lib/pos";
 import { prisma } from "@/lib/prisma";
@@ -23,7 +22,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ email: string }> },
 ) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "pos.checkout")) return NextResponse.json({ error: "POS operator access required" }, { status: 403 });
 

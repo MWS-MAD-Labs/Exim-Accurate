@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
 import { getRoleHome, hasPermission } from "@/lib/access-control";
 
 export default async function StoreLayout({
@@ -8,7 +7,7 @@ export default async function StoreLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
 
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/store");

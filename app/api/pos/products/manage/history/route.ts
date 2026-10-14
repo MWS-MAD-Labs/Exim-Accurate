@@ -1,9 +1,8 @@
 import { hasPermission } from "@/lib/access-control";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { z } from "zod";
 
-import { authOptions } from "@/lib/auth";
 import { getOrganizationIdForUser } from "@/lib/organization";
 import { prisma } from "@/lib/prisma";
 
@@ -14,7 +13,7 @@ const querySchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 

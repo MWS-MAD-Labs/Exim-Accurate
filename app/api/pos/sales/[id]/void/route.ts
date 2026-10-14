@@ -1,11 +1,10 @@
 import { hasPermission } from "@/lib/access-control";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { reversePosSale } from "@/lib/accurate/pos";
-import { authOptions } from "@/lib/auth";
 import { getOrganizationIdForUser } from "@/lib/organization";
 import { getPosContext, withSerializableRetry } from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
@@ -19,7 +18,7 @@ const reconcileVoidSchema = z.object({
 });
 
 async function getAuthorizedAdmin() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id || !hasPermission(session.user.permissions, "pos.sales.void")) return null;
   const organizationId = await getOrganizationIdForUser(session.user.id);
   return organizationId ? { userId: session.user.id, organizationId } : null;

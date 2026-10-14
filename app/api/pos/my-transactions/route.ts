@@ -1,10 +1,9 @@
 import { Prisma } from "@prisma/client";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { hasPermission } from "@/lib/access-control";
-import { authOptions } from "@/lib/auth";
 import { getOrganizationIdForUser } from "@/lib/organization";
 import { prisma } from "@/lib/prisma";
 
@@ -34,7 +33,7 @@ const transactionSelect = {
 } satisfies Prisma.PosSaleSelect;
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   const email = session?.user?.email?.trim().toLowerCase();
   if (!session?.user?.id || !email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -49,7 +49,7 @@ import {
   IconHistory,
   IconRefresh,
 } from "@tabler/icons-react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/lib/session-client";
 import { useRouter } from "next/navigation";
 import { createIdempotencyKey } from "@/lib/browser-id";
 import { createReservationQrPayload } from "@/lib/reservation-qr";

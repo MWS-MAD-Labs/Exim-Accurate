@@ -1,7 +1,5 @@
-import { createHubSso, HubExchangeError, InMemoryReplayStore, verifyRelayToken } from "mws-central-auth/server";
 import { normalizePermissions } from "@/lib/access-control";
 import { centralConnection } from "@/lib/central-config";
-import { eximaAccessMode, isBypassEmail } from "@/lib/central-access";
 import { organizationProblem, resolveCentralOrganization } from "@/lib/central-organization";
 import { linkableEntitlementId } from "@/lib/central-user-sync";
 import { errorForNetwork, errorForResponse } from "@/lib/central-errors";
@@ -16,64 +14,28 @@ interface CentralEmployeeProfile {
   status: string;
 }
 
-interface RelayEntitlement {
+// What Central says a person may do in Exima, checked and in the form Exima keeps it.
+export interface Entitlement {
   id: string;
-  application_id: string;
   organization_id: string;
   role: string;
   permissions: string[];
   version: number;
 }
 
-const replayStore = new InMemoryReplayStore();
-
-function requiredEnvironment(name: string) {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`${name} is not configured`);
-  return value;
-}
-
-// Everything about the Hub sign-in and sign-out flow comes from the shared package.
-export function hubSso() {
-  return createHubSso({
-    hubBaseUrl: requiredEnvironment("HUB_BASE_URL"),
-    appId: requiredEnvironment("HUB_SSO_APP_ID"),
-    internalSecret: requiredEnvironment("HUB_INTERNAL_SECRET"),
-    stateCookieName: "exima.sso-state",
-  });
-}
-
-async function exchangeHubCode(code: string, state: string) {
-  try {
-    return await hubSso().exchange(code, state);
-  } catch (error) {
-    if (error instanceof HubExchangeError) {
-      if (error.status === null) throw errorForNetwork(error);
-      if (error.status >= 500) throw errorForResponse(error.status);
-    }
-    throw new Error("Hub code exchange failed");
-  }
-}
-
 // Central role keys look like CASHIER_LEAD. Exima keeps them lowercase.
 const CENTRAL_ROLE_KEY = /^[A-Z][A-Z0-9_]*$/;
 
-export function decodeRelayEntitlement(token: string): RelayEntitlement {
-  const encodedPayload = token.split(".")[1];
-  if (!encodedPayload) throw new Error("Hub relay payload is missing");
-
-  const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as {
-    entitlement?: unknown;
-  };
-  const entitlement = payload.entitlement;
+export function parseEntitlement(entitlement: unknown): Entitlement {
   if (!entitlement || typeof entitlement !== "object" || Array.isArray(entitlement)) {
     throw new Error("Exima entitlement is missing");
   }
 
   const value = entitlement as Record<string, unknown>;
+  const appId = process.env.HUB_SSO_APP_ID?.trim() || "exima";
   if (
     typeof value.id !== "string" || !value.id ||
-    value.application_id !== requiredEnvironment("HUB_SSO_APP_ID") ||
+    (value.application_id !== undefined && value.application_id !== appId) ||
     typeof value.organization_id !== "string" || !value.organization_id ||
     typeof value.role !== "string" || !CENTRAL_ROLE_KEY.test(value.role) ||
     !Array.isArray(value.permissions) || !value.permissions.every((permission) => typeof permission === "string") ||
@@ -89,7 +51,6 @@ export function decodeRelayEntitlement(token: string): RelayEntitlement {
 
   return {
     id: value.id,
-    application_id: value.application_id as string,
     organization_id: value.organization_id,
     role: value.role.toLowerCase(),
     permissions,
@@ -97,7 +58,7 @@ export function decodeRelayEntitlement(token: string): RelayEntitlement {
   };
 }
 
-async function lookupCentralEmployee(personId: string) {
+export async function lookupCentralEmployee(personId: string) {
   const connection = centralConnection();
   if (!connection) throw new Error("CENTRAL_API_BASE_URL and CENTRAL_API_TOKEN are not configured");
   const url = new URL(`${connection.base}/employees/lookup`);
@@ -121,38 +82,25 @@ async function lookupCentralEmployee(personId: string) {
   return body.data;
 }
 
-export async function authenticateHubCode(code: string, state: string) {
-  const token = await exchangeHubCode(code, state);
-  const relay = await verifyRelayToken(token, {
-    audience: requiredEnvironment("HUB_SSO_APP_ID"),
-    jwksUrl: process.env.HUB_SSO_JWKS_URL?.trim() || hubSso().jwksUrl(),
-    replayStore,
-  });
-  const entitlement = decodeRelayEntitlement(token);
 
-  if (relay.source !== "employee") throw new Error("Unsupported Central identity source");
-  const employee = await lookupCentralEmployee(relay.sub);
-  if (employee.person_id !== relay.sub || employee.status.toUpperCase() !== "ACTIVE") {
+// Makes the local account match what Central says: made on the first visit, brought up to date when the role,
+// permissions or email changed. `person` is who the Hub says it is; Central must agree.
+export async function projectEmployee(person: { id: string; email: string }, entitlement: Entitlement) {
+  const employee = await lookupCentralEmployee(person.id);
+  if (employee.person_id !== person.id || employee.status.toUpperCase() !== "ACTIVE") {
     throw new Error("Central employee is not active");
   }
 
   const normalizedEmail = employee.email.trim().toLowerCase();
-  if (!normalizedEmail || normalizedEmail !== relay.email.trim().toLowerCase()) {
-    throw new Error("Central identity does not match the Hub relay");
-  }
-
-  // The relay entitlement is fresh, so the sign-in gate only looks at what the role carries.
-  if (entitlement.permissions.length === 0 && !isBypassEmail(normalizedEmail)) {
-    const mode = eximaAccessMode();
-    if (mode === "enforce") throw new Error("The Central role carries no Exima permissions");
-    if (mode === "warn") console.warn(`[auth] Exima access would be denied: role ${entitlement.role} carries no permissions`);
+  if (!normalizedEmail || normalizedEmail !== person.email.trim().toLowerCase()) {
+    throw new Error("Central identity does not match the Hub session");
   }
 
   const project = () => prisma.$transaction(async (transaction) => {
     const organization = await resolveCentralOrganization(transaction, entitlement.organization_id);
     if (!organization) throw new Error(organizationProblem(entitlement.organization_id));
 
-    const linkedByPerson = await transaction.user.findUnique({ where: { centralPersonId: relay.sub } });
+    const linkedByPerson = await transaction.user.findUnique({ where: { centralPersonId: person.id } });
     // The person decides who this is. An access that comes from a group has one id for
     // everybody in it, so the entitlement id is only kept when it belongs to one person.
     const entitlementLink = linkableEntitlementId(entitlement.id);
@@ -165,14 +113,14 @@ export async function authenticateHubCode(code: string, state: string) {
         organizationId: organization.id,
         email: normalizedEmail,
         name: employee.full_name,
-        centralPersonId: relay.sub,
+        centralPersonId: person.id,
         centralEntitlementId: entitlementLink,
       },
     });
     if (existingUser.organizationId !== organization.id) {
       throw new Error("Exima account belongs to another organization");
     }
-    if (existingUser.centralPersonId && existingUser.centralPersonId !== relay.sub) {
+    if (existingUser.centralPersonId && existingUser.centralPersonId !== person.id) {
       throw new Error("Exima account is linked to another Central identity");
     }
 
@@ -197,10 +145,10 @@ export async function authenticateHubCode(code: string, state: string) {
     const claimed = await transaction.user.updateMany({
       where: {
         id: existingUser.id,
-        OR: [{ centralPersonId: null }, { centralPersonId: relay.sub }],
+        OR: [{ centralPersonId: null }, { centralPersonId: person.id }],
       },
       data: {
-        centralPersonId: relay.sub,
+        centralPersonId: person.id,
         centralEntitlementId: entitlementLink,
         email: emailToStore,
         name: employee.full_name,
@@ -216,10 +164,11 @@ export async function authenticateHubCode(code: string, state: string) {
     return transaction.user.findUniqueOrThrow({ where: { id: existingUser.id } });
   });
 
+
   try {
     return await project();
   } catch (error) {
-    // Two first sign-ins at once: the other one made the account, so look again.
+    // Two first visits at once: the other one made the account, so look again.
     if ((error as { code?: string } | null)?.code === "P2002") return project();
     throw error;
   }

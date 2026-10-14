@@ -1,8 +1,7 @@
 import { hasPermission } from "@/lib/access-control";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { PosProduct, Prisma } from "@prisma/client";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withSerializableRetry } from "@/lib/pos-server";
 import { getOrganizationIdForUser } from "@/lib/organization";
@@ -30,7 +29,7 @@ const patchSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const credentialId = new URL(req.url).searchParams.get("credentialId");
@@ -44,7 +43,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const parsed = upsertSchema.safeParse(await req.json().catch(() => null));
@@ -86,7 +85,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const parsed = patchSchema.safeParse(await req.json().catch(() => null));
@@ -169,7 +168,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const id = new URL(req.url).searchParams.get("id");

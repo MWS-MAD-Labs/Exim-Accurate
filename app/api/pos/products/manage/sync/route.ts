@@ -1,13 +1,12 @@
 import { hasPermission } from "@/lib/access-control";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getPosContext, hasOutstandingPosSaleForProduct, lockPosSynchronization } from "@/lib/pos-server";
 import { syncPosProduct } from "@/lib/accurate/pos";
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "pos.manage")) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const body = (await req.json().catch(() => null)) as { credentialId?: string } | null;

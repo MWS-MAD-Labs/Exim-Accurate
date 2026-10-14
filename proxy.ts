@@ -1,12 +1,12 @@
-import { hubHomeUrl } from "@/lib/hub-home";
-import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getPermissionHome,
   hasAnyPermission,
   type AppPermission,
 } from "@/lib/access-control";
-import { prisma } from "@/lib/prisma";
+import { hubSession } from "@/lib/hub-session";
+import { CentralUnavailableError, resolveSessionUser } from "@/lib/session";
+import { getBaseUrl } from "@/lib/url";
 
 export function requiredPermissions(request: NextRequest): AppPermission[] {
   const path = request.nextUrl.pathname;
@@ -36,35 +36,40 @@ export function requiredPermissions(request: NextRequest): AppPermission[] {
 }
 
 export async function proxy(request: NextRequest) {
-  // The sign-in page is the Hub. It only shows here to explain why a sign-in failed.
-  if (request.nextUrl.pathname === "/login") {
-    const hub = hubHomeUrl();
-    return hub && !request.nextUrl.searchParams.has("error") ? NextResponse.redirect(hub) : NextResponse.next();
-  }
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   const isApi = request.nextUrl.pathname.startsWith("/api/");
-  if (!token?.id) {
-    if (isApi) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const hub = hubHomeUrl();
-    if (hub) return NextResponse.redirect(hub);
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", `${request.nextUrl.pathname}${request.nextUrl.search}`);
-    return NextResponse.redirect(loginUrl);
+  const hub = hubSession();
+
+  // The login page only shows why a visit did not work. Without a reason it goes to the Hub.
+  if (request.nextUrl.pathname === "/login") {
+    return request.nextUrl.searchParams.has("error") ? NextResponse.next() : NextResponse.redirect(hub.homeUrl());
   }
 
-  const currentUser = await prisma.user.findUnique({
-    where: { id: token.id as string },
-    select: { permissions: true, sessionVersion: true },
-  });
-  if (!currentUser || currentUser.sessionVersion !== token.sessionVersion) {
+  const claims = await hub.fromCookieHeader(request.headers.get("cookie"));
+  if (!claims) {
     if (isApi) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    return NextResponse.redirect(new URL("/login?error=revoked", request.url));
+    // The Hub gives the session back when the person still has one, or shows its front page.
+    const here = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, getBaseUrl(request)).toString();
+    const step = hub.step({ claims: null, restored: request.nextUrl.searchParams.has("restored") });
+    return NextResponse.redirect(step === "restore" ? hub.restoreUrl(here) : hub.homeUrl());
+  }
+
+  let user;
+  try {
+    user = await resolveSessionUser(claims);
+  } catch (error) {
+    if (!(error instanceof CentralUnavailableError)) throw error;
+    if (isApi) return NextResponse.json({ error: "Try again shortly" }, { status: 503 });
+    return NextResponse.redirect(new URL("/login?error=UPSTREAM_UNREACHABLE", request.url));
+  }
+  if (!user) {
+    if (isApi) return NextResponse.json({ error: "No access to Exima" }, { status: 403 });
+    return NextResponse.redirect(new URL("/login?error=no_access", request.url));
   }
 
   const required = requiredPermissions(request);
-  if (required.length === 0 || !hasAnyPermission(currentUser.permissions, required)) {
+  if (required.length === 0 || !hasAnyPermission(user.permissions, required)) {
     if (isApi) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    return NextResponse.redirect(new URL(getPermissionHome(currentUser.permissions), request.url));
+    return NextResponse.redirect(new URL(getPermissionHome(user.permissions), request.url));
   }
 
   return NextResponse.next();

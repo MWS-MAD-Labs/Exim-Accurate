@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { z } from "zod";
 import { hasPermission } from "@/lib/access-control";
-import { authOptions } from "@/lib/auth";
 import { badgeRefusal } from "@/lib/badge-messages";
 import { identifyStaffForCashier } from "@/lib/cashier-identify";
 import { getOperationalPosCredential } from "@/lib/credential-access";
@@ -14,7 +13,7 @@ const bodySchema = z.object({
 
 // The cashier's reader finished: who is this?
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(session.user.permissions, "pos.checkout")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

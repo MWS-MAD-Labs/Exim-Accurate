@@ -1,12 +1,11 @@
 import { ReactNode } from "react";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import type { Metadata } from "next";
 import { Orbitron, Space_Grotesk } from "next/font/google";
-import { authOptions } from "@/lib/auth";
 import { getRoleHome, hasPermission } from "@/lib/access-control";
 import { KioskNotifications } from "../kiosk/kiosk-notifications";
 import { LocalDarkScheme } from "@/components/LocalDarkScheme";
@@ -33,7 +32,7 @@ export default async function PosCashierLayout({
 }: {
   children: ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/pos-cashier");
   }

@@ -15,12 +15,9 @@ Copy `.env.example` to `.env` and configure at least:
 ```env
 DATABASE_URL=postgresql://postgres:password@postgres:5432/exim_accurate?schema=public
 NEXTAUTH_URL=https://your-domain.example
-NEXTAUTH_SECRET=replace-with-a-strong-random-secret
 
 HUB_BASE_URL=https://app.mws.web.id
-HUB_INTERNAL_SECRET=replace-with-the-shared-hub-secret
 HUB_SSO_APP_ID=exima
-HUB_SSO_JWKS_URL=https://app.mws.web.id/.well-known/jwks.json
 CENTRAL_API_BASE_URL=https://db.mws.web.id/api/internal
 CENTRAL_API_TOKEN=token-prefix.secret
 
@@ -190,7 +187,7 @@ Also verify:
 
 - `NEXTAUTH_URL` and `ACCURATE_REDIRECT_URI` use the production HTTPS domain.
 - Hub has the Exima SSO entry/logout URLs registered and its JWKS endpoint is reachable from the app container.
-- `HUB_INTERNAL_SECRET` matches Hub, and the Central API token is active with `employees:read` plus `application_entitlements:read`.
+- The Hub sets `HUB_COOKIE_DOMAIN` to the parent domain Exima is served under, and the Central API token is active with `employees:read` plus `application_entitlements:read`.
 - Every active Exima organization has the correct `centralOrganizationId`, and every provisioned user has a Central entitlement whose role/permissions use Exima's canonical vocabulary.
 - Database backups and restore procedures are tested.
 - Credential, POS, analytics, self-checkout, and borrowing endpoints remain organization-scoped.

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getServerSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { parseCSV, parseXLSX } from "@/lib/import/parser";
 import { validateImportRows } from "@/lib/import/validator";
@@ -9,7 +8,7 @@ import { refreshSession, refreshAccessToken } from "@/lib/accurate/client";
 import { getResourceCredential } from "@/lib/credential-access";
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession();
 
   if (!session?.user) {
     return NextResponse.json({ error: "Tidak diizinkan" }, { status: 401 });

@@ -19,11 +19,10 @@ function harness(options: { user?: Record<string, unknown> | null; organizationI
   const user = options.user === undefined ? { id: "staff-user", email: "  STAFF@Example.com ", role: "staff", permissions: ["store.use"] } : options.user;
   const modules: Record<string, unknown> = {
     "@prisma/client": { Prisma },
-    "next-auth": { getServerSession: async () => user ? { user } : null },
+    "@/lib/session": { getServerSession: async () => user ? { user } : null },
     "next/server": { NextResponse },
     zod: { z },
     "@/lib/access-control": { hasPermission },
-    "@/lib/auth": { authOptions: {} },
     "@/lib/organization": { getOrganizationIdForUser: async (id: string) => {
       organizationUsers.push(id);
       return options.organizationId === undefined ? "organization-1" : options.organizationId;
