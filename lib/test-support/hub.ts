@@ -13,7 +13,7 @@ const b64 = (value: Buffer | string) => Buffer.from(value).toString("base64url")
 export type HubClaims = {
   sub: string;
   email: string;
-  source?: "employee" | "student";
+  source?: "employee" | "intern" | "student";
   iss?: string;
   aud?: string;
   exp?: number;
@@ -58,6 +58,8 @@ type World = {
   entitlement: Entitlement | null | "down";
   // The person Central returns for /employees/lookup.
   employee: { person_id: string; full_name: string; email: string; status: string } | null;
+  // The person Central returns for /interns/lookup.
+  intern?: { person_id: string; full_name: string; email: string; status: string } | null;
   calls: string[];
 };
 
@@ -77,6 +79,9 @@ export function installWorld(world: World): () => void {
     }
     if (url.pathname.endsWith("/employees/lookup")) {
       return world.employee ? Response.json({ data: world.employee }) : Response.json({ errors: "not found" }, { status: 404 });
+    }
+    if (url.pathname.endsWith("/interns/lookup")) {
+      return world.intern ? Response.json({ data: world.intern }) : Response.json({ errors: "not found" }, { status: 404 });
     }
     throw new Error(`Unexpected fetch in test: ${url.toString()}`);
   }) as typeof fetch;

@@ -54,7 +54,9 @@ export function emailIsStale(stored: string | undefined, current: string, synced
 
 // The local account of the person behind a verified Hub token, or null when Central gave them no access to Exima.
 export async function resolveSessionUser(claims: Pick<HubSessionClaims, "sub" | "email" | "source">): Promise<SessionUser | null> {
-  if (claims.source !== "employee") return null;
+  // Employees and interns can be given access. Package v0.8.0 types source without "intern", hence the string.
+  const source: string = claims.source;
+  if (source !== "employee" && source !== "intern") return null;
 
   const access = await resolveAccess({ email: claims.email, personId: claims.sub });
   if (access.status === "central_unavailable") throw new CentralUnavailableError("Central could not be asked");
