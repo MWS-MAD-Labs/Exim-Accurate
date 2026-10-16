@@ -1,4 +1,4 @@
-import { centralConnection } from "@/lib/central-config";
+import { centralAuthHeaders, centralConnection } from "@/lib/central-config";
 import { normalizePermissions } from "@/lib/access-control";
 import { lookupEntitlement } from "@/lib/central-access";
 import { resolveCentralOrganization } from "@/lib/central-organization";
@@ -27,7 +27,7 @@ async function lookupEmployee(by: { personId: string } | { email: string }): Pro
     if ("personId" in by) url.searchParams.set("person_id", by.personId);
     else url.searchParams.set("email", by.email);
     const response = await fetch(url, {
-      headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+      headers: { ...centralAuthHeaders(token), accept: "application/json" },
       signal: AbortSignal.timeout(5_000),
       cache: "no-store",
     });

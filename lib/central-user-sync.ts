@@ -1,4 +1,4 @@
-import { centralConnection } from "@/lib/central-config";
+import { centralAuthHeaders, centralConnection } from "@/lib/central-config";
 import { normalizePermissions } from "@/lib/access-control";
 import { resolveCentralOrganization } from "@/lib/central-organization";
 import { prisma } from "@/lib/prisma";
@@ -145,7 +145,7 @@ export async function fetchCentralAccess(): Promise<{ rows: CentralAccessRow[]; 
     url.searchParams.set("page", String(page));
     url.searchParams.set("size", "100");
     const response = await fetch(url, {
-      headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+      headers: { ...centralAuthHeaders(token), accept: "application/json" },
       signal: AbortSignal.timeout(15_000),
       cache: "no-store",
     });
@@ -180,7 +180,7 @@ export async function lookupCentralPerson(personId: string): Promise<"exists" | 
     const url = new URL(`${base}/employees/lookup`);
     url.searchParams.set("person_id", personId);
     const response = await fetch(url, {
-      headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+      headers: { ...centralAuthHeaders(token), accept: "application/json" },
       signal: AbortSignal.timeout(5_000),
       cache: "no-store",
     });

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test, { afterEach } from "node:test";
-import { centralApiBase, centralApiToken, centralConnection } from "./central-config";
+import { centralApiBase, centralApiToken, centralAuthHeaders, centralConnection } from "./central-config";
 
-const NAMES = ["CENTRAL_API_BASE_URL", "CENTRAL_API_TOKEN", "CENTRAL_DATA_API_BASE_URL", "CENTRAL_DATA_API_TOKEN"];
+const NAMES = ["CENTRAL_ORGANIZATION_ID", "CENTRAL_API_BASE_URL", "CENTRAL_API_TOKEN", "CENTRAL_DATA_API_BASE_URL", "CENTRAL_DATA_API_TOKEN"];
 const saved = Object.fromEntries(NAMES.map((name) => [name, process.env[name]]));
 
 afterEach(() => {
@@ -44,4 +44,14 @@ test("the new names win when both are set, and nothing is returned when one is m
   delete process.env.CENTRAL_API_TOKEN;
   delete process.env.CENTRAL_DATA_API_TOKEN;
   assert.equal(centralConnection(), null);
+});
+
+test("a call to Central carries the token, and the Organization ID when the .env has one", () => {
+  clear();
+  assert.deepEqual(centralAuthHeaders("mws_a.b"), { authorization: "Bearer mws_a.b" });
+  process.env.CENTRAL_ORGANIZATION_ID = " org_exima_aaaaaaaaaaaaaaaaaaaa ";
+  assert.deepEqual(centralAuthHeaders("mws_a.b"), {
+    authorization: "Bearer mws_a.b",
+    "x-central-organization-id": "org_exima_aaaaaaaaaaaaaaaaaaaa",
+  });
 });

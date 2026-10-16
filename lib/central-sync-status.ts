@@ -1,7 +1,7 @@
 // Whether the people in Exima still match what Central has. Central gives one short key that
 // changes only when something Exima keeps about a person changes, so a page view asks for that
 // key (at most every few minutes) instead of the whole list.
-import { centralConnection } from "@/lib/central-config";
+import { centralAuthHeaders, centralConnection } from "@/lib/central-config";
 import { errorForNetwork, errorForResponse, type CentralFailure } from "@/lib/central-errors";
 
 const CHECK_MS = 5 * 60_000;
@@ -42,7 +42,7 @@ export async function fetchCentralKeyResult(applicationId: string, maxAgeMs = CH
     const url = new URL(`${base}/application-entitlements/version`);
     url.searchParams.set("application_id", applicationId);
     const response = await fetch(url, {
-      headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+      headers: { ...centralAuthHeaders(token), accept: "application/json" },
       signal: AbortSignal.timeout(5_000),
       cache: "no-store",
     });
