@@ -58,10 +58,10 @@ export function parseEntitlement(entitlement: unknown): Entitlement {
   };
 }
 
-export async function lookupCentralEmployee(personId: string) {
+async function fetchProfile(path: string, personId: string) {
   const connection = centralConnection();
   if (!connection) throw new Error("CENTRAL_API_BASE_URL and CENTRAL_API_TOKEN are not configured");
-  const url = new URL(`${connection.base}/employees/lookup`);
+  const url = new URL(`${connection.base}${path}`);
   url.searchParams.set("person_id", personId);
   let response: Response;
   try {
@@ -78,10 +78,19 @@ export async function lookupCentralEmployee(personId: string) {
   }
   const body = (await response.json().catch(() => null)) as { data?: CentralEmployeeProfile } | null;
   if (response.status >= 500) throw errorForResponse(response.status);
-  if (!response.ok || !body?.data) throw new Error("Central employee lookup failed");
-  return body.data;
+  return { response, profile: body?.data ?? null };
 }
 
+// The employee profile, or the intern's when the person is an intern. Both carry the same fields Exima reads.
+export async function lookupCentralEmployee(personId: string) {
+  const employee = await fetchProfile("/employees/lookup", personId);
+  if (employee.response.ok && employee.profile) return employee.profile;
+  if (employee.response.status === 404) {
+    const intern = await fetchProfile("/interns/lookup", personId);
+    if (intern.response.ok && intern.profile) return intern.profile;
+  }
+  throw new Error("Central employee lookup failed");
+}
 
 // Makes the local account match what Central says: made on the first visit, brought up to date when the role,
 // permissions or email changed. `person` is who the Hub says it is; Central must agree.

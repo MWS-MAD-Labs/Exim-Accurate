@@ -176,16 +176,24 @@ export async function lookupCentralPerson(personId: string): Promise<"exists" | 
   const connection = centralConnection();
   if (!connection) return "error";
   const { base, token } = connection;
-  try {
-    const url = new URL(`${base}/employees/lookup`);
+  const ask = async (path: string) => {
+    const url = new URL(`${base}${path}`);
     url.searchParams.set("person_id", personId);
     const response = await fetch(url, {
       headers: { ...centralAuthHeaders(token), accept: "application/json" },
       signal: AbortSignal.timeout(5_000),
       cache: "no-store",
     });
-    if (response.ok) return "exists";
-    return response.status === 404 ? "missing" : "error";
+    return response;
+  };
+  try {
+    const employee = await ask("/employees/lookup");
+    if (employee.ok) return "exists";
+    if (employee.status !== 404) return "error";
+    // Not an employee. An intern counts too.
+    const intern = await ask("/interns/lookup");
+    if (intern.ok) return "exists";
+    return intern.status === 404 ? "missing" : "error";
   } catch {
     return "error";
   }

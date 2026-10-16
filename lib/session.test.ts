@@ -27,6 +27,12 @@ describe("resolveSessionUser without the database", () => {
     assert.deepEqual(world.calls, []);
   });
 
+  it("asks Central about an intern like about an employee, and gives nothing when there is no access", async () => {
+    world.entitlement = null;
+    assert.equal(await resolveSessionUser({ ...person, source: "intern" as never }), null);
+    assert.ok(world.calls.some((call) => call.endsWith("/application-entitlements/lookup")));
+  });
+
   it("says so when Central cannot be asked, so the caller can tell the person to try again", async () => {
     world.entitlement = "down";
     await assert.rejects(resolveSessionUser(person), CentralUnavailableError);
