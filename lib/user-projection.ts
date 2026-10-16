@@ -1,5 +1,5 @@
 import { normalizePermissions } from "@/lib/access-control";
-import { centralConnection } from "@/lib/central-config";
+import { centralAuthHeaders, centralConnection } from "@/lib/central-config";
 import { organizationProblem, resolveCentralOrganization } from "@/lib/central-organization";
 import { linkableEntitlementId } from "@/lib/central-user-sync";
 import { errorForNetwork, errorForResponse } from "@/lib/central-errors";
@@ -67,7 +67,7 @@ export async function lookupCentralEmployee(personId: string) {
   try {
     response = await fetch(url, {
       headers: {
-        authorization: `Bearer ${connection.token}`,
+        ...centralAuthHeaders(connection.token),
         accept: "application/json",
       },
       signal: AbortSignal.timeout(10_000),

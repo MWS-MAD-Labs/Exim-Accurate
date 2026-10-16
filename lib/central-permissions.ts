@@ -2,7 +2,7 @@
 // The token has to belong to the API client made for Exima, with the
 // application_permissions:write scope.
 import { errorForNetwork, errorForResponse } from "@/lib/central-errors";
-import { centralApiBase, centralApiToken } from "@/lib/central-config";
+import { centralApiBase, centralApiToken, centralAuthHeaders } from "@/lib/central-config";
 
 export type PermissionManifestEntry = { key: string; description?: string; requires?: string[] };
 export type RegisteredPermission = {
@@ -42,7 +42,7 @@ async function call<T>(path: string, init: { method: "GET" | "PUT"; body?: unkno
     response = await fetch(`${base}/application-permissions${path}`, {
       method: init.method,
       headers: {
-        authorization: `Bearer ${token}`,
+        ...centralAuthHeaders(token),
         ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
       },
       ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),

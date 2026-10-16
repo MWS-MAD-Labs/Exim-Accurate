@@ -1,4 +1,4 @@
-import { centralConnection } from "@/lib/central-config";
+import { centralAuthHeaders, centralConnection } from "@/lib/central-config";
 import { normalizePermissions } from "@/lib/access-control";
 
 export type CentralEntitlement = {
@@ -35,7 +35,7 @@ export async function lookupEntitlement(personId: string): Promise<CentralEntitl
   url.searchParams.set("person_id", personId);
   url.searchParams.set("application_id", process.env.HUB_SSO_APP_ID?.trim() || "exima");
   const response = await fetch(url, {
-    headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+    headers: { ...centralAuthHeaders(token), accept: "application/json" },
     signal: AbortSignal.timeout(5_000),
     cache: "no-store",
   });

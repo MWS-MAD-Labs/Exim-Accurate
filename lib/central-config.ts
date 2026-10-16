@@ -16,6 +16,13 @@ export function centralApiToken(): string | null {
   return clean("CENTRAL_API_TOKEN") ?? clean("CENTRAL_DATA_API_TOKEN");
 }
 
+// The headers of a call to Central. The Organization ID from the .env goes with it, so Central can show whether it is the
+// one it made for this application.
+export function centralAuthHeaders(token: string): Record<string, string> {
+  const organization = clean("CENTRAL_ORGANIZATION_ID");
+  return { authorization: `Bearer ${token}`, ...(organization ? { "x-central-organization-id": organization } : {}) };
+}
+
 // Both, or null when either is missing.
 export function centralConnection(): { base: string; token: string } | null {
   const base = centralApiBase();
