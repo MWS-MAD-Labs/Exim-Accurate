@@ -16,7 +16,7 @@ services:
       CENTRAL_ORGANIZATION_ID: ${CENTRAL_ORGANIZATION_ID:-}
       CENTRAL_DATA_API_BASE_URL: ${CENTRAL_DATA_API_BASE_URL:-}
       CENTRAL_DATA_API_TOKEN: ${CENTRAL_DATA_API_TOKEN:-}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:password@postgres:5432/exim_accurate?schema=public}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-exim_accurate}?schema=public}
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,9 +78,9 @@ services:
     container_name: exima-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: exim_accurate
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-exim_accurate}
     ports:
       - "127.0.0.1:5434:5432"
     volumes:

@@ -8,7 +8,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5758
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:password@postgres:5432/exim_accurate?schema=public}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-exim_accurate}?schema=public}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:5758}
       HUB_BASE_URL: ${HUB_BASE_URL:-}
       HUB_SSO_APP_ID: ${HUB_SSO_APP_ID:-exima}
@@ -77,9 +77,9 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: exim_accurate
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-exim_accurate}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

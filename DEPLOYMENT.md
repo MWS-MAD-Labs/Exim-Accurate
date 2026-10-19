@@ -228,6 +228,8 @@ After a deploy:
 
 Staging next to production on one host:
 
+- Set `POSTGRES_PASSWORD` in the Environment of the stack (make one with `openssl rand -hex 24`, hex needs no encoding in a URL). The Postgres of the stack and the default `DATABASE_URL` both use it. Without it the password is `password`, which is what production runs with today, so production does not change until you set it.
+- Postgres takes the password from the env only when its volume is first made. A volume that already exists keeps the old one. For a new or empty staging stack, destroy the stack with its volume (`<stack>_postgres_data`) and deploy again. For production, which holds data, change it inside the container with `ALTER USER postgres PASSWORD '...'` and set the same `POSTGRES_PASSWORD`; do not delete the volume.
 - `EXIMA_IMAGE_TAG=staging` is required in the staging stack. Without it the stack pulls `latest`, which is the production image.
 - Leave `DATABASE_URL` out of the Komodo Environment. The stack has its own Postgres, reached as `postgres` on port 5432 with the database `exim_accurate`, and it is not published on the host, so it cannot collide with the one of production. A value copied from your machine (`localhost`, port 5433) or from another stack (`db`) is not reachable from inside this stack.
 - Set `EXIMA_HOST_PORT` to a free port, for example `5759`. Production keeps `5758`. The tunnel or gateway of each hostname points at its own port. The app and its schedulers keep using 5758 inside the stack.
