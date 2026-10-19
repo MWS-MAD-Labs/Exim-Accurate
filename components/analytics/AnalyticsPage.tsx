@@ -51,6 +51,7 @@ import {
 } from "recharts";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatsCard } from "@/components/ui/StatsCard";
+import { sendToSignIn } from "@/lib/sign-in-redirect";
 
 type AnalyticsMode = "overview" | "peminjaman" | "pengambilan";
 type StatsColor =
@@ -547,7 +548,7 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
         credentials: "include",
       });
       if (response.status === 401) {
-        window.location.href = "/login";
+        sendToSignIn();
         return;
       }
       const payload = await response.json();

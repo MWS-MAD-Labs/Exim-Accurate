@@ -47,6 +47,7 @@ import dayjs from "dayjs";
 import { Stepper, StepperCard, type Step } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useLanguage } from "@/lib/language";
+import { useRouter } from "next/navigation";
 
 interface Credential {
   id: string;
@@ -90,6 +91,7 @@ const formatOptions = [
 ];
 
 export default function ExportInventoryAdjustmentPage() {
+  const router = useRouter();
   const { t, language } = useLanguage();
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === "dark";
@@ -373,8 +375,7 @@ export default function ExportInventoryAdjustmentPage() {
                     }
                     action={{
                       label: t.dashboard.credentials.connectButton,
-                      onClick: () =>
-                        (window.location.href = "/dashboard/credentials"),
+                      onClick: () => router.push("/dashboard/credentials"),
                     }}
                   />
                 ) : (

@@ -48,6 +48,8 @@ import { StatsCard } from "@/components/ui/StatsCard";
 import { ActivityCard, ActivityItem } from "@/components/ui/ActivityTimeline";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useLanguage } from "@/lib/language";
+import { sendToSignIn } from "@/lib/sign-in-redirect";
+import { useRouter } from "next/navigation";
 
 interface KioskStats {
   totalCheckouts: number;
@@ -141,6 +143,7 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { t } = useLanguage();
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === "dark";
@@ -178,7 +181,7 @@ export default function DashboardPage() {
         });
 
         if (response.status === 401) {
-          window.location.href = "/login";
+          sendToSignIn();
           return;
         }
 
@@ -914,9 +917,7 @@ export default function DashboardPage() {
               description={t.dashboard.activity.noActivityDesc}
               action={{
                 label: t.dashboard.activity.startExport,
-                onClick: () =>
-                (window.location.href =
-                  "/dashboard/export/inventory-adjustment"),
+                onClick: () => router.push("/dashboard/export/inventory-adjustment"),
               }}
             />
           </Paper>

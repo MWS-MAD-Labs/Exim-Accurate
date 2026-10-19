@@ -161,7 +161,11 @@ export default function CredentialsPage() {
             description={t.dashboard.emptyState.noCredentials.description}
             action={{
               label: t.dashboard.credentials.connectButton,
-              onClick: () => (window.location.href = "/api/accurate/authorize"),
+              onClick: () => {
+                // A full page load: this route answers with a redirect to Accurate, not with a page.
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                window.location.href = "/api/accurate/authorize";
+              },
             }}
           />
         ) : (

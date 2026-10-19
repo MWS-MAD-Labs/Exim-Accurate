@@ -45,6 +45,7 @@ import { Stepper, StepperCard, type Step } from "@/components/ui";
 import { useLanguage } from "@/lib/language";
 import { FileDropzone } from "@/components/ui/FileDropzone";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { useRouter } from "next/navigation";
 
 interface Credential {
   id: string;
@@ -66,6 +67,7 @@ interface ValidatedRow {
 }
 
 export default function ImportInventoryAdjustmentPage() {
+  const router = useRouter();
   const { t, language } = useLanguage();
   const { colorScheme } = useMantineColorScheme();
 
@@ -423,8 +425,7 @@ export default function ImportInventoryAdjustmentPage() {
                     }
                     action={{
                       label: t.dashboard.credentials.connectButton,
-                      onClick: () =>
-                        (window.location.href = "/dashboard/credentials"),
+                      onClick: () => router.push("/dashboard/credentials"),
                     }}
                   />
                 ) : (

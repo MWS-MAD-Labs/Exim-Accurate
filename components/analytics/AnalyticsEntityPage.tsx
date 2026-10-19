@@ -21,6 +21,7 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { IconArrowLeft, IconRefresh } from "@tabler/icons-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { sendToSignIn } from "@/lib/sign-in-redirect";
 
 type EntityType = "item" | "user";
 
@@ -171,7 +172,7 @@ export function AnalyticsEntityPage({
       ]);
 
       if (peminjamanRes.status === 401 || pengambilanRes.status === 401) {
-        window.location.href = "/login";
+        sendToSignIn();
         return;
       }
 
