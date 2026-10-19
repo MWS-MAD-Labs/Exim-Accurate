@@ -90,7 +90,7 @@ The pipeline (`.github/workflows/ci-cd.yml`) checks every pull request and every
 | `main` | `latest` | `production` | production |
 | `staging` | `staging` | `staging` | staging |
 
-Each GitHub Environment holds its own `CENTRAL_API_BASE_URL`, `CENTRAL_API_TOKEN`, `KOMODO_WEBHOOK_URL` and `KOMODO_WEBHOOK_SECRET`. The address and `CENTRAL_ORGANIZATION_ID` can be Environment variables, as the Central guide has them, or secrets. The token and the webhook values are secrets. The permission job checks that the address starts with `https://` and ends with `/api/internal` before it calls Central. The staging stack sets `EXIMA_IMAGE_TAG=staging` so `compose.prebuilt.yaml` pulls the staging image; the production stack leaves it unset and gets `latest`.
+Each GitHub Environment holds its own `CENTRAL_API_BASE_URL`, `CENTRAL_API_TOKEN`, `KOMODO_WEBHOOK_URL` and `KOMODO_WEBHOOK_SECRET`. Without Environments the same values go in the repository secrets or variables with `STAGING_` or `PRODUCTION_` in front (`STAGING_CENTRAL_API_BASE_URL`, `STAGING_CENTRAL_API_TOKEN`, `STAGING_CENTRAL_ORGANIZATION_ID`), and the job reads those first for its branch. The Komodo webhook of staging is `KOMODO_WEBHOOK_URL_STAGING` and `KOMODO_WEBHOOK_SECRET_STAGING`. The address and the Organization ID can be variables or secrets, the token and the webhook values are secrets. The permission job checks that the address starts with `https://` and ends with `/api/internal` before it calls Central. The staging stack sets `EXIMA_IMAGE_TAG=staging` so `compose.prebuilt.yaml` pulls the staging image; the production stack leaves it unset and gets `latest`.
 
 ### First deploy to staging
 

@@ -125,25 +125,45 @@ jobs:
 
       - name: Send permissions
         env:
-          CENTRAL_API_BASE_URL: ${{ vars.CENTRAL_API_BASE_URL || secrets.CENTRAL_API_BASE_URL }}
-          CENTRAL_API_TOKEN: ${{ secrets.CENTRAL_API_TOKEN }}
-          CENTRAL_ORGANIZATION_ID: ${{ vars.CENTRAL_ORGANIZATION_ID || secrets.CENTRAL_ORGANIZATION_ID }}
-          ENVIRONMENT_NAME: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+          # Two ways to keep the values apart, and both are read. A GitHub Environment named staging or production
+          # holds the plain names. Without Environments the repository holds the same names with STAGING_ or
+          # PRODUCTION_ in front. The prefixed one of the branch wins, and a branch never reads the other prefix.
+          STAGING_CENTRAL_API_BASE_URL: ${{ secrets.STAGING_CENTRAL_API_BASE_URL || vars.STAGING_CENTRAL_API_BASE_URL }}
+          STAGING_CENTRAL_API_TOKEN: ${{ secrets.STAGING_CENTRAL_API_TOKEN }}
+          STAGING_CENTRAL_ORGANIZATION_ID: ${{ secrets.STAGING_CENTRAL_ORGANIZATION_ID || vars.STAGING_CENTRAL_ORGANIZATION_ID }}
+          PRODUCTION_CENTRAL_API_BASE_URL: ${{ secrets.PRODUCTION_CENTRAL_API_BASE_URL || vars.PRODUCTION_CENTRAL_API_BASE_URL }}
+          PRODUCTION_CENTRAL_API_TOKEN: ${{ secrets.PRODUCTION_CENTRAL_API_TOKEN }}
+          PRODUCTION_CENTRAL_ORGANIZATION_ID: ${{ secrets.PRODUCTION_CENTRAL_ORGANIZATION_ID || vars.PRODUCTION_CENTRAL_ORGANIZATION_ID }}
+          PLAIN_CENTRAL_API_BASE_URL: ${{ vars.CENTRAL_API_BASE_URL || secrets.CENTRAL_API_BASE_URL }}
+          PLAIN_CENTRAL_API_TOKEN: ${{ secrets.CENTRAL_API_TOKEN }}
+          PLAIN_CENTRAL_ORGANIZATION_ID: ${{ vars.CENTRAL_ORGANIZATION_ID || secrets.CENTRAL_ORGANIZATION_ID }}
         run: |
-          # Names the one that is empty, so the Environment does not have to be searched for it.
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            PREFIX=PRODUCTION
+            CENTRAL_API_BASE_URL="${PRODUCTION_CENTRAL_API_BASE_URL:-$PLAIN_CENTRAL_API_BASE_URL}"
+            CENTRAL_API_TOKEN="${PRODUCTION_CENTRAL_API_TOKEN:-$PLAIN_CENTRAL_API_TOKEN}"
+            CENTRAL_ORGANIZATION_ID="${PRODUCTION_CENTRAL_ORGANIZATION_ID:-$PLAIN_CENTRAL_ORGANIZATION_ID}"
+          else
+            PREFIX=STAGING
+            CENTRAL_API_BASE_URL="${STAGING_CENTRAL_API_BASE_URL:-$PLAIN_CENTRAL_API_BASE_URL}"
+            CENTRAL_API_TOKEN="${STAGING_CENTRAL_API_TOKEN:-$PLAIN_CENTRAL_API_TOKEN}"
+            CENTRAL_ORGANIZATION_ID="${STAGING_CENTRAL_ORGANIZATION_ID:-$PLAIN_CENTRAL_ORGANIZATION_ID}"
+          fi
+          export CENTRAL_API_BASE_URL CENTRAL_API_TOKEN CENTRAL_ORGANIZATION_ID
+          # Names the one that is empty, so nothing has to be searched for it.
           if [ -z "$CENTRAL_API_BASE_URL" ]; then
-            echo "::error::CENTRAL_API_BASE_URL is not set in the GitHub Environment $ENVIRONMENT_NAME. Add it as a variable or a secret there."
+            echo "::error::The Central address is not set. Add ${PREFIX}_CENTRAL_API_BASE_URL as a repository secret or variable, or CENTRAL_API_BASE_URL in the GitHub Environment."
             exit 1
           fi
           if [ -z "$CENTRAL_API_TOKEN" ]; then
-            echo "::error::CENTRAL_API_TOKEN is not set in the GitHub Environment $ENVIRONMENT_NAME. Add it as a secret there."
+            echo "::error::The Central token is not set. Add ${PREFIX}_CENTRAL_API_TOKEN as a repository secret, or CENTRAL_API_TOKEN in the GitHub Environment."
             exit 1
           fi
           # The address is hidden in the log, so say what is wrong with its shape instead of showing it.
           case "${CENTRAL_API_BASE_URL%/}" in
             https://*/api/internal) ;;
             *)
-              echo "::error::CENTRAL_API_BASE_URL must start with https:// and end with /api/internal, for example https://db-stg.example.org/api/internal."
+              echo "::error::The Central address must start with https:// and end with /api/internal, for example https://db-stg.example.org/api/internal."
               exit 1
               ;;
           esac
