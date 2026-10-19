@@ -233,6 +233,7 @@ Staging next to production on one host:
 - `EXIMA_IMAGE_TAG=staging` is required in the staging stack. Without it the stack pulls `latest`, which is the production image.
 - Leave `DATABASE_URL` out of the Komodo Environment. The stack has its own Postgres, reached as `postgres` on port 5432 with the database `exim_accurate`, and it is not published on the host, so it cannot collide with the one of production. A value copied from your machine (`localhost`, port 5433) or from another stack (`db`) is not reachable from inside this stack.
 - Set `EXIMA_HOST_PORT` to a free port, for example `5759`. Production keeps `5758`. The tunnel or gateway of each hostname points at its own port. The app and its schedulers keep using 5758 inside the stack.
+- `HUB_ACCESS_COOKIE_NAME` is optional (default `hub_at`). Staging and production Hubs share a parent domain, so give staging its own name (for example `hub_at_stg`) on the staging Hub and on every staging app, deploy the apps first, then set it everywhere together and sign in again.
 - `NEXTAUTH_URL` and `ACCURATE_REDIRECT_URI` carry the public hostname and no port. Register the same redirect address in the Accurate developer portal. The hostname has to sit under the parent domain of the Hub (`HUB_COOKIE_DOMAIN`), or the Hub cookie never reaches Exima.
 - `SMTP_PORT=465` is the port of the Gmail server and stays the same. Give staging its own mailbox and app password, or leave `SMTP_USER` and `SMTP_PASSWORD` empty so staging sends nothing to real people.
 

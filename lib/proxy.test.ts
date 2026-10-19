@@ -56,6 +56,18 @@ describe("proxy", () => {
     for (const cookie of bad) assert.equal((await ask("/api/pos/products", cookie)).status, 401);
   });
 
+  it("reads the cookie name set in HUB_ACCESS_COOKIE_NAME and ignores the default one then", async () => {
+    const restore = useEnv({ ...TEST_ENV, EXIMA_CENTRAL_ACCESS_CACHE_SECONDS: "0", HUB_ACCESS_COOKIE_NAME: "hub_at_stg" });
+    try {
+      const token = hubToken(person);
+      // 401 means no session. Anything else means the cookie was read as a session.
+      assert.notEqual((await ask("/api/pos/products", `hub_at_stg=${token}`)).status, 401);
+      assert.equal((await ask("/api/pos/products", `hub_at=${token}`)).status, 401);
+    } finally {
+      restore();
+    }
+  });
+
   it("asks the person to try again when Central cannot be asked", async () => {
     world.entitlement = "down";
     const response = await ask("/api/pos/products", cookieFor(person));
