@@ -9,7 +9,8 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A newer push replaces a running check of a pull request, but never a running deploy.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   REGISTRY: ghcr.io
@@ -124,13 +125,22 @@ jobs:
 
       - name: Send permissions
         env:
-          CENTRAL_API_BASE_URL: ${{ secrets.CENTRAL_API_BASE_URL }}
+          CENTRAL_API_BASE_URL: ${{ vars.CENTRAL_API_BASE_URL || secrets.CENTRAL_API_BASE_URL }}
           CENTRAL_API_TOKEN: ${{ secrets.CENTRAL_API_TOKEN }}
+          CENTRAL_ORGANIZATION_ID: ${{ vars.CENTRAL_ORGANIZATION_ID || secrets.CENTRAL_ORGANIZATION_ID }}
         run: |
           if [ -z "$CENTRAL_API_BASE_URL" ] || [ -z "$CENTRAL_API_TOKEN" ]; then
             echo "::error::CENTRAL_API_BASE_URL and CENTRAL_API_TOKEN are not set in the GitHub Environment."
             exit 1
           fi
+          # The address is hidden in the log, so say what is wrong with its shape instead of showing it.
+          case "${CENTRAL_API_BASE_URL%/}" in
+            https://*/api/internal) ;;
+            *)
+              echo "::error::CENTRAL_API_BASE_URL must start with https:// and end with /api/internal, for example https://db-stg.example.org/api/internal."
+              exit 1
+              ;;
+          esac
           npx tsx scripts/sync-permissions.ts sync --retries 5 --wait 20
 
   build-and-push:
@@ -188,8 +198,9 @@ jobs:
     steps:
       - name: Call Komodo Webhook
         env:
-          WEBHOOK_URL: ${{ secrets.KOMODO_WEBHOOK_URL }}
-          WEBHOOK_SECRET: ${{ secrets.KOMODO_WEBHOOK_SECRET }}
+          # Staging reads its own names first, so a repository secret from an older stack is not picked by mistake.
+          WEBHOOK_URL: ${{ github.ref == 'refs/heads/staging' && (secrets.KOMODO_WEBHOOK_URL_STAGING || secrets.KOMODO_WEBHOOK_URL) || secrets.KOMODO_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ github.ref == 'refs/heads/staging' && (secrets.KOMODO_WEBHOOK_SECRET_STAGING || secrets.KOMODO_WEBHOOK_SECRET) || secrets.KOMODO_WEBHOOK_SECRET }}
           BRANCH: ${{ github.ref_name }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
