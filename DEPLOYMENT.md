@@ -220,6 +220,12 @@ npm run type-check
 npm run build
 ```
 
+After a deploy:
+
+- The webhook only starts the deploy in Komodo. If the stack fails there (a wrong file path, a bad env), the webhook still answered, so the pipeline would be green. The last step of the redeploy job asks `/api/health` of the app which version it runs and waits until it is the commit that was just built. If the old version keeps running, the job turns red and says to read the last update of the stack in Komodo.
+- It needs the public address of that endpoint as `STAGING_HEALTH_URL` (and `PRODUCTION_HEALTH_URL` for main), for example `https://exima-stg.mws.web.id/api/health`, as a repository secret or variable. Without it the step only warns, so a first deploy before the domain exists is not blocked.
+- Komodo can also tell you about a failed deploy by itself: add an Alerter under Settings, Alerters.
+
 Staging next to production on one host:
 
 - Set `EXIMA_HOST_PORT` to a free port, for example `5759`. Production keeps `5758`. The tunnel or gateway of each hostname points at its own port. The app and its schedulers keep using 5758 inside the stack.

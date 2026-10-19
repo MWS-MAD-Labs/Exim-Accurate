@@ -32,6 +32,7 @@ const OWN_GUARD: { match: RegExp; guard: string; proof: RegExp }[] = [
   { match: /^\/api\/session$/, guard: "reads the Hub session itself", proof: /fromCookieHeader/ },
   { match: /^\/auth\/(sso|hub)$/, guard: "only sends the browser on, checks the Hub session itself", proof: /hubSession|hubHomeUrl/ },
   { match: /^\/login\/hub$/, guard: "only sends the browser to the Hub", proof: /hubHomeUrl/ },
+  { match: /^\/api\/health$/, guard: "open on purpose, it only says ok and which version runs", proof: /healthBody/ },
 ];
 const PUBLIC_PAGES = new Set(["/", "/sign-in", "/terms"]);
 

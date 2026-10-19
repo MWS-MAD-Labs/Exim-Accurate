@@ -20,10 +20,13 @@ RUN npm prune --production
 
 FROM node:22-alpine AS runner
 WORKDIR /app
+# The commit this image was built from. The health address reports it.
+ARG APP_VERSION=unknown
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \
     PORT=5758
+ENV APP_VERSION=$APP_VERSION
 
 # Non-root user for runtime
 RUN addgroup -g 1002 -S nodejs && adduser -S -u 1002 -G nodejs appuser

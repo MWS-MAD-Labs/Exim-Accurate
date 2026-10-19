@@ -212,6 +212,8 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            APP_VERSION=${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
 
   redeploy:
@@ -255,3 +257,30 @@ jobs:
               -d "$PAYLOAD" \
               "$WEBHOOK_URL"
           fi
+
+      # The webhook only starts the deploy. This waits until the address reports the commit that was just built, so a
+      # deploy that failed in Komodo shows here too. Without an address it only warns.
+      - name: Wait for the new version
+        env:
+          STAGING_HEALTH_URL: ${{ secrets.STAGING_HEALTH_URL || vars.STAGING_HEALTH_URL }}
+          PRODUCTION_HEALTH_URL: ${{ secrets.PRODUCTION_HEALTH_URL || vars.PRODUCTION_HEALTH_URL }}
+          EXPECTED_VERSION: ${{ github.sha }}
+        run: |
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then URL="$PRODUCTION_HEALTH_URL"; NAME=PRODUCTION_HEALTH_URL; else URL="$STAGING_HEALTH_URL"; NAME=STAGING_HEALTH_URL; fi
+          if [ -z "$URL" ]; then
+            echo "::warning::$NAME is not set, so this deploy was not checked. Add it as a repository secret or variable."
+            exit 0
+          fi
+          ATTEMPTS="${WAIT_ATTEMPTS:-36}"
+          PAUSE="${WAIT_PAUSE:-10}"
+          for i in $(seq 1 "$ATTEMPTS"); do
+            BODY="$(curl -fsS --max-time 10 "$URL" 2>/dev/null || true)"
+            if printf '%s' "$BODY" | grep -Fq "\"version\":\"$EXPECTED_VERSION\""; then
+              echo "The new version is running."
+              exit 0
+            fi
+            echo "Attempt $i of $ATTEMPTS: not the new version yet."
+            sleep "$PAUSE"
+          done
+          echo "::error::The new version did not come up. Open the stack in Komodo and read its last update."
+          exit 1
