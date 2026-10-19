@@ -128,9 +128,15 @@ jobs:
           CENTRAL_API_BASE_URL: ${{ vars.CENTRAL_API_BASE_URL || secrets.CENTRAL_API_BASE_URL }}
           CENTRAL_API_TOKEN: ${{ secrets.CENTRAL_API_TOKEN }}
           CENTRAL_ORGANIZATION_ID: ${{ vars.CENTRAL_ORGANIZATION_ID || secrets.CENTRAL_ORGANIZATION_ID }}
+          ENVIRONMENT_NAME: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
         run: |
-          if [ -z "$CENTRAL_API_BASE_URL" ] || [ -z "$CENTRAL_API_TOKEN" ]; then
-            echo "::error::CENTRAL_API_BASE_URL and CENTRAL_API_TOKEN are not set in the GitHub Environment."
+          # Names the one that is empty, so the Environment does not have to be searched for it.
+          if [ -z "$CENTRAL_API_BASE_URL" ]; then
+            echo "::error::CENTRAL_API_BASE_URL is not set in the GitHub Environment $ENVIRONMENT_NAME. Add it as a variable or a secret there."
+            exit 1
+          fi
+          if [ -z "$CENTRAL_API_TOKEN" ]; then
+            echo "::error::CENTRAL_API_TOKEN is not set in the GitHub Environment $ENVIRONMENT_NAME. Add it as a secret there."
             exit 1
           fi
           # The address is hidden in the log, so say what is wrong with its shape instead of showing it.
