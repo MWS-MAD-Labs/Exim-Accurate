@@ -14,6 +14,7 @@ Copy `.env.example` to `.env` and configure at least:
 
 ```env
 DATABASE_URL=postgresql://postgres:password@postgres:5432/exim_accurate?schema=public
+# The public address of Exima, without a port. Redirect addresses are built from it.
 NEXTAUTH_URL=https://your-domain.example
 
 HUB_BASE_URL=https://app.mws.web.id
@@ -72,7 +73,7 @@ cp .env.example .env
 docker compose -f compose.local.yaml up -d --build
 ```
 
-The application is exposed on port `5758`. PostgreSQL data is persisted in the `postgres_data` volume. The allowance notification scheduler starts automatically and reads `CRON_SECRET` from the same `.env` file.
+The application listens on port `5758` inside its container and is published on `EXIMA_HOST_PORT` (default `5758`). PostgreSQL data is persisted in the `postgres_data` volume. The allowance notification scheduler starts automatically and reads `CRON_SECRET` from the same `.env` file.
 
 Use `compose.prebuilt.yaml` when deploying the prebuilt GHCR image. The app service sets `pull_policy: always`, so every Compose deployment refreshes the mutable `latest` tag before evaluating container replacement:
 
@@ -218,6 +219,12 @@ npm run lint
 npm run type-check
 npm run build
 ```
+
+Staging next to production on one host:
+
+- Set `EXIMA_HOST_PORT` to a free port, for example `5759`. Production keeps `5758`. The tunnel or gateway of each hostname points at its own port. The app and its schedulers keep using 5758 inside the stack.
+- `NEXTAUTH_URL` and `ACCURATE_REDIRECT_URI` carry the public hostname and no port. Register the same redirect address in the Accurate developer portal. The hostname has to sit under the parent domain of the Hub (`HUB_COOKIE_DOMAIN`), or the Hub cookie never reaches Exima.
+- `SMTP_PORT=465` is the port of the Gmail server and stays the same. Give staging its own mailbox and app password, or leave `SMTP_USER` and `SMTP_PASSWORD` empty so staging sends nothing to real people.
 
 Also verify:
 

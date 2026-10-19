@@ -21,7 +21,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "5758:5758"
+      - "${EXIMA_HOST_PORT:-5758}:5758"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5758').then((response) => process.exit(response.status < 500 ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s

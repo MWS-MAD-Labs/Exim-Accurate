@@ -35,8 +35,8 @@ This guide uses **GitHub Actions** to build the image and **Komodo UI** to deplo
    - Do not use `localhost` from inside the app container.
    - PostgreSQL is intentionally not published on a host port in the production Compose file; the app reaches it over the private Compose network.
    - Ensure `NEXTAUTH_URL` and `ACCURATE_REDIRECT_URI` use the production domain.
-   - Set `WOKO_GOOGLE_OAUTH_CLIENT_ID` and `WOKO_GOOGLE_OAUTH_CLIENT_SECRET` in the Komodo stack environment. `compose.prebuilt.yaml` passes both values into the app container.
-   - In Google Cloud, authorize `${NEXTAUTH_URL}/api/auth/callback/google` as the web OAuth redirect URI.
+   - Exima has no Google sign-in. Register `ACCURATE_REDIRECT_URI` (the public address followed by `/accurate/callback`) in the Accurate developer portal.
+   - When another Exima stack runs on the same host, set `EXIMA_HOST_PORT` to a free port. The tunnel or gateway points at that port.
 
 ---
 

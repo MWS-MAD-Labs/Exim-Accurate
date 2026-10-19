@@ -18,7 +18,7 @@ services:
       CENTRAL_DATA_API_BASE_URL: ${CENTRAL_DATA_API_BASE_URL:-}
       CENTRAL_DATA_API_TOKEN: ${CENTRAL_DATA_API_TOKEN:-}
     ports:
-      - "5758:5758"
+      - "${EXIMA_HOST_PORT:-5758}:5758"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5758').then((response) => process.exit(response.status < 500 ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
