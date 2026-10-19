@@ -44,7 +44,7 @@ export async function lookupEntitlement(personId: string): Promise<CentralEntitl
   if (response.status === 403 && body?.code === "application_retired") return null;
   // Central does not know this person at all: nothing to allow.
   if (response.status === 404) return null;
-  if (!response.ok || !body || !("data" in body)) throw new Error("Central entitlement lookup failed");
+  if (!response.ok || !body || !("data" in body)) throw new Error(`Central entitlement lookup failed (HTTP ${response.status})`);
   return body.data ?? null;
 }
 
