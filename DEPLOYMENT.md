@@ -244,7 +244,7 @@ Also verify:
 - Every active Exima organization has the correct `centralOrganizationId`, and every provisioned user has a Central entitlement whose role/permissions use Exima's canonical vocabulary.
 - Database backups and restore procedures are tested.
 - Credential, POS, analytics, self-checkout, and borrowing endpoints remain organization-scoped.
-- `CRON_SECRET` protects kiosk synchronization and allowance notification scheduling.
+- `CRON_SECRET` protects kiosk synchronization and allowance notification scheduling. It must be set in the stack environment: without it every call to `/api/cron/*` answers 401, POS sales never retry to Accurate and stay `pending_sync`. The scheduler containers say so in their log instead of calling.
 - Reverse proxy request-size and timeout limits support expected import/export volumes.
 
 ## Post-Deployment Verification
