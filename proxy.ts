@@ -59,17 +59,17 @@ export async function proxy(request: NextRequest) {
   } catch (error) {
     if (!(error instanceof CentralUnavailableError)) throw error;
     if (isApi) return NextResponse.json({ error: "Try again shortly" }, { status: 503 });
-    return NextResponse.redirect(new URL("/login?error=UPSTREAM_UNREACHABLE", request.url));
+    return NextResponse.redirect(new URL("/login?error=UPSTREAM_UNREACHABLE", getBaseUrl(request)));
   }
   if (!user) {
     if (isApi) return NextResponse.json({ error: "No access to Exima" }, { status: 403 });
-    return NextResponse.redirect(new URL("/login?error=no_access", request.url));
+    return NextResponse.redirect(new URL("/login?error=no_access", getBaseUrl(request)));
   }
 
   const required = requiredPermissions(request);
   if (required.length === 0 || !hasAnyPermission(user.permissions, required)) {
     if (isApi) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    return NextResponse.redirect(new URL(getPermissionHome(user.permissions), request.url));
+    return NextResponse.redirect(new URL(getPermissionHome(user.permissions), getBaseUrl(request)));
   }
 
   return NextResponse.next();

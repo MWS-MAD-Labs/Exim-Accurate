@@ -38,6 +38,14 @@ describe("/auth/sso", () => {
     assert.equal(response.headers.get("location"), `${HUB_BASE}/`);
   });
 
+  it("sends the person to the public address, not the container's own localhost", async () => {
+    const restore = useEnv({ ...TEST_ENV, EXIMA_CENTRAL_ACCESS_CACHE_SECONDS: "0", NEXTAUTH_URL: "https://exima.mws.web.id" });
+    const inside = new NextRequest("http://localhost:5758/auth/sso", { headers: { cookie: cookieFor(person).toString() } });
+    const response = await sso(inside);
+    restore();
+    assert.equal(new URL(response.headers.get("location") ?? "").origin, "https://exima.mws.web.id");
+  });
+
   it("tells the person to try again when Central cannot be asked", async () => {
     world.entitlement = "down";
     const response = await sso(get("/auth/sso", cookieFor(person)));

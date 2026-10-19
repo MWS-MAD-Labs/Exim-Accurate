@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     result = await sessionFromCookieHeader(request.headers.get("cookie"));
   } catch (error) {
     if (!(error instanceof CentralUnavailableError)) throw error;
-    return NextResponse.redirect(new URL("/login?error=UPSTREAM_UNREACHABLE", request.url));
+    return NextResponse.redirect(new URL("/login?error=UPSTREAM_UNREACHABLE", getBaseUrl(request)));
   }
 
   if (!result.claims) {
@@ -21,6 +21,6 @@ export async function GET(request: NextRequest) {
     const step = hub.step({ claims: null, restored: request.nextUrl.searchParams.has("restored") });
     return NextResponse.redirect(step === "restore" ? hub.restoreUrl(here) : hub.homeUrl());
   }
-  if (!result.user) return NextResponse.redirect(new URL("/login?error=no_access", request.url));
-  return NextResponse.redirect(new URL(getPermissionHome(result.user.permissions), request.url));
+  if (!result.user) return NextResponse.redirect(new URL("/login?error=no_access", getBaseUrl(request)));
+  return NextResponse.redirect(new URL(getPermissionHome(result.user.permissions), getBaseUrl(request)));
 }
