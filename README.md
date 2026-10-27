@@ -88,8 +88,8 @@ Register Exima in Hub with:
 
 ```text
 sso_app_id     = exima
-sso_entry_url  = https://exima.mws.web.id/auth/sso
-sso_logout_url = https://exima.mws.web.id/auth/logout-silent
+sso_entry_url  = https://exima.example.org/auth/sso
+sso_logout_url = https://exima.example.org/auth/logout-silent
 ```
 
 The callback requires a short-lived HttpOnly initiation cookie created by `/auth/hub`. Hub currently does not round-trip an application-provided OAuth-style `state` value, so a future Hub hardening should bind the opaque exchange code to a caller state and return it with the redirect.

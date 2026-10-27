@@ -17,9 +17,9 @@ DATABASE_URL=postgresql://postgres:password@postgres:5432/exim_accurate?schema=p
 # The public address of Exima, without a port. Redirect addresses are built from it.
 NEXTAUTH_URL=https://your-domain.example
 
-HUB_BASE_URL=https://app.mws.web.id
+HUB_BASE_URL=https://hub.example.org
 HUB_SSO_APP_ID=exima
-CENTRAL_API_BASE_URL=https://db.mws.web.id/api/internal
+CENTRAL_API_BASE_URL=https://central.example.org/api/internal
 CENTRAL_API_TOKEN=token-prefix.secret
 
 ACCURATE_APP_KEY=...
@@ -223,7 +223,7 @@ npm run build
 After a deploy:
 
 - The webhook only starts the deploy in Komodo. If the stack fails there (a wrong file path, a bad env), the webhook still answered, so the pipeline would be green. The last step of the redeploy job asks `/api/health` of the app which version it runs and waits until it is the commit that was just built. If the old version keeps running, the job turns red and says to read the last update of the stack in Komodo.
-- It needs the public address of that endpoint as `STAGING_HEALTH_URL` (and `PRODUCTION_HEALTH_URL` for main), for example `https://exima-stg.mws.web.id/api/health`, as a repository secret or variable. Without it the step only warns, so a first deploy before the domain exists is not blocked.
+- It needs the public address of that endpoint as `STAGING_HEALTH_URL` (and `PRODUCTION_HEALTH_URL` for main), for example `https://exima-stg.example.org/api/health`, as a repository secret or variable. Without it the step only warns, so a first deploy before the domain exists is not blocked.
 - Komodo can also tell you about a failed deploy by itself: add an Alerter under Settings, Alerters.
 
 Staging next to production on one host:
