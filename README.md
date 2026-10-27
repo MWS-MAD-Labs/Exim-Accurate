@@ -78,7 +78,7 @@ Start the application:
 npm run dev
 ```
 
-Open `http://localhost:3000`, sign in through MWS Hub, and connect Accurate from **Accurate Credentials**. A matching Exima user must already exist; Hub authentication does not auto-provision an organization or application role.
+Open `http://localhost:3001`, sign in through MWS Hub, and connect Accurate from **Accurate Credentials**. A matching Exima user must already exist; Hub authentication does not auto-provision an organization or application role.
 
 ### MWS Hub SSO
 
