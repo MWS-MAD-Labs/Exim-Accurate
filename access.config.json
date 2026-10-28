@@ -1,0 +1,6 @@
+{
+  "application": "exima",
+  "manifest": "lib/access-control.ts",
+  "manifestExport": "PERMISSION_MANIFEST",
+  "doctor": { "env": ["HUB_BASE_URL", "CENTRAL_API_BASE_URL", "CENTRAL_API_TOKEN", "CENTRAL_ORGANIZATION_ID"] }
+}
