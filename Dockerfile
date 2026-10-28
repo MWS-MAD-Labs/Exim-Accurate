@@ -6,7 +6,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Install dependencies
 COPY package*.json ./
-RUN npm ci
+RUN apk add --no-cache git && npm ci
 
 # Copy source
 COPY . .
