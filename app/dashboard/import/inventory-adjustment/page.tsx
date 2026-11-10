@@ -448,8 +448,8 @@ export default function ImportInventoryAdjustmentPage() {
                             borderWidth: isSelected ? 2 : 1,
                             backgroundColor: isSelected
                               ? isDark
-                                ? "rgba(64, 192, 87, 0.1)"
-                                : "rgba(64, 192, 87, 0.05)"
+                                ? "rgba(111, 139, 106, 0.1)"
+                                : "rgba(111, 139, 106, 0.05)"
                               : undefined,
                             transition: "all 0.2s ease",
                           }}
@@ -660,8 +660,8 @@ export default function ImportInventoryAdjustmentPage() {
                   radius="lg"
                   style={{
                     background: isDark
-                      ? "linear-gradient(135deg, rgba(64, 192, 87, 0.1) 0%, rgba(32, 201, 151, 0.1) 100%)"
-                      : "linear-gradient(135deg, rgba(64, 192, 87, 0.05) 0%, rgba(32, 201, 151, 0.05) 100%)",
+                      ? "linear-gradient(135deg, rgba(111, 139, 106, 0.1) 0%, rgba(143, 169, 131, 0.1) 100%)"
+                      : "linear-gradient(135deg, rgba(111, 139, 106, 0.05) 0%, rgba(143, 169, 131, 0.05) 100%)",
                     border: isDark
                       ? "1px solid var(--mantine-color-dark-4)"
                       : "1px solid var(--mantine-color-gray-2)",
@@ -769,7 +769,7 @@ export default function ImportInventoryAdjustmentPage() {
                         color="green"
                         style={{
                           boxShadow: canImport
-                            ? "0 4px 14px rgba(64, 192, 87, 0.4)"
+                            ? "0 4px 14px rgba(111, 139, 106, 0.4)"
                             : undefined,
                         }}
                       >
@@ -944,8 +944,8 @@ export default function ImportInventoryAdjustmentPage() {
                                 backgroundColor: row.valid
                                   ? undefined
                                   : isDark
-                                    ? "rgba(250, 82, 82, 0.1)"
-                                    : "rgba(250, 82, 82, 0.05)",
+                                    ? "rgba(204, 102, 102, 0.1)"
+                                    : "rgba(204, 102, 102, 0.05)",
                               }}
                             >
                               <Table.Td>

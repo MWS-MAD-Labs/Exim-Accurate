@@ -375,7 +375,7 @@ export default function StorePage() {
         <Container size="xl" h="100%">
           <Group h="100%" justify="space-between">
             <Group gap="sm">
-              <ThemeIcon size={42} radius="xl" variant="gradient" gradient={{ from: "blue", to: "cyan" }}>
+              <ThemeIcon size={42} radius="xl" variant="gradient" gradient={{ from: "brand", to: "accent" }}>
                 <IconShoppingBag size={22} />
               </ThemeIcon>
               <Box>

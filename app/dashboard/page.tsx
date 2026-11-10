@@ -112,7 +112,7 @@ function CustomTooltip({ active, payload, label }: any) {
         radius="md"
         shadow="md"
         style={{
-          backgroundColor: isDark ? "var(--mantine-color-dark-6)" : "white",
+          backgroundColor: isDark ? "var(--mantine-color-dark-6)" : "var(--mantine-color-white)",
           border: isDark
             ? "1px solid var(--mantine-color-dark-4)"
             : "1px solid var(--mantine-color-gray-2)",
@@ -215,7 +215,7 @@ export default function DashboardPage() {
   const chartGridColor = isDark
     ? "rgba(255, 255, 255, 0.1)"
     : "rgba(0, 0, 0, 0.1)";
-  const chartTextColor = isDark ? "#909296" : "#868E96";
+  const chartTextColor = isDark ? "#C9C2B5" : "#716B61";
 
   const syncKioskData = async () => {
     setSyncing(true);
@@ -530,8 +530,8 @@ export default function DashboardPage() {
                       x2="0"
                       y2="1"
                     >
-                      <stop offset="5%" stopColor="#15AABF" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#15AABF" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#6F8B6A" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#6F8B6A" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -556,12 +556,12 @@ export default function DashboardPage() {
                     type="monotone"
                     dataKey="checkouts"
                     name="Checkout"
-                    stroke="#15AABF"
+                    stroke="#6F8B6A"
                     strokeWidth={2.5}
                     fillOpacity={1}
                     fill="url(#colorKiosk)"
-                    dot={{ r: 3, fill: "#15AABF", strokeWidth: 0 }}
-                    activeDot={{ r: 5, fill: "#15AABF", strokeWidth: 2, stroke: "white" }}
+                    dot={{ r: 3, fill: "#6F8B6A", strokeWidth: 0 }}
+                    activeDot={{ r: 5, fill: "#6F8B6A", strokeWidth: 2, stroke: "#FFFAF4" }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -575,7 +575,7 @@ export default function DashboardPage() {
                   width: 12,
                   height: 12,
                   borderRadius: 2,
-                  backgroundColor: "#15AABF",
+                  backgroundColor: "#6F8B6A",
                 }}
               />
               <Text size="xs" c="dimmed">
@@ -625,8 +625,8 @@ export default function DashboardPage() {
                       x2="0"
                       y2="1"
                     >
-                      <stop offset="5%" stopColor="#228BE6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#228BE6" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#6F8B6A" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#6F8B6A" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient
                       id="colorImports"
@@ -635,8 +635,8 @@ export default function DashboardPage() {
                       x2="0"
                       y2="1"
                     >
-                      <stop offset="5%" stopColor="#40C057" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#40C057" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#D6A13A" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#D6A13A" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -660,7 +660,7 @@ export default function DashboardPage() {
                     type="monotone"
                     dataKey="exports"
                     name={t.dashboard.charts.exports}
-                    stroke="#228BE6"
+                    stroke="#6F8B6A"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorExports)"
@@ -669,7 +669,7 @@ export default function DashboardPage() {
                     type="monotone"
                     dataKey="imports"
                     name={t.dashboard.charts.imports}
-                    stroke="#40C057"
+                    stroke="#D6A13A"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorImports)"
@@ -686,7 +686,7 @@ export default function DashboardPage() {
                   width: 12,
                   height: 12,
                   borderRadius: 2,
-                  backgroundColor: "#228BE6",
+                  backgroundColor: "#6F8B6A",
                 }}
               />
               <Text size="xs" c="dimmed">
@@ -699,7 +699,7 @@ export default function DashboardPage() {
                   width: 12,
                   height: 12,
                   borderRadius: 2,
-                  backgroundColor: "#40C057",
+                  backgroundColor: "#D6A13A",
                 }}
               />
               <Text size="xs" c="dimmed">
@@ -832,10 +832,10 @@ export default function DashboardPage() {
                 >
                   <defs>
                     <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#FD7E14" stopOpacity={1} />
+                      <stop offset="5%" stopColor="#D6A13A" stopOpacity={1} />
                       <stop
                         offset="95%"
-                        stopColor="#FF922B"
+                        stopColor="#E2C36C"
                         stopOpacity={0.8}
                       />
                     </linearGradient>
@@ -873,7 +873,7 @@ export default function DashboardPage() {
               {t.dashboard.charts.totalMonth}
             </Text>
             <Group gap={4}>
-              <IconArrowUpRight size={14} color="#40C057" />
+              <IconArrowUpRight size={14} color="#6F8B6A" />
               <Text size="sm" fw={600}>
                 {monthTotal} {t.dashboard.charts.operations}
               </Text>

@@ -641,8 +641,8 @@ export default function PeminjamanDashboardPage() {
 
             if (status === "unavailable") {
                 return {
-                    color: "rgba(250, 82, 82, 0.16)",
-                    textColor: "#c92a2a",
+                    color: "rgba(204, 102, 102, 0.16)",
+                    textColor: "#AD4E4E",
                     label:
                         language === "id"
                             ? "Tidak tersedia pada tanggal ini"
@@ -652,8 +652,8 @@ export default function PeminjamanDashboardPage() {
 
             if (status === "partial") {
                 return {
-                    color: "rgba(253, 126, 20, 0.18)",
-                    textColor: "#d9480f",
+                    color: "rgba(214, 161, 58, 0.18)",
+                    textColor: "#956A22",
                     label:
                         language === "id"
                             ? "Sebagian stok masih tersedia"
@@ -662,8 +662,8 @@ export default function PeminjamanDashboardPage() {
             }
 
             return {
-                color: "rgba(64, 192, 87, 0.16)",
-                textColor: "#2b8a3e",
+                color: "rgba(111, 139, 106, 0.16)",
+                textColor: "#486142",
                 label:
                     language === "id"
                         ? "Tersedia pada tanggal ini"

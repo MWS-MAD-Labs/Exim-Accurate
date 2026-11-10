@@ -99,10 +99,10 @@ export function Stepper({
 
   const getStepBgColor = (stepIndex: number) => {
     if (isStepCompleted(stepIndex)) {
-      return isDark ? "rgba(64, 192, 87, 0.15)" : "rgba(64, 192, 87, 0.1)";
+      return isDark ? "rgba(111, 139, 106, 0.15)" : "rgba(111, 139, 106, 0.1)";
     }
     if (isStepActive(stepIndex)) {
-      return isDark ? "rgba(34, 139, 230, 0.15)" : "rgba(34, 139, 230, 0.1)";
+      return isDark ? "rgba(111, 139, 106, 0.15)" : "rgba(111, 139, 106, 0.1)";
     }
     return isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.03)";
   };
