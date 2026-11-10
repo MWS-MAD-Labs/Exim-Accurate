@@ -172,12 +172,12 @@ export default function KioskHomePage() {
               height: 90,
               borderRadius: "50%",
               background:
-                "radial-gradient(circle, rgba(56, 189, 248, 0.25), rgba(15, 23, 42, 0.1))",
+                "radial-gradient(circle, rgba(111, 139, 106, 0.25), rgba(32, 43, 29, 0.1))",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              border: "1px solid rgba(148, 163, 184, 0.25)",
-              boxShadow: "0 0 30px rgba(56, 189, 248, 0.35)",
+              border: "1px solid rgba(230, 234, 223, 0.25)",
+              boxShadow: "0 0 30px rgba(111, 139, 106, 0.35)",
               animation: "pulse 2.4s infinite",
             }}
           >
@@ -209,7 +209,7 @@ export default function KioskHomePage() {
             maxWidth: 520,
             width: "92%",
             textAlign: "center",
-            boxShadow: "0 25px 70px rgba(5, 8, 16, 0.65)",
+            boxShadow: "0 25px 70px rgba(8, 14, 10, 0.65)",
           }}
         >
           <Stack align="center" gap="xl" p="xl">
@@ -217,8 +217,8 @@ export default function KioskHomePage() {
               size={110}
               radius="xl"
               variant="gradient"
-              gradient={{ from: "red.6", to: "pink.7", deg: 135 }}
-              style={{ boxShadow: "0 0 25px rgba(248, 113, 113, 0.45)" }}
+              gradient={{ from: "red.6", to: "red.8", deg: 135 }}
+              style={{ boxShadow: "0 0 25px rgba(204, 102, 102, 0.45)" }}
             >
               <IconBuildingStore size={56} />
             </ThemeIcon>
@@ -246,8 +246,8 @@ export default function KioskHomePage() {
       {
         id: "checkout",
         icon: <IconShoppingCart size={40} />,
-        gradient: { from: "cyan.4", to: "indigo.6", deg: 135 },
-        glowColor: "rgba(56, 189, 248, 0.45)",
+        gradient: { from: "brand.5", to: "accent.6", deg: 135 },
+        glowColor: "rgba(111, 139, 106, 0.45)",
         title: language === "id" ? "Pengambilan" : "Pickup",
         description:
           language === "id"
@@ -258,8 +258,8 @@ export default function KioskHomePage() {
       {
         id: "peminjaman",
         icon: <IconClipboardList size={40} />,
-        gradient: { from: "violet.5", to: "grape.7", deg: 135 },
-        glowColor: "rgba(167, 139, 250, 0.45)",
+        gradient: { from: "brand.5", to: "accent.7", deg: 135 },
+        glowColor: "rgba(214, 161, 58, 0.45)",
         title: language === "id" ? "Peminjaman" : "Borrowing",
         description:
           language === "id"
@@ -302,8 +302,8 @@ export default function KioskHomePage() {
               }
               onClick={toggleFullscreen}
               style={{
-                background: "rgba(12, 18, 32, 0.85)",
-                border: "1px solid rgba(148, 163, 184, 0.15)",
+                background: "rgba(43, 55, 38, 0.85)",
+                border: "1px solid rgba(230, 234, 223, 0.15)",
               }}
             >
               {isFullscreen ? (
@@ -326,13 +326,13 @@ export default function KioskHomePage() {
                   height: 80,
                   borderRadius: 20,
                   background:
-                    "linear-gradient(135deg, rgba(56, 189, 248, 0.35) 0%, rgba(167, 139, 250, 0.35) 100%)",
+                    "linear-gradient(135deg, rgba(111, 139, 106, 0.35) 0%, rgba(214, 161, 58, 0.35) 100%)",
                   backdropFilter: "blur(10px)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  border: "1px solid rgba(148, 163, 184, 0.25)",
-                  boxShadow: "0 0 30px rgba(56, 189, 248, 0.25)",
+                  border: "1px solid rgba(230, 234, 223, 0.25)",
+                  boxShadow: "0 0 30px rgba(111, 139, 106, 0.25)",
                 }}
               >
                 <IconBuildingStore size={36} color="white" />
@@ -371,7 +371,7 @@ export default function KioskHomePage() {
                     background: "var(--kiosk-panel)",
                     backdropFilter: "blur(24px)",
                     border: "1px solid var(--kiosk-stroke)",
-                    boxShadow: "0 20px 40px rgba(4, 8, 16, 0.45)",
+                    boxShadow: "0 20px 40px rgba(8, 14, 10, 0.45)",
                     minHeight: 220,
                   }}
                   role="button"
@@ -387,7 +387,7 @@ export default function KioskHomePage() {
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform =
                       "translateY(-8px) scale(1.02)";
-                    e.currentTarget.style.boxShadow = `0 30px 70px rgba(2, 8, 20, 0.75), 0 0 40px ${mode.glowColor}`;
+                    e.currentTarget.style.boxShadow = `0 30px 70px rgba(8, 14, 10, 0.75), 0 0 40px ${mode.glowColor}`;
                     e.currentTarget.style.borderColor = mode.glowColor.replace(
                       "0.45",
                       "0.6",
@@ -437,10 +437,10 @@ export default function KioskHomePage() {
 
         {/* Footer */}
         <Group justify="center" py="lg">
-          <Text c="rgba(255,255,255,0.45)" size="xs">
+          <Text c="rgba(255,255,255,0.45)" size="xs" className="sade-quote">
             {language === "id" ? "Ditenagai oleh" : "Powered by"}{" "}
             <span style={{ fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>
-              Exima
+              Sade
             </span>{" "}
             •{" "}
             {language === "id" ? "Integrasi Accurate" : "Accurate Integration"}
@@ -493,13 +493,13 @@ export default function KioskHomePage() {
               height: 64,
               borderRadius: 16,
               background:
-                "linear-gradient(135deg, rgba(56, 189, 248, 0.35) 0%, rgba(167, 139, 250, 0.35) 100%)",
+                "linear-gradient(135deg, rgba(111, 139, 106, 0.35) 0%, rgba(214, 161, 58, 0.35) 100%)",
               backdropFilter: "blur(10px)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              border: "1px solid rgba(148, 163, 184, 0.25)",
-              boxShadow: "0 0 30px rgba(56, 189, 248, 0.35)",
+              border: "1px solid rgba(230, 234, 223, 0.25)",
+              boxShadow: "0 0 30px rgba(111, 139, 106, 0.35)",
             }}
           >
             <IconBuildingStore size={30} color="white" />
@@ -509,13 +509,13 @@ export default function KioskHomePage() {
               size="xl"
               fw={700}
               style={{
-                background: "linear-gradient(135deg, #7dd3fc 0%, #a78bfa 100%)",
+                background: "linear-gradient(135deg, #D6A13A 0%, #9DB18F 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
               }}
               className="kiosk-heading"
             >
-              Exima Kiosk
+              Sade Kiosk
             </Text>
             <Text size="xs" c="rgba(255,255,255,0.5)" fw={500}>
               {language === "id"
@@ -537,7 +537,7 @@ export default function KioskHomePage() {
             <br />
             <span
               style={{
-                background: "linear-gradient(135deg, #7dd3fc 0%, #a78bfa 100%)",
+                background: "linear-gradient(135deg, #D6A13A 0%, #9DB18F 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
               }}
@@ -566,9 +566,9 @@ export default function KioskHomePage() {
                 radius="md"
                 variant="light"
                 style={{
-                  backgroundColor: "rgba(56, 189, 248, 0.15)",
-                  color: "#e2e8f0",
-                  border: "1px solid rgba(56, 189, 248, 0.25)",
+                  backgroundColor: "rgba(111, 139, 106, 0.15)",
+                  color: "#E6EADF",
+                  border: "1px solid rgba(111, 139, 106, 0.25)",
                 }}
               >
                 {feature.icon}
@@ -607,7 +607,7 @@ export default function KioskHomePage() {
                 backdropFilter: "blur(24px)",
                 border: "1px solid var(--kiosk-stroke)",
                 animationDelay: `${index * 100}ms`,
-                boxShadow: "0 20px 40px rgba(4, 8, 16, 0.45)",
+                boxShadow: "0 20px 40px rgba(8, 14, 10, 0.45)",
               }}
               role="button"
               tabIndex={0}
@@ -623,10 +623,10 @@ export default function KioskHomePage() {
                 e.currentTarget.style.transform =
                   "translateY(-8px) scale(1.02)";
                 e.currentTarget.style.boxShadow =
-                  "0 30px 70px rgba(2, 8, 20, 0.75)";
-                e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.5)";
+                  "0 30px 70px rgba(8, 14, 10, 0.75)";
+                e.currentTarget.style.borderColor = "rgba(111, 139, 106, 0.5)";
                 e.currentTarget.style.background =
-                  "linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(12, 18, 32, 0.9) 100%)";
+                  "linear-gradient(135deg, rgba(32, 43, 29, 0.95) 0%, rgba(43, 55, 38, 0.9) 100%)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0) scale(1)";
@@ -641,8 +641,8 @@ export default function KioskHomePage() {
                     size={52}
                     radius="xl"
                     variant="gradient"
-                    gradient={{ from: "cyan.4", to: "indigo.6", deg: 135 }}
-                    style={{ boxShadow: "0 0 20px rgba(56, 189, 248, 0.45)" }}
+                    gradient={{ from: "brand.5", to: "accent.6", deg: 135 }}
+                    style={{ boxShadow: "0 0 20px rgba(111, 139, 106, 0.45)" }}
                   >
                     <IconBuildingStore size={26} />
                   </ThemeIcon>
@@ -651,9 +651,9 @@ export default function KioskHomePage() {
                     color="green"
                     size="sm"
                     style={{
-                      background: "rgba(16, 185, 129, 0.2)",
-                      color: "#34d399",
-                      border: "1px solid rgba(16, 185, 129, 0.4)",
+                      background: "rgba(157, 177, 143, 0.2)",
+                      color: "#9DB18F",
+                      border: "1px solid rgba(157, 177, 143, 0.4)",
                     }}
                   >
                     {language === "id" ? "Aktif" : "Active"}
@@ -692,10 +692,10 @@ export default function KioskHomePage() {
 
       {/* Footer */}
       <Group justify="center" py="lg">
-        <Text c="rgba(255,255,255,0.45)" size="xs">
+        <Text c="rgba(255,255,255,0.45)" size="xs" className="sade-quote">
           {language === "id" ? "Ditenagai oleh" : "Powered by"}{" "}
           <span style={{ fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>
-            Exima
+            Sade
           </span>{" "}
           • {language === "id" ? "Integrasi Accurate" : "Accurate Integration"}
         </Text>

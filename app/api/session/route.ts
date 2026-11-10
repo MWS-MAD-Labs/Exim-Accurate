@@ -15,7 +15,7 @@ export async function GET() {
     if (error instanceof CentralUnavailableError) return Response.json({ error: "Try again shortly" }, { status: 503 });
     throw error;
   }
-  if (!user) return Response.json({ error: "No access to Exima" }, { status: 403 });
+  if (!user) return Response.json({ error: "No access to Sade" }, { status: 403 });
 
   return Response.json({
     user,

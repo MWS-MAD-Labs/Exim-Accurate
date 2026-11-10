@@ -24,6 +24,20 @@ test("buildReceiptMessage formats split allocations and allowance snapshots", ()
   assert.match(normalizedText, /Saldo allowance sesudah dibebankan: Rp60\.000/);
   assert.match(normalizedText, /Utang langsung dibayar via Tunai: Rp15\.000/);
   assert.match(message.html.replaceAll("\u00a0", ""), /Utang Rp15\.000 langsung dibayar via Tunai/);
+  assert.doesNotMatch(message.html, /cid:/);
+});
+
+test("receipt shows the hosted Sade logo when the app has a public https address", () => {
+  const previous = process.env.EMAIL_ASSET_BASE_URL;
+  process.env.EMAIL_ASSET_BASE_URL = "https://sade.example.org/";
+  try {
+    const message = buildReceiptMessage(baseInput);
+    assert.match(message.html, /src="https:\/\/sade\.example\.org\/assets\/sade-logo-email\.png"/);
+    assert.match(message.html, /alt="Sade"/);
+  } finally {
+    if (previous === undefined) delete process.env.EMAIL_ASSET_BASE_URL;
+    else process.env.EMAIL_ASSET_BASE_URL = previous;
+  }
 });
 
 test("buildReceiptMessage labels explicit allowance debt", () => {
@@ -37,7 +51,7 @@ test("buildReceiptMessage labels explicit allowance debt", () => {
   assert.match(message.text, /Allowance debt/);
   assert.doesNotMatch(message.text, /Utang langsung dibayar/);
   assert.match(message.text.replaceAll("\u00a0", ""), /-Rp25\.000|Rp-25\.000/);
-  assert.match(message.html, /#fff5f5/);
+  assert.match(message.html, /#FFF1F1/);
 });
 
 test("buildReceiptMessage escapes customer and item HTML", () => {

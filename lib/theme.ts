@@ -1,60 +1,97 @@
 import { createTheme, MantineColorsTuple, rem } from "@mantine/core";
 
-// Brand color palette - Professional blue with energetic orange accent
 const brand: MantineColorsTuple = [
-  "#E7F5FF",
-  "#D0EBFF",
-  "#A5D8FF",
-  "#74C0FC",
-  "#4DABF7",
-  "#339AF0",
-  "#228BE6",
-  "#1C7ED6",
-  "#1971C2",
-  "#1864AB",
+  "#F1F4EF",
+  "#E6EBE2",
+  "#D5DFD0",
+  "#C1D0B9",
+  "#A9BD9F",
+  "#8FA983",
+  "#6F8B6A",
+  "#486142",
+  "#3A5035",
+  "#2D402A",
 ];
 
 const accent: MantineColorsTuple = [
-  "#FFF4E6",
-  "#FFE8CC",
-  "#FFD8A8",
-  "#FFC078",
-  "#FFA94D",
-  "#FF922B",
-  "#FD7E14",
-  "#F76707",
-  "#E8590C",
-  "#D9480F",
+  "#FBF4E6",
+  "#F6E9C9",
+  "#F0DDAA",
+  "#E9D08A",
+  "#E2C36C",
+  "#DDB44F",
+  "#D6A13A",
+  "#B98429",
+  "#956A22",
+  "#74521D",
 ];
 
 const success: MantineColorsTuple = [
-  "#EBFBEE",
-  "#D3F9D8",
-  "#B2F2BB",
-  "#8CE99A",
-  "#69DB7C",
-  "#51CF66",
-  "#40C057",
-  "#37B24D",
-  "#2F9E44",
-  "#2B8A3E",
+  "#F1F4EF",
+  "#E6EBE2",
+  "#D5DFD0",
+  "#C1D0B9",
+  "#A9BD9F",
+  "#8FA983",
+  "#6F8B6A",
+  "#486142",
+  "#3A5035",
+  "#2D402A",
 ];
 
 const danger: MantineColorsTuple = [
-  "#FFF5F5",
-  "#FFE3E3",
-  "#FFC9C9",
-  "#FFA8A8",
-  "#FF8787",
-  "#FF6B6B",
-  "#FA5252",
-  "#F03E3E",
-  "#E03131",
-  "#C92A2A",
+  "#FFF1F1",
+  "#FCE3E3",
+  "#F8D0D0",
+  "#F2B8B8",
+  "#E99C9C",
+  "#DD8080",
+  "#CC6666",
+  "#AD4E4E",
+  "#8D3E3E",
+  "#703333",
+];
+
+const dark: MantineColorsTuple = [
+  "#F4F0E8", // 0 teks
+  "#DDD9CC", // 1
+  "#B9BEAE", // 2
+  "#949B88", // 3 teks muted
+  "#364333", // 4 border
+  "#2C382A", // 5 raised / hover
+  "#242E21", // 6 card
+  "#1C2419", // 7 background
+  "#171E15", // 8 sidebar / header
+  "#12180F", // 9 paling gelap
+];
+
+const gray: MantineColorsTuple = [
+  "#F5F2EC",
+  "#E9E5DC",
+  "#DAD5CA",
+  "#C9C3B7",
+  "#B3ADA1",
+  "#999388",
+  "#7C776E",
+  "#635F57",
+  "#4A4741",
+  "#34322D",
+];
+
+const sky: MantineColorsTuple = [
+  "#EFF7FA",
+  "#DDEEF4",
+  "#C5E1EA",
+  "#ACD2DE",
+  "#92C2D2",
+  "#79AFC7",
+  "#6098B0",
+  "#4C7E95",
+  "#3D6579",
+  "#31515F",
 ];
 
 export const theme = createTheme({
-  // Color configuration
   primaryColor: "brand",
   primaryShade: { light: 6, dark: 7 },
   colors: {
@@ -62,16 +99,30 @@ export const theme = createTheme({
     accent,
     success,
     danger,
+    dark,
+    gray,
+    sky,
+    orange: accent,
+    yellow: accent,
+    blue: sky,
+    cyan: success,
+    green: success,
+    teal: success,
+    violet: brand,
+    indigo: brand,
+    grape: accent,
+    lime: success,
+    red: danger,
+    pink: danger,
   },
-
-  // Typography
+  white: "#FFFAF4",
+  black: "#211F1A",
   fontFamily:
-    'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    'var(--font-nunito-sans), "Nunito Sans", sans-serif',
   fontFamilyMonospace:
     '"JetBrains Mono", "Fira Code", Monaco, Consolas, monospace',
   headings: {
-    fontFamily:
-      'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    fontFamily: 'var(--font-jakarta-sans), "Plus Jakarta Sans", sans-serif',
     fontWeight: "700",
     sizes: {
       h1: { fontSize: rem(36), lineHeight: "1.2" },
@@ -82,8 +133,6 @@ export const theme = createTheme({
       h6: { fontSize: rem(14), lineHeight: "1.5" },
     },
   },
-
-  // Spacing scale
   spacing: {
     xs: rem(8),
     sm: rem(12),
@@ -91,8 +140,6 @@ export const theme = createTheme({
     lg: rem(24),
     xl: rem(32),
   },
-
-  // Border radius
   radius: {
     xs: rem(4),
     sm: rem(6),
@@ -100,96 +147,57 @@ export const theme = createTheme({
     lg: rem(12),
     xl: rem(16),
   },
-
-  // Shadows for depth
   shadows: {
-    xs: "0 1px 2px rgba(0, 0, 0, 0.05)",
-    sm: "0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)",
-    md: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-    lg: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-    xl: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+    xs: "0 1px 2px rgba(43, 55, 37, 0.05)",
+    sm: "0 1px 3px rgba(43, 55, 37, 0.08), 0 1px 2px rgba(43, 55, 37, 0.05)",
+    md: "0 4px 8px rgba(43, 55, 37, 0.08)",
+    lg: "0 10px 24px rgba(43, 55, 37, 0.1)",
+    xl: "0 20px 36px rgba(43, 55, 37, 0.12)",
   },
-
-  // Default radius for components
   defaultRadius: "md",
-
-  // Cursor style
   cursorType: "pointer",
-
-  // Focus ring
   focusRing: "auto",
-
-  // Component-specific overrides
   components: {
-    // A square box with only a hint of a corner. The default radius would make it almost round.
     Checkbox: {
-      defaultProps: {
-        radius: "xs",
-      },
+      defaultProps: { radius: "xs" },
     },
     Button: {
-      defaultProps: {
-        radius: "md",
-      },
+      defaultProps: { radius: "md" },
       styles: {
         root: {
-          fontWeight: 600,
+          fontWeight: 700,
           transition: "all 0.2s ease",
-          "&:hover": {
-            transform: "translateY(-1px)",
-          },
-          "&:active": {
-            transform: "translateY(0)",
-          },
+          "&:hover": { transform: "translateY(-1px)" },
+          "&:active": { transform: "translateY(0)" },
         },
       },
     },
     Card: {
-      defaultProps: {
-        radius: "lg",
-        shadow: "sm",
-      },
-      styles: {
-        root: {
-          transition: "all 0.2s ease",
-        },
-      },
+      defaultProps: { radius: "lg", shadow: "sm" },
+      styles: { root: { transition: "all 0.2s ease" } },
     },
     Paper: {
-      defaultProps: {
-        radius: "lg",
-        shadow: "sm",
-      },
+      defaultProps: { radius: "lg", shadow: "sm" },
     },
     TextInput: {
-      defaultProps: {
-        radius: "md",
-      },
+      defaultProps: { radius: "md" },
     },
     PasswordInput: {
-      defaultProps: {
-        radius: "md",
-      },
+      defaultProps: { radius: "md" },
     },
     Select: {
-      defaultProps: {
-        radius: "md",
-      },
+      defaultProps: { radius: "md" },
     },
     NumberInput: {
-      defaultProps: {
-        radius: "md",
-      },
+      defaultProps: { radius: "md" },
     },
     FileInput: {
-      defaultProps: {
-        radius: "md",
-      },
+      defaultProps: { radius: "md" },
     },
     Table: {
       styles: {
         th: {
-          fontWeight: 600,
+          fontWeight: 700,
           textTransform: "uppercase",
           fontSize: rem(11),
           letterSpacing: "0.5px",
@@ -205,52 +213,38 @@ export const theme = createTheme({
       },
     },
     Alert: {
-      defaultProps: {
-        radius: "md",
-      },
+      defaultProps: { radius: "md" },
     },
     Badge: {
-      defaultProps: {
-        radius: "md",
-      },
+      defaultProps: { radius: "md" },
     },
     Modal: {
-      defaultProps: {
-        radius: "lg",
-      },
+      defaultProps: { radius: "lg" },
     },
     Notification: {
-      defaultProps: {
-        radius: "md",
-      },
+      defaultProps: { radius: "md" },
     },
   },
 });
 
-// CSS variables for custom styling
 export const cssVariables = {
-  // Gradients
-  gradientPrimary: "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-  gradientAccent: "linear-gradient(135deg, #FF922B 0%, #FD7E14 100%)",
-  gradientSuccess: "linear-gradient(135deg, #51CF66 0%, #40C057 100%)",
-  gradientDanger: "linear-gradient(135deg, #FF6B6B 0%, #FA5252 100%)",
-  gradientDark: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
-
-  // Background patterns
+  gradientPrimary: "linear-gradient(135deg, #6F8B6A 0%, #486142 100%)",
+  gradientAccent: "linear-gradient(135deg, #E2C36C 0%, #D6A13A 100%)",
+  gradientSuccess: "linear-gradient(135deg, #8FA983 0%, #486142 100%)",
+  gradientDanger: "linear-gradient(135deg, #F2B8B8 0%, #CC6666 100%)",
+  gradientDark: "linear-gradient(135deg, #2C382A 0%, #1C2419 100%)",
   patternDots:
-    "radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px)",
+    "radial-gradient(circle, rgba(72, 97, 66, 0.08) 1px, transparent 1px)",
   patternGrid:
-    "linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)",
-
-  // Glassmorphism
+    "linear-gradient(rgba(72, 97, 66, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(72, 97, 66, 0.05) 1px, transparent 1px)",
   glass: {
-    background: "rgba(255, 255, 255, 0.7)",
+    background: "rgba(255, 250, 244, 0.78)",
     backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255, 255, 255, 0.3)",
+    border: "1px solid rgba(72, 97, 66, 0.12)",
   },
   glassDark: {
-    background: "rgba(0, 0, 0, 0.3)",
+    background: "rgba(32, 43, 29, 0.78)",
     backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
+    border: "1px solid rgba(230, 234, 223, 0.12)",
   },
 };

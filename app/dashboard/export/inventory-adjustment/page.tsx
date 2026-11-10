@@ -398,8 +398,8 @@ export default function ExportInventoryAdjustmentPage() {
                             borderWidth: isSelected ? 2 : 1,
                             backgroundColor: isSelected
                               ? isDark
-                                ? "rgba(34, 139, 230, 0.1)"
-                                : "rgba(34, 139, 230, 0.05)"
+                                ? "rgba(111, 139, 106, 0.1)"
+                                : "rgba(111, 139, 106, 0.05)"
                               : undefined,
                             transition: "all 0.2s ease",
                           }}
@@ -588,8 +588,8 @@ export default function ExportInventoryAdjustmentPage() {
                   radius="lg"
                   style={{
                     background: isDark
-                      ? "linear-gradient(135deg, rgba(34, 139, 230, 0.1) 0%, rgba(121, 80, 242, 0.1) 100%)"
-                      : "linear-gradient(135deg, rgba(34, 139, 230, 0.05) 0%, rgba(121, 80, 242, 0.05) 100%)",
+                      ? "linear-gradient(135deg, rgba(111, 139, 106, 0.1) 0%, rgba(72, 97, 66, 0.1) 100%)"
+                      : "linear-gradient(135deg, rgba(111, 139, 106, 0.05) 0%, rgba(72, 97, 66, 0.05) 100%)",
                     border: isDark
                       ? "1px solid var(--mantine-color-dark-4)"
                       : "1px solid var(--mantine-color-gray-2)",
@@ -676,8 +676,8 @@ export default function ExportInventoryAdjustmentPage() {
                       disabled={!canProceedToStep3}
                       style={{
                         background:
-                          "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                        boxShadow: "0 4px 14px rgba(34, 139, 230, 0.4)",
+                          "var(--sade-brand-gradient)",
+                        boxShadow: "0 4px 14px rgba(111, 139, 106, 0.4)",
                       }}
                     >
                       Unduh Hasil Ekspor

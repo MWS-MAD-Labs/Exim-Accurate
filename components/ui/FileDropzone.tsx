@@ -216,10 +216,10 @@ export function FileDropzone({
 
   const getBackgroundColor = () => {
     if (isDragging) {
-      return isDark ? "rgba(34, 139, 230, 0.1)" : "rgba(34, 139, 230, 0.05)";
+      return isDark ? "rgba(111, 139, 106, 0.1)" : "rgba(111, 139, 106, 0.05)";
     }
     if (value) {
-      return isDark ? "rgba(64, 192, 87, 0.05)" : "rgba(64, 192, 87, 0.03)";
+      return isDark ? "rgba(111, 139, 106, 0.05)" : "rgba(111, 139, 106, 0.03)";
     }
     return isDark ? "rgba(255, 255, 255, 0.02)" : "rgba(0, 0, 0, 0.01)";
   };
@@ -450,8 +450,8 @@ export function CompactDropzone({
           cursor: disabled ? "not-allowed" : "pointer",
           backgroundColor: isDragging
             ? isDark
-              ? "rgba(34, 139, 230, 0.1)"
-              : "rgba(34, 139, 230, 0.05)"
+              ? "rgba(111, 139, 106, 0.1)"
+              : "rgba(111, 139, 106, 0.05)"
             : "transparent",
           transition: "all 0.15s ease",
           opacity: disabled ? 0.6 : 1,

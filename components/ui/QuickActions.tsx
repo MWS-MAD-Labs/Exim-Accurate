@@ -51,52 +51,52 @@ interface QuickActionsProps {
 
 const colorMap: Record<string, { bg: string; bgDark: string; icon: string }> = {
   brand: {
-    bg: "linear-gradient(135deg, #E7F5FF 0%, #D0EBFF 100%)",
+    bg: "linear-gradient(135deg, #F1F4EF 0%, #E6EBE2 100%)",
     bgDark:
-      "linear-gradient(135deg, rgba(34, 139, 230, 0.15) 0%, rgba(28, 126, 214, 0.1) 100%)",
-    icon: "#228BE6",
+      "linear-gradient(135deg, rgba(111, 139, 106, 0.18) 0%, rgba(72, 97, 66, 0.12) 100%)",
+    icon: "#486142",
   },
   accent: {
-    bg: "linear-gradient(135deg, #FFF4E6 0%, #FFE8CC 100%)",
+    bg: "linear-gradient(135deg, #FBF4E6 0%, #F6E9C9 100%)",
     bgDark:
-      "linear-gradient(135deg, rgba(255, 146, 43, 0.15) 0%, rgba(253, 126, 20, 0.1) 100%)",
-    icon: "#FD7E14",
+      "linear-gradient(135deg, rgba(214, 161, 58, 0.18) 0%, rgba(185, 132, 41, 0.12) 100%)",
+    icon: "#B98429",
   },
   success: {
-    bg: "linear-gradient(135deg, #EBFBEE 0%, #D3F9D8 100%)",
+    bg: "linear-gradient(135deg, #F1F4EF 0%, #D5DFD0 100%)",
     bgDark:
-      "linear-gradient(135deg, rgba(81, 207, 102, 0.15) 0%, rgba(64, 192, 87, 0.1) 100%)",
-    icon: "#40C057",
+      "linear-gradient(135deg, rgba(111, 139, 106, 0.18) 0%, rgba(72, 97, 66, 0.12) 100%)",
+    icon: "#486142",
   },
   danger: {
-    bg: "linear-gradient(135deg, #FFF5F5 0%, #FFE3E3 100%)",
+    bg: "linear-gradient(135deg, #FFF1F1 0%, #FCE3E3 100%)",
     bgDark:
-      "linear-gradient(135deg, rgba(255, 107, 107, 0.15) 0%, rgba(250, 82, 82, 0.1) 100%)",
-    icon: "#FA5252",
+      "linear-gradient(135deg, rgba(204, 102, 102, 0.16) 0%, rgba(141, 62, 62, 0.1) 100%)",
+    icon: "#AD4E4E",
   },
   violet: {
-    bg: "linear-gradient(135deg, #F3F0FF 0%, #E5DBFF 100%)",
+    bg: "linear-gradient(135deg, #F1F4EF 0%, #E6EBE2 100%)",
     bgDark:
-      "linear-gradient(135deg, rgba(132, 94, 247, 0.15) 0%, rgba(121, 80, 242, 0.1) 100%)",
-    icon: "#7950F2",
+      "linear-gradient(135deg, rgba(111, 139, 106, 0.18) 0%, rgba(72, 97, 66, 0.12) 100%)",
+    icon: "#486142",
   },
   cyan: {
-    bg: "linear-gradient(135deg, #E3FAFC 0%, #C5F6FA 100%)",
+    bg: "linear-gradient(135deg, #EFF7FA 0%, #DDEEF4 100%)",
     bgDark:
-      "linear-gradient(135deg, rgba(34, 184, 207, 0.15) 0%, rgba(21, 170, 191, 0.1) 100%)",
-    icon: "#15AABF",
+      "linear-gradient(135deg, rgba(121, 175, 199, 0.16) 0%, rgba(76, 126, 149, 0.1) 100%)",
+    icon: "#4C7E95",
   },
   teal: {
-    bg: "linear-gradient(135deg, #E6FCF5 0%, #C3FAE8 100%)",
+    bg: "linear-gradient(135deg, #F1F4EF 0%, #D5DFD0 100%)",
     bgDark:
-      "linear-gradient(135deg, rgba(32, 201, 151, 0.15) 0%, rgba(18, 184, 134, 0.1) 100%)",
-    icon: "#12B886",
+      "linear-gradient(135deg, rgba(111, 139, 106, 0.18) 0%, rgba(72, 97, 66, 0.12) 100%)",
+    icon: "#486142",
   },
   grape: {
-    bg: "linear-gradient(135deg, #F8F0FC 0%, #F3D9FA 100%)",
+    bg: "linear-gradient(135deg, #FBF4E6 0%, #F6E9C9 100%)",
     bgDark:
-      "linear-gradient(135deg, rgba(190, 75, 219, 0.15) 0%, rgba(174, 62, 201, 0.1) 100%)",
-    icon: "#BE4BDB",
+      "linear-gradient(135deg, rgba(214, 161, 58, 0.18) 0%, rgba(185, 132, 41, 0.12) 100%)",
+    icon: "#B98429",
   },
 };
 
@@ -330,7 +330,7 @@ export function CompactQuickActions({
               </Stack>
               <IconArrowRight
                 size={16}
-                color={isDark ? "#909296" : "#868E96"}
+                color={isDark ? "#949B88" : "#7C776E"}
               />
             </Group>
           </UnstyledButton>

@@ -20,10 +20,10 @@ export const id = {
   },
   home: {
     hero: {
-      title: "Manajer Ekspor/Impor untuk Accurate",
-      titleHighlight: "Penyesuaian Persediaan",
+      title: "Millennia Mart & Resources",
+      titleHighlight: "oleh Sade",
       subtitle:
-        "Exima mempermudah ekspor dan impor penyesuaian persediaan dalam skala besar dengan validasi, pratinjau, dan pengelolaan kredensial Accurate yang aman.",
+        "Sade adalah etalase Millennia Mart dan Resources untuk belanja, pemesanan awal, checkout mandiri, dan pengelolaan inventaris.",
       getStarted: "Mulai Sekarang",
       viewGithub: "Lihat di GitHub",
     },
@@ -50,10 +50,10 @@ export const id = {
       },
     },
     benefits: {
-      title: "Mengapa memilih Exima?",
+      title: "Kenali Sade",
       badge: "Keuntungan",
       description:
-        "Exima dirancang untuk mempermudah proses ekspor dan impor data inventory adjustment dari Accurate Online. Dengan antarmuka yang intuitif dan fitur validasi bawaan, Anda dapat mengelola data dengan lebih efisien.",
+        "Sade mendukung operasional Millennia Mart dan Resources melalui pengalaman belanja yang praktis, checkout mandiri, dan alat pengelolaan inventaris.",
       free: "Gratis 100%, tanpa biaya tersembunyi",
       responsive: "Dasbor responsif dan modern",
       realtime: "Notifikasi real-time status job",
@@ -630,10 +630,10 @@ export const id = {
   },
   terms: {
     title: "Syarat & Ketentuan",
-    subtitle: "Dengan menggunakan Exima, Anda menyetujui syarat berikut:",
+    subtitle: "Dengan menggunakan Sade, Anda menyetujui syarat berikut:",
     list: [
       "Akses ke Accurate Online membutuhkan kredensial resmi (App Key, Signature Secret, API Token) dari akun Anda.",
-      "Exima hanya mengakses data yang diperlukan untuk ekspor/impor penyesuaian persediaan.",
+      "Sade hanya mengakses data yang diperlukan untuk fitur yang Anda gunakan.",
       "Anda bertanggung jawab atas kebenaran data yang diimpor dan rentang data yang diekspor.",
       "Jangan membagikan kredensial Anda kepada pihak lain; hapus kredensial jika sudah tidak digunakan.",
       "Layanan disediakan apa adanya tanpa jaminan; gunakan dengan mempertimbangkan kebijakan internal perusahaan Anda.",

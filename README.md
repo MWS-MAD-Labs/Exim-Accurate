@@ -63,7 +63,7 @@ Start PostgreSQL only:
 docker compose -f compose.local.yaml up -d postgres
 ```
 
-The development compose file exposes PostgreSQL on `127.0.0.1:5434`, so use the matching local `DATABASE_URL` from `.env.example`.
+The development compose file exposes PostgreSQL on `127.0.0.1:${EXIMA_DB_HOST_PORT:-5434}`. Make sure `DATABASE_URL` uses the same host port. If the default port is already in use, set `EXIMA_DB_HOST_PORT` in `.env` to an available port and update `DATABASE_URL` to match.
 
 Apply migrations and create the first administrator:
 

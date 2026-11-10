@@ -108,7 +108,7 @@ const titles: Record<
   },
 };
 
-const chartColors = ["#228BE6", "#40C057", "#FD7E14", "#7950F2"];
+const chartColors = ["#6F8B6A", "#D6A13A", "#79AFC7", "#486142"];
 
 function dateValue(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -243,7 +243,7 @@ function CustomTooltip({ active, payload, label }: any) {
       radius="md"
       shadow="md"
       style={{
-        backgroundColor: isDark ? "var(--mantine-color-dark-6)" : "white",
+        backgroundColor: isDark ? "var(--mantine-color-dark-6)" : "var(--mantine-color-white)",
         border: isDark
           ? "1px solid var(--mantine-color-dark-4)"
           : "1px solid var(--mantine-color-gray-2)",
@@ -369,7 +369,7 @@ function ChartCard({
   const chartGridColor = isDark
     ? "rgba(255, 255, 255, 0.1)"
     : "rgba(0, 0, 0, 0.1)";
-  const chartTextColor = isDark ? "#909296" : "#868E96";
+  const chartTextColor = isDark ? "#949B88" : "#7C776E";
 
   return (
     <DashboardPanel
@@ -465,8 +465,8 @@ function ChartCard({
                     x2="0"
                     y2="1"
                   >
-                    <stop offset="5%" stopColor="#228BE6" stopOpacity={1} />
-                    <stop offset="95%" stopColor="#4DABF7" stopOpacity={0.82} />
+                    <stop offset="5%" stopColor="#6F8B6A" stopOpacity={1} />
+                    <stop offset="95%" stopColor="#9DB18F" stopOpacity={0.82} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid
@@ -746,8 +746,8 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
             ? "1px solid var(--mantine-color-dark-4)"
             : "1px solid var(--mantine-color-gray-2)",
           background: isDark
-            ? "linear-gradient(135deg, rgba(34,139,230,0.08) 0%, rgba(255,255,255,0.02) 100%)"
-            : "linear-gradient(135deg, var(--mantine-color-blue-0) 0%, white 100%)",
+            ? "linear-gradient(135deg, rgba(121,175,199,0.08) 0%, rgba(255,255,255,0.02) 100%)"
+            : "linear-gradient(135deg, var(--mantine-color-blue-0) 0%, var(--mantine-color-white) 100%)",
         }}
       >
         <Group justify="space-between" align="center" mb="md">
@@ -824,7 +824,7 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
           style={{
             border: "1px solid var(--mantine-color-red-4)",
             backgroundColor: isDark
-              ? "rgba(250, 82, 82, 0.08)"
+              ? "rgba(204, 102, 102, 0.08)"
               : "var(--mantine-color-red-0)",
           }}
         >

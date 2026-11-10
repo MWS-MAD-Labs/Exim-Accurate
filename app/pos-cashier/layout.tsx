@@ -5,25 +5,12 @@ import { redirect } from "next/navigation";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import type { Metadata } from "next";
-import { Orbitron, Space_Grotesk } from "next/font/google";
 import { getRoleHome, hasPermission } from "@/lib/access-control";
 import { KioskNotifications } from "../kiosk/kiosk-notifications";
 import { LocalDarkScheme } from "@/components/LocalDarkScheme";
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-space-grotesk",
-});
-
-const orbitron = Orbitron({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-orbitron",
-});
-
 export const metadata: Metadata = {
-  title: "POS Cashier | Exima",
+  title: "POS Cashier | Sade",
   description: "Point of Sales cashier counter",
 };
 
@@ -42,14 +29,14 @@ export default async function PosCashierLayout({
 
   return (
     <LocalDarkScheme
-      className={`${spaceGrotesk.variable} ${orbitron.variable} pos-cashier-root`}
+      className="pos-cashier-root"
       style={{
         minHeight: "100vh",
         width: "100vw",
-        background: "#05070f",
+        background: "var(--sade-espresso)",
         display: "flex",
         flexDirection: "column",
-        color: "white",
+        color: "#F1F0E8",
         position: "relative",
         overflow: "hidden",
       }}
@@ -61,7 +48,7 @@ export default async function PosCashierLayout({
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.2), transparent 42%), radial-gradient(circle at 85% 10%, rgba(167, 139, 250, 0.18), transparent 40%), radial-gradient(circle at 55% 90%, rgba(16, 185, 129, 0.14), transparent 45%), linear-gradient(135deg, #05070f 0%, #0b1020 48%, #070b16 100%)",
+            "radial-gradient(circle at 15% 15%, rgba(111, 139, 106, 0.2), transparent 42%), radial-gradient(circle at 85% 10%, rgba(214, 161, 58, 0.12), transparent 40%), linear-gradient(135deg, #1C2419 0%, #242E21 52%, #1C2419 100%)",
           pointerEvents: "none",
         }}
       />
@@ -70,9 +57,9 @@ export default async function PosCashierLayout({
           position: "absolute",
           inset: 0,
           backgroundImage:
-            "linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px)",
+            "linear-gradient(rgba(214, 161, 58, 0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(214, 161, 58, 0.025) 1px, transparent 1px)",
           backgroundSize: "56px 56px",
-          opacity: 0.28,
+          opacity: 0.16,
           pointerEvents: "none",
           maskImage:
             "radial-gradient(circle at center, black 0%, rgba(0,0,0,0.4) 55%, transparent 82%)",
@@ -94,16 +81,14 @@ export default async function PosCashierLayout({
         dangerouslySetInnerHTML={{
           __html: `
             .pos-cashier-root {
-              font-family: var(--font-space-grotesk);
-              letter-spacing: 0.01em;
-              --cashier-panel: rgba(12, 18, 32, 0.88);
-              --cashier-panel-soft: rgba(12, 18, 32, 0.68);
-              --cashier-stroke: rgba(148, 163, 184, 0.2);
+              font-family: var(--font-nunito-sans), "Nunito Sans", sans-serif;
+              --cashier-panel: rgba(43, 55, 38, 0.9);
+              --cashier-panel-soft: rgba(43, 55, 38, 0.72);
+              --cashier-stroke: rgba(230, 234, 223, 0.18);
             }
             .pos-cashier-heading {
-              font-family: var(--font-orbitron);
-              letter-spacing: 0.06em;
-              text-transform: uppercase;
+              font-family: var(--font-jakarta-sans), "Plus Jakarta Sans", sans-serif;
+              letter-spacing: -0.02em;
             }
             .pos-cashier-gradient {
               animation: cashierGradientShift 18s ease-in-out infinite;

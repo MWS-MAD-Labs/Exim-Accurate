@@ -28,32 +28,32 @@ interface GradientCardProps {
 
 const gradients: Record<string, { light: string; dark: string }> = {
   brand: {
-    light: "linear-gradient(135deg, #228BE6 0%, #1C7ED6 50%, #1971C2 100%)",
-    dark: "linear-gradient(135deg, #1C7ED6 0%, #1971C2 50%, #1864AB 100%)",
+    light: "linear-gradient(135deg, #6F8B6A 0%, #486142 100%)",
+    dark: "linear-gradient(135deg, #486142 0%, #202B1D 100%)",
   },
   accent: {
-    light: "linear-gradient(135deg, #FF922B 0%, #FD7E14 50%, #F76707 100%)",
-    dark: "linear-gradient(135deg, #FD7E14 0%, #F76707 50%, #E8590C 100%)",
+    light: "linear-gradient(135deg, #B98429 0%, #956A22 100%)",
+    dark: "linear-gradient(135deg, #956A22 0%, #74521D 100%)",
   },
   success: {
-    light: "linear-gradient(135deg, #51CF66 0%, #40C057 50%, #37B24D 100%)",
-    dark: "linear-gradient(135deg, #40C057 0%, #37B24D 50%, #2F9E44 100%)",
+    light: "linear-gradient(135deg, #6F8B6A 0%, #486142 100%)",
+    dark: "linear-gradient(135deg, #486142 0%, #2D402A 100%)",
   },
   danger: {
-    light: "linear-gradient(135deg, #FF6B6B 0%, #FA5252 50%, #F03E3E 100%)",
-    dark: "linear-gradient(135deg, #FA5252 0%, #F03E3E 50%, #E03131 100%)",
+    light: "linear-gradient(135deg, #CC6666 0%, #AD4E4E 100%)",
+    dark: "linear-gradient(135deg, #AD4E4E 0%, #703333 100%)",
   },
   violet: {
-    light: "linear-gradient(135deg, #845EF7 0%, #7950F2 50%, #7048E8 100%)",
-    dark: "linear-gradient(135deg, #7950F2 0%, #7048E8 50%, #6741D9 100%)",
+    light: "linear-gradient(135deg, #6F8B6A 0%, #486142 100%)",
+    dark: "linear-gradient(135deg, #486142 0%, #2D402A 100%)",
   },
   cyan: {
-    light: "linear-gradient(135deg, #22B8CF 0%, #15AABF 50%, #1098AD 100%)",
-    dark: "linear-gradient(135deg, #15AABF 0%, #1098AD 50%, #0C8599 100%)",
+    light: "linear-gradient(135deg, #6098B0 0%, #3D6579 100%)",
+    dark: "linear-gradient(135deg, #4C7E95 0%, #31515F 100%)",
   },
   dark: {
-    light: "linear-gradient(135deg, #495057 0%, #343A40 50%, #212529 100%)",
-    dark: "linear-gradient(135deg, #343A40 0%, #212529 50%, #1A1B1E 100%)",
+    light: "linear-gradient(135deg, #3A4B31 0%, #202B1D 100%)",
+    dark: "linear-gradient(135deg, #2C3927 0%, #1D271B 100%)",
   },
 };
 

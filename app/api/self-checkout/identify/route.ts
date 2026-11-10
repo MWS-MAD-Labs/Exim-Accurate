@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     where: { centralPersonId: badge.personId, organizationId: credential.organizationId },
     select: { id: true },
   });
-  if (!member) return NextResponse.json({ code: "BADGE_UNKNOWN", error: "Badge tidak dikenali sebagai staf Exima." }, { status: 404 });
+  if (!member) return NextResponse.json({ code: "BADGE_UNKNOWN", error: "Badge tidak dikenali sebagai staf Sade." }, { status: 404 });
 
   if (badge.via === "email") {
     console.info("[badge] A card with the email was used, it should move to a signed badge", { personId: badge.personId });

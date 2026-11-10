@@ -16,17 +16,17 @@ import {
 import {
   IconAlertCircle,
   IconArrowRight,
-  IconBuildingCommunity,
   IconLock,
   IconShieldCheck,
 } from "@tabler/icons-react";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { BrandMark } from "@/components/BrandMark";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
 
 const errorMessages: Record<string, string> = {
-  no_access: "Akun Anda belum memiliki akses Exima. Hubungi administrator.",
-  sso: "Tidak dapat membuka Exima dari MWS Hub. Silakan coba lagi dari Hub.",
+  no_access: "Akun Anda belum memiliki akses Sade. Hubungi administrator.",
+  sso: "Tidak dapat membuka Sade dari MWS Hub. Silakan coba lagi dari Hub.",
   revoked: "Sesi Anda telah berakhir. Silakan masuk kembali melalui MWS Hub.",
   UPSTREAM_UNREACHABLE: "MWS Hub atau Central sedang tidak dapat dihubungi. Coba lagi sebentar lagi.",
 };
@@ -52,34 +52,26 @@ function LoginContent() {
         padding: 24,
         background:
           colorScheme === "dark"
-            ? "radial-gradient(circle at 15% 15%, #17324d 0, #141517 42%, #101113 100%)"
-            : "radial-gradient(circle at 15% 15%, #dff3ff 0, #f7f9fc 42%, #eef2f7 100%)",
+            ? "radial-gradient(circle at 15% 15%, #3A4B31 0, #263222 42%, #202B1D 100%)"
+            : "radial-gradient(circle at 15% 15%, #F1F4EF 0, #FFFAF4 65%, #F6E9C9 100%)",
       }}
     >
       <Container size={520} w="100%">
         <Stack gap="lg">
           <Group justify="space-between">
-            <Group gap="sm">
-              <ThemeIcon size={44} radius="md" variant="gradient" gradient={{ from: "blue", to: "cyan" }}>
-                <IconBuildingCommunity size={24} />
-              </ThemeIcon>
-              <Box>
-                <Text fw={800} size="xl">Exima</Text>
-                <Text size="xs" c="dimmed">MWS inventory and operations</Text>
-              </Box>
-            </Group>
+            <BrandMark />
             <LanguageSelect />
           </Group>
 
           <Paper withBorder shadow="xl" radius="xl" p={{ base: "xl", sm: 36 }}>
             <Stack gap="xl">
               <Stack gap="xs">
-                <Text size="xs" tt="uppercase" fw={700} c="blue">Central sign-in</Text>
+                <Text size="xs" tt="uppercase" fw={700} c="brand">Central sign-in</Text>
                 <Title order={1} fz={{ base: 30, sm: 38 }} lh={1.1}>
                   Masuk melalui MWS Hub
                 </Title>
                 <Text c="dimmed">
-                  Identitas diverifikasi oleh MWS Hub dan Central Data Center. Hak akses fitur tetap mengikuti akun Exima yang sudah diprovisikan.
+                  Identitas diverifikasi oleh MWS Hub dan Central Data Center. Hak akses fitur tetap mengikuti akun Sade yang sudah diprovisikan.
                 </Text>
               </Stack>
 
@@ -91,7 +83,7 @@ function LoginContent() {
 
               <Stack gap="sm">
                 <Group wrap="nowrap" align="flex-start">
-                  <ThemeIcon variant="light" color="blue" radius="xl"><IconShieldCheck size={18} /></ThemeIcon>
+                  <ThemeIcon variant="light" color="brand" radius="xl"><IconShieldCheck size={18} /></ThemeIcon>
                   <Box>
                     <Text fw={600} size="sm">Satu identitas MWS</Text>
                     <Text size="xs" c="dimmed">Gunakan akun organisasi yang terdaftar dan aktif di Central.</Text>
@@ -101,7 +93,7 @@ function LoginContent() {
                   <ThemeIcon variant="light" color="teal" radius="xl"><IconLock size={18} /></ThemeIcon>
                   <Box>
                     <Text fw={600} size="sm">Keluar hanya di Hub</Text>
-                    <Text size="xs" c="dimmed">Exima memakai sesi Hub. Keluar dari Hub berarti keluar dari semua aplikasi.</Text>
+                    <Text size="xs" c="dimmed">Sade memakai sesi Hub. Keluar dari Hub berarti keluar dari semua aplikasi.</Text>
                   </Box>
                 </Group>
               </Stack>
@@ -117,7 +109,7 @@ function LoginContent() {
               </Button>
 
               <Text size="xs" c="dimmed" ta="center">
-                Akun baru tidak dibuat otomatis. Hub mengautentikasi identitas, sedangkan administrator Exima menentukan organisasi dan role aplikasi.
+                Akun baru tidak dibuat otomatis. Hub mengautentikasi identitas, sedangkan administrator Sade menentukan organisasi dan role aplikasi.
               </Text>
             </Stack>
           </Paper>

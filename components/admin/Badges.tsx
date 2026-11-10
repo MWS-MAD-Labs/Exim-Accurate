@@ -230,7 +230,7 @@ export function Badges() {
         <Text size="sm" c="dimmed" mb={4}>Administration</Text>
         <Title order={2}>Badges</Title>
         <Text c="dimmed" size="sm" mt={4}>
-          Each badge is signed by Exima and belongs to one person. People can also show theirs from My Badge in the staff store, so printing is optional. Only people who still have access get one.
+          Each badge is signed by Sade and belongs to one person. People can also show theirs from My Badge in the staff store, so printing is optional. Only people who still have access get one.
         </Text>
       </Box>
 

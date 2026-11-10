@@ -306,7 +306,7 @@ export function PersistentScanner({
               position: "absolute",
               top: 10,
               right: 10,
-              background: "rgba(0,255,0,0.8)",
+              background: "rgba(111,139,106,0.9)",
               padding: "4px 12px",
               borderRadius: "20px",
             }}

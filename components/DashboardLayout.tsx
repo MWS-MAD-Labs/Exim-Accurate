@@ -46,6 +46,7 @@ import {
 } from "@tabler/icons-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
+import { BrandMark } from "@/components/BrandMark";
 import { useLanguage } from "@/lib/language";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { initialsOf, roleLabelOf } from "@/lib/initials";
@@ -385,8 +386,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           root: {
             "&[dataActive]": {
               backgroundColor: isDark
-                ? "rgba(34, 139, 230, 0.15)"
-                : "rgba(34, 139, 230, 0.1)",
+                ? "rgba(111, 139, 106, 0.15)"
+                : "rgba(111, 139, 106, 0.1)",
               color: "var(--mantine-color-brand-6)",
               fontWeight: 600,
             },
@@ -414,7 +415,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         main: {
           backgroundColor: isDark
             ? "var(--mantine-color-dark-8)"
-            : "var(--mantine-color-gray-0)",
+            : "var(--sade-ivory)",
         },
       }}
     >
@@ -423,7 +424,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           borderBottom: isDark
             ? "1px solid var(--mantine-color-dark-4)"
             : "1px solid var(--mantine-color-gray-2)",
-          backgroundColor: isDark ? "var(--mantine-color-dark-7)" : "white",
+          backgroundColor: isDark ? "var(--mantine-color-dark-7)" : "var(--sade-ivory)",
         }}
       >
         <Group h="100%" px="md" justify="space-between">
@@ -439,36 +440,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               style={{ cursor: "pointer" }}
               onClick={() => router.push(getRoleHome(session?.user?.role, session?.user?.permissions))}
             >
-              <Box
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  background:
-                    "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  fontWeight: 700,
-                  fontSize: 16,
-                }}
-              >
-                E
-              </Box>
-              <Text
-                size="xl"
-                fw={700}
-                style={{
-                  background: isDark
-                    ? "linear-gradient(135deg, #74C0FC 0%, #A5D8FF 100%)"
-                    : "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
-                Exima
-              </Text>
+              <BrandMark size={32} />
             </Group>
           </Group>
 
@@ -483,7 +455,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <AppShell.Navbar
         p="md"
         style={{
-          backgroundColor: isDark ? "var(--mantine-color-dark-7)" : "white",
+          backgroundColor: isDark ? "var(--mantine-color-dark-7)" : "var(--sade-ivory)",
           borderRight: isDark
             ? "1px solid var(--mantine-color-dark-4)"
             : "1px solid var(--mantine-color-gray-2)",

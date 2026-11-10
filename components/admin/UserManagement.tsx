@@ -77,7 +77,7 @@ const statusOptions = [
 
 const statusBadge: Record<UserStatus, { label: string; color: string; hint?: string } | null> = {
   active: null,
-  no_access: { label: "No Access In Central", color: "red", hint: "Central knows this person but gives them no access to Exima now. Central does not keep the history of removals." },
+  no_access: { label: "No Access In Central", color: "red", hint: "Central knows this person but gives them no access to Sade now. Central does not keep the history of removals." },
   unknown: { label: "Unknown In Central", color: "yellow", hint: "Central does not know this person, or this is an older local account without a Central identity." },
 };
 
@@ -113,7 +113,7 @@ async function readError(response: Response) {
 const syncDotCss = `
 .sync-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; outline-offset: 3px; cursor: default; }
 .sync-dot--fresh { animation: sync-dot-pulse 1.6s ease-out 1; }
-@keyframes sync-dot-pulse { 0% { box-shadow: 0 0 0 0 rgba(64,192,87,0.55); } 100% { box-shadow: 0 0 0 9px rgba(64,192,87,0); } }
+@keyframes sync-dot-pulse { 0% { box-shadow: 0 0 0 0 rgba(111,139,106,0.55); } 100% { box-shadow: 0 0 0 9px rgba(111,139,106,0); } }
 @media (prefers-reduced-motion: reduce) { .sync-dot--fresh { animation: none; } }
 `;
 
@@ -209,7 +209,7 @@ export function UserManagement() {
       await Promise.all([loadUsers(), loadSyncStatus()]);
       notifications.show({
         title: "Users checked",
-        message: "Exima is in step with Central.",
+        message: "Sade is in step with Central.",
         color: "green",
         icon: <IconCheck size={16} />,
       });

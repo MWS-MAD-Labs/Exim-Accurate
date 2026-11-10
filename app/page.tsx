@@ -32,6 +32,7 @@ import {
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
+import { BrandMark } from "@/components/BrandMark";
 import { useLanguage } from "@/lib/language";
 
 export default function HomePage() {
@@ -43,29 +44,29 @@ export default function HomePage() {
       icon: <IconArrowsLeftRight size={28} />,
       title: t.home.features.bulk.title,
       description: t.home.features.bulk.description,
-      color: "blue",
-      gradient: "linear-gradient(135deg, #228BE6 0%, #37B24D 100%)",
+      color: "brand",
+      gradient: "var(--sade-brand-gradient)",
     },
     {
       icon: <IconShield size={28} />,
       title: t.home.features.security.title,
       description: t.home.features.security.description,
-      color: "violet",
-      gradient: "linear-gradient(135deg, #7950F2 0%, #7048E8 100%)",
+      color: "accent",
+      gradient: "var(--sade-gold-gradient)",
     },
     {
       icon: <IconPlugConnected size={28} />,
       title: t.home.features.workflow.title,
       description: t.home.features.workflow.description,
-      color: "orange",
-      gradient: "linear-gradient(135deg, #FD7E14 0%, #F76707 100%)",
+      color: "brand",
+      gradient: "var(--sade-brand-gradient)",
     },
     {
       icon: <IconDeviceDesktop size={28} />,
       title: t.home.features.kiosk.title,
       description: t.home.features.kiosk.description,
       color: "teal",
-      gradient: "linear-gradient(135deg, #12B886 0%, #0CA678 100%)",
+      gradient: "linear-gradient(135deg, #8FA983 0%, #486142 100%)",
     },
   ];
 
@@ -88,7 +89,7 @@ export default function HomePage() {
         minHeight: "100vh",
         background: isDark
           ? "linear-gradient(180deg, var(--mantine-color-dark-8) 0%, var(--mantine-color-dark-9) 100%)"
-          : "linear-gradient(180deg, #FFFFFF 0%, #F8F9FA 100%)",
+          : "linear-gradient(180deg, #FFFAF4 0%, #F5F2EC 100%)",
         position: "relative",
         overflow: "hidden",
       }}
@@ -116,8 +117,8 @@ export default function HomePage() {
             height: "60%",
             borderRadius: "50%",
             background: isDark
-              ? "radial-gradient(circle, rgba(34, 139, 230, 0.15) 0%, transparent 70%)"
-              : "radial-gradient(circle, rgba(34, 139, 230, 0.1) 0%, transparent 70%)",
+              ? "radial-gradient(circle, rgba(111, 139, 106, 0.16) 0%, transparent 70%)"
+              : "radial-gradient(circle, rgba(111, 139, 106, 0.1) 0%, transparent 70%)",
             filter: "blur(40px)",
             animation: "float 20s ease-in-out infinite",
           }}
@@ -131,8 +132,8 @@ export default function HomePage() {
             height: "50%",
             borderRadius: "50%",
             background: isDark
-              ? "radial-gradient(circle, rgba(253, 126, 20, 0.1) 0%, transparent 70%)"
-              : "radial-gradient(circle, rgba(253, 126, 20, 0.08) 0%, transparent 70%)",
+              ? "radial-gradient(circle, rgba(214, 161, 58, 0.12) 0%, transparent 70%)"
+              : "radial-gradient(circle, rgba(214, 161, 58, 0.08) 0%, transparent 70%)",
             filter: "blur(40px)",
             animation: "float 25s ease-in-out infinite reverse",
           }}
@@ -146,8 +147,8 @@ export default function HomePage() {
             height: "40%",
             borderRadius: "50%",
             background: isDark
-              ? "radial-gradient(circle, rgba(121, 80, 242, 0.1) 0%, transparent 70%)"
-              : "radial-gradient(circle, rgba(121, 80, 242, 0.06) 0%, transparent 70%)",
+              ? "radial-gradient(circle, rgba(72, 97, 66, 0.1) 0%, transparent 70%)"
+              : "radial-gradient(circle, rgba(72, 97, 66, 0.06) 0%, transparent 70%)",
             filter: "blur(60px)",
             animation: "float 30s ease-in-out infinite",
           }}
@@ -166,44 +167,13 @@ export default function HomePage() {
             : "1px solid rgba(0, 0, 0, 0.05)",
           backdropFilter: "blur(10px)",
           backgroundColor: isDark
-            ? "rgba(26, 27, 30, 0.8)"
-            : "rgba(255, 255, 255, 0.8)",
+            ? "rgba(23, 30, 21, 0.8)"
+            : "rgba(255, 250, 244, 0.86)",
         }}
       >
         <Container size="lg">
           <Group justify="space-between">
-            <Group gap="xs">
-              <Box
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background:
-                    "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  fontWeight: 700,
-                  fontSize: 18,
-                }}
-              >
-                E
-              </Box>
-              <Text
-                size="xl"
-                fw={700}
-                style={{
-                  background: isDark
-                    ? "linear-gradient(135deg, #74C0FC 0%, #A5D8FF 100%)"
-                    : "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
-                Exima
-              </Text>
-            </Group>
+            <BrandMark />
 
             <Group gap="sm">
               <LanguageSelect />
@@ -258,7 +228,7 @@ export default function HomePage() {
                 inherit
                 style={{
                   background:
-                    "linear-gradient(135deg, #228BE6 0%, #7950F2 50%, #FD7E14 100%)",
+                    "linear-gradient(135deg, #6F8B6A 0%, #486142 60%, #D6A13A 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                 }}
@@ -267,7 +237,7 @@ export default function HomePage() {
               </Text>
             </Title>
 
-            <Text size="xl" c="dimmed" maw={600} lh={1.6} ta="center">
+            <Text size="xl" c="dimmed" maw={600} lh={1.6} ta="center" className="sade-quote">
               {t.home.hero.subtitle}
             </Text>
           </Stack>
@@ -316,7 +286,7 @@ export default function HomePage() {
       >
         <Stack gap="xl">
           <Stack gap="sm" align="center" ta="center" mb="xl">
-            <Badge size="md" variant="light" color="violet">
+            <Badge size="md" variant="light" color="accent">
               {t.home.benefits.badge}
             </Badge>
             <Title order={2} fz={{ base: 28, md: 36 }}>
@@ -339,7 +309,7 @@ export default function HomePage() {
                     : "1px solid rgba(0, 0, 0, 0.05)",
                   backgroundColor: isDark
                     ? "rgba(255, 255, 255, 0.02)"
-                    : "rgba(255, 255, 255, 0.8)",
+                    : "rgba(255, 250, 244, 0.82)",
                   backdropFilter: "blur(10px)",
                   transition: "all 0.3s ease",
                   cursor: "default",
@@ -351,7 +321,7 @@ export default function HomePage() {
                     : "0 20px 40px rgba(0, 0, 0, 0.1)";
                   e.currentTarget.style.borderColor = isDark
                     ? "rgba(255, 255, 255, 0.2)"
-                    : "rgba(34, 139, 230, 0.3)";
+                    : "rgba(111, 139, 106, 0.3)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = "translateY(0)";
@@ -451,8 +421,8 @@ export default function HomePage() {
                   radius="lg"
                   style={{
                     background: isDark
-                      ? "linear-gradient(135deg, rgba(34, 139, 230, 0.1) 0%, rgba(121, 80, 242, 0.1) 100%)"
-                      : "linear-gradient(135deg, rgba(34, 139, 230, 0.05) 0%, rgba(121, 80, 242, 0.05) 100%)",
+                      ? "linear-gradient(135deg, rgba(111, 139, 106, 0.12) 0%, rgba(214, 161, 58, 0.08) 100%)"
+                      : "linear-gradient(135deg, rgba(111, 139, 106, 0.06) 0%, rgba(214, 161, 58, 0.05) 100%)",
                     border: isDark
                       ? "1px solid rgba(255, 255, 255, 0.1)"
                       : "1px solid rgba(0, 0, 0, 0.05)",
@@ -464,8 +434,7 @@ export default function HomePage() {
                         size={48}
                         radius="md"
                         style={{
-                          background:
-                            "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
+                          background: "var(--sade-brand-gradient)",
                         }}
                       >
                         <IconRocket size={24} color="white" />
@@ -487,8 +456,7 @@ export default function HomePage() {
                             width: 20,
                             height: 20,
                             borderRadius: "50%",
-                            background:
-                              "linear-gradient(135deg, #40C057 0%, #37B24D 100%)",
+                            background: "var(--sade-brand-gradient)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -506,8 +474,7 @@ export default function HomePage() {
                             width: 20,
                             height: 20,
                             borderRadius: "50%",
-                            background:
-                              "linear-gradient(135deg, #40C057 0%, #37B24D 100%)",
+                            background: "var(--sade-brand-gradient)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -525,8 +492,7 @@ export default function HomePage() {
                             width: 20,
                             height: 20,
                             borderRadius: "50%",
-                            background:
-                              "linear-gradient(135deg, #40C057 0%, #37B24D 100%)",
+                            background: "var(--sade-brand-gradient)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -565,23 +531,7 @@ export default function HomePage() {
         <Container size="lg">
           <Group justify="space-between" align="center">
             <Group gap="xs">
-              <Box
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  background:
-                    "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  fontWeight: 700,
-                  fontSize: 14,
-                }}
-              >
-                E
-              </Box>
+              <BrandMark size={28} />
               <Text size="sm" c="dimmed">
                 © {currentYear}{" "}
                 <Anchor

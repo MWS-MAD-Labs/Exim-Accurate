@@ -20,10 +20,10 @@ export const en = {
   },
   home: {
     hero: {
-      title: "Export & Import Manager for",
-      titleHighlight: "Inventory Adjustments",
+      title: "Millennia Mart & Resources",
+      titleHighlight: "by Sade",
       subtitle:
-        "Exima simplifies bulk export and import of inventory adjustments with validation, preview, and secure Accurate credential management.",
+        "Sade is the Millennia Mart and Resources storefront for shopping, pre-orders, self-checkout, and inventory operations.",
       getStarted: "Get Started",
       viewGithub: "View on GitHub",
     },
@@ -50,10 +50,10 @@ export const en = {
       },
     },
     benefits: {
-      title: "Why choose Exima?",
+      title: "Meet Sade",
       badge: "Benefits",
       description:
-        "Exima is designed to simplify the export and import process of inventory adjustment data from Accurate Online. With an intuitive interface and built-in validation features, you can manage data more efficiently.",
+        "Sade supports Millennia Mart and Resources operations with a convenient shopping experience, self-checkout, and inventory tools.",
       free: "100% Free, no hidden costs",
       responsive: "Responsive and modern dashboard",
       realtime: "Real-time job status notifications",
@@ -630,10 +630,10 @@ export const en = {
   },
   terms: {
     title: "Terms & Conditions",
-    subtitle: "By using Exima, you agree to the following terms:",
+    subtitle: "By using Sade, you agree to the following terms:",
     list: [
       "Access to Accurate Online requires official credentials (App Key, Signature Secret, API Token) from your account.",
-      "Exima only accesses data necessary for export/import of inventory adjustments.",
+      "Sade only accesses data required for the features you use.",
       "You are responsible for the accuracy of imported data and the date range of exported data.",
       "Do not share your credentials with others; delete credentials if no longer in use.",
       "The service is provided as-is without warranty; use with consideration of your company's internal policies.",

@@ -17,6 +17,7 @@ import {
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
+import { BrandMark } from "@/components/BrandMark";
 import { useLanguage } from "@/lib/language";
 
 export default function TermsPage() {
@@ -32,7 +33,7 @@ export default function TermsPage() {
         minHeight: "100vh",
         background: isDark
           ? "linear-gradient(180deg, var(--mantine-color-dark-8) 0%, var(--mantine-color-dark-9) 100%)"
-          : "linear-gradient(180deg, #FFFFFF 0%, #F8F9FA 100%)",
+          : "linear-gradient(180deg, #FFFAF4 0%, #F5F2EC 100%)",
       }}
     >
       <Box
@@ -44,48 +45,18 @@ export default function TermsPage() {
             : "1px solid rgba(0, 0, 0, 0.05)",
           backdropFilter: "blur(10px)",
           backgroundColor: isDark
-            ? "rgba(26, 27, 30, 0.8)"
-            : "rgba(255, 255, 255, 0.8)",
+            ? "rgba(23, 30, 21, 0.8)"
+            : "rgba(255, 250, 244, 0.86)",
         }}
       >
         <Container size="lg">
           <Group justify="space-between">
-            <Group
-              gap="xs"
+            <Box
               style={{ cursor: "pointer" }}
               onClick={() => router.push("/")}
             >
-              <Box
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background:
-                    "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  fontWeight: 700,
-                  fontSize: 18,
-                }}
-              >
-                E
-              </Box>
-              <Text
-                size="xl"
-                fw={700}
-                style={{
-                  background: isDark
-                    ? "linear-gradient(135deg, #74C0FC 0%, #A5D8FF 100%)"
-                    : "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
-                Exima
-              </Text>
-            </Group>
+              <BrandMark />
+            </Box>
 
             <Group gap="sm">
               <LanguageSelect />
@@ -111,7 +82,7 @@ export default function TermsPage() {
 
       <Container size="md" py={{ base: "xl", md: 60 }}>
         <Stack gap="lg">
-          <Badge size="md" variant="light" color="blue" w="fit-content">
+          <Badge size="md" variant="light" color="brand" w="fit-content">
             {t.common.terms}
           </Badge>
           <Title order={1}>{t.terms.title}</Title>
@@ -125,7 +96,7 @@ export default function TermsPage() {
                 ? "1px solid rgba(255, 255, 255, 0.08)"
                 : "1px solid rgba(0, 0, 0, 0.05)",
               backgroundColor: isDark
-                ? "rgba(26, 27, 30, 0.6)"
+                ? "rgba(23, 30, 21, 0.6)"
                 : "rgba(255, 255, 255, 0.9)",
             }}
           >
@@ -144,7 +115,7 @@ export default function TermsPage() {
                 ? "1px solid rgba(255, 255, 255, 0.08)"
                 : "1px solid rgba(0, 0, 0, 0.05)",
               backgroundColor: isDark
-                ? "rgba(26, 27, 30, 0.6)"
+                ? "rgba(23, 30, 21, 0.6)"
                 : "rgba(255, 255, 255, 0.9)",
             }}
           >
@@ -168,23 +139,7 @@ export default function TermsPage() {
         <Container size="lg">
           <Group justify="space-between" align="center">
             <Group gap="xs">
-              <Box
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  background:
-                    "linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  fontWeight: 700,
-                  fontSize: 14,
-                }}
-              >
-                E
-              </Box>
+              <BrandMark size={28} />
               <Text size="sm" c="dimmed">
                 © {currentYear}{" "}
                 <Anchor

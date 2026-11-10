@@ -141,7 +141,7 @@ interface PosAnalyticsData {
   }>;
 }
 
-const PIE_COLORS = ["#228BE6", "#12B886", "#FD7E14", "#7950F2"];
+const PIE_COLORS = ["#6F8B6A", "#486142", "#D6A13A", "#79AFC7"];
 
 function dateParam(date: Date) {
   const year = date.getFullYear();
@@ -732,15 +732,15 @@ export default function PosAnalyticsPage() {
                   <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <AreaChart data={trendData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                       <defs>
-                        <linearGradient id="pos-revenue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#228BE6" stopOpacity={0.3} /><stop offset="95%" stopColor="#228BE6" stopOpacity={0} /></linearGradient>
-                        <linearGradient id="pos-profit" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#12B886" stopOpacity={0.28} /><stop offset="95%" stopColor="#12B886" stopOpacity={0} /></linearGradient>
+                        <linearGradient id="pos-revenue" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6F8B6A" stopOpacity={0.3} /><stop offset="95%" stopColor="#6F8B6A" stopOpacity={0} /></linearGradient>
+                        <linearGradient id="pos-profit" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#D6A13A" stopOpacity={0.28} /><stop offset="95%" stopColor="#D6A13A" stopOpacity={0} /></linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.25} />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={11} minTickGap={24} />
                       <YAxis axisLine={false} tickLine={false} fontSize={11} tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`} />
                       <Tooltip formatter={(value, name) => [formatMoney(Number(value)), name === "revenueValue" ? labels.revenue : labels.profit]} />
-                      <Area type="monotone" dataKey="revenueValue" name={labels.revenue} stroke="#228BE6" strokeWidth={2.5} fill="url(#pos-revenue)" />
-                      <Area type="monotone" dataKey="profitValue" name={labels.profit} stroke="#12B886" strokeWidth={2.5} fill="url(#pos-profit)" />
+                      <Area type="monotone" dataKey="revenueValue" name={labels.revenue} stroke="#6F8B6A" strokeWidth={2.5} fill="url(#pos-revenue)" />
+                      <Area type="monotone" dataKey="profitValue" name={labels.profit} stroke="#D6A13A" strokeWidth={2.5} fill="url(#pos-profit)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </Box>
@@ -774,7 +774,7 @@ export default function PosAnalyticsPage() {
                         <XAxis type="number" axisLine={false} tickLine={false} fontSize={11} tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`} />
                         <YAxis type="category" dataKey="name" width={120} axisLine={false} tickLine={false} fontSize={11} />
                         <Tooltip formatter={(value) => [formatMoney(Number(value)), labels.profit]} />
-                        <Bar dataKey="profit" fill="#12B886" radius={[0, 6, 6, 0]} />
+                        <Bar dataKey="profit" fill="#D6A13A" radius={[0, 6, 6, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </Box>

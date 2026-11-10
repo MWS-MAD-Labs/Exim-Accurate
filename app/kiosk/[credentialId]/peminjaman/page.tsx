@@ -621,7 +621,7 @@ export default function PeminjamanKioskPage() {
             justify="space-between"
             p="md"
             style={{
-                borderBottom: "1px solid rgba(148, 163, 184, 0.15)",
+                borderBottom: "1px solid rgba(230, 234, 223, 0.15)",
                 position: "relative",
                 zIndex: 10,
             }}
@@ -654,8 +654,8 @@ export default function PeminjamanKioskPage() {
                     size={40}
                     radius="xl"
                     variant="gradient"
-                    gradient={{ from: "violet.5", to: "grape.7", deg: 135 }}
-                    style={{ boxShadow: "0 0 15px rgba(167, 139, 250, 0.35)" }}
+                    gradient={{ from: "brand.5", to: "accent.7", deg: 135 }}
+                    style={{ boxShadow: "0 0 15px rgba(214, 161, 58, 0.35)" }}
                 >
                     <IconClipboardList size={20} />
                 </ThemeIcon>
@@ -679,8 +679,8 @@ export default function PeminjamanKioskPage() {
                     onClick={() => router.push(`/kiosk/${credentialId}`)}
                     leftSection={<IconArrowRight size={14} />}
                     style={{
-                        backgroundColor: "rgba(56, 189, 248, 0.16)",
-                        border: "1px solid rgba(56, 189, 248, 0.35)",
+                        backgroundColor: "rgba(111, 139, 106, 0.16)",
+                        border: "1px solid rgba(111, 139, 106, 0.35)",
                         color: "white",
                     }}
                 >
@@ -693,9 +693,9 @@ export default function PeminjamanKioskPage() {
                     leftSection={<IconScan size={14} />}
                     style={{
                         backgroundColor: useScanner
-                            ? "rgba(167, 139, 250, 0.3)"
+                            ? "rgba(214, 161, 58, 0.3)"
                             : "transparent",
-                        border: "1px solid rgba(167, 139, 250, 0.4)",
+                        border: "1px solid rgba(214, 161, 58, 0.4)",
                         color: "white",
                     }}
                 >
@@ -729,7 +729,7 @@ export default function PeminjamanKioskPage() {
                     position: "fixed",
                     inset: 0,
                     background:
-                        "radial-gradient(ellipse at top, rgba(139, 92, 246, 0.15) 0%, rgba(15, 23, 42, 0.97) 50%)",
+                        "radial-gradient(ellipse at top, rgba(111, 139, 106, 0.15) 0%, rgba(32, 43, 29, 0.97) 50%)",
                     zIndex: 0,
                 }}
             />
@@ -754,9 +754,9 @@ export default function PeminjamanKioskPage() {
                                     size={120}
                                     radius="xl"
                                     variant="gradient"
-                                    gradient={{ from: "violet.5", to: "grape.7", deg: 135 }}
+                                    gradient={{ from: "brand.5", to: "accent.7", deg: 135 }}
                                     style={{
-                                        boxShadow: "0 0 40px rgba(167, 139, 250, 0.45)",
+                                        boxShadow: "0 0 40px rgba(214, 161, 58, 0.45)",
                                     }}
                                 >
                                     <IconUserCheck size={60} />
@@ -795,13 +795,13 @@ export default function PeminjamanKioskPage() {
                                             input: {
                                                 textAlign: "center",
                                                 fontSize: rem(20),
-                                                backgroundColor: "rgba(15, 23, 42, 0.8)",
-                                                border: "2px solid rgba(167, 139, 250, 0.4)",
+                                                backgroundColor: "rgba(32, 43, 29, 0.8)",
+                                                border: "2px solid rgba(214, 161, 58, 0.4)",
                                                 color: "white",
                                                 height: rem(64),
                                                 borderRadius: rem(16),
                                                 "&:focus": {
-                                                    borderColor: "rgba(167, 139, 250, 0.8)",
+                                                    borderColor: "rgba(214, 161, 58, 0.8)",
                                                 },
                                             },
                                         }}
@@ -812,7 +812,7 @@ export default function PeminjamanKioskPage() {
                                         style={{
                                             borderRadius: rem(16),
                                             overflow: "hidden",
-                                            border: "2px solid rgba(167, 139, 250, 0.4)",
+                                            border: "2px solid rgba(214, 161, 58, 0.4)",
                                         }}
                                     >
                                         <PersistentScanner onScan={handleCameraScan} />
@@ -832,9 +832,9 @@ export default function PeminjamanKioskPage() {
                                     size={100}
                                     radius="xl"
                                     variant="gradient"
-                                    gradient={{ from: "orange.5", to: "red.6", deg: 135 }}
+                                    gradient={{ from: "accent.5", to: "red.6", deg: 135 }}
                                     style={{
-                                        boxShadow: "0 0 30px rgba(251, 146, 60, 0.45)",
+                                        boxShadow: "0 0 30px rgba(214, 161, 58, 0.45)",
                                     }}
                                 >
                                     <IconAlertTriangle size={50} />
@@ -858,8 +858,8 @@ export default function PeminjamanKioskPage() {
                                     w="100%"
                                     p="md"
                                     style={{
-                                        background: "rgba(15, 23, 42, 0.6)",
-                                        border: "1px solid rgba(251, 146, 60, 0.3)",
+                                        background: "rgba(32, 43, 29, 0.6)",
+                                        border: "1px solid rgba(214, 161, 58, 0.3)",
                                         borderRadius: rem(12),
                                     }}
                                 >
@@ -873,7 +873,7 @@ export default function PeminjamanKioskPage() {
                                                     <Group gap="sm">
                                                         <IconPackage
                                                             size={16}
-                                                            style={{ color: "rgba(251, 146, 60, 0.8)" }}
+                                                            style={{ color: "rgba(214, 161, 58, 0.8)" }}
                                                         />
                                                         <Text c="white" size="sm">
                                                             {item.itemName}
@@ -898,7 +898,7 @@ export default function PeminjamanKioskPage() {
                                         flex={1}
                                         size="xl"
                                         variant="gradient"
-                                        gradient={{ from: "orange.5", to: "red.6", deg: 135 }}
+                                        gradient={{ from: "accent.5", to: "red.6", deg: 135 }}
                                         leftSection={<IconRefresh size={22} />}
                                         onClick={() => {
                                             setMode("return");
@@ -913,7 +913,7 @@ export default function PeminjamanKioskPage() {
                                         style={{
                                             height: rem(64),
                                             borderRadius: rem(16),
-                                            boxShadow: "0 0 20px rgba(251, 146, 60, 0.35)",
+                                            boxShadow: "0 0 20px rgba(214, 161, 58, 0.35)",
                                         }}
                                     >
                                         {language === "id"
@@ -924,7 +924,7 @@ export default function PeminjamanKioskPage() {
                                         flex={1}
                                         size="xl"
                                         variant="gradient"
-                                        gradient={{ from: "violet.5", to: "grape.7", deg: 135 }}
+                                        gradient={{ from: "brand.5", to: "accent.7", deg: 135 }}
                                         leftSection={<IconPlus size={22} />}
                                         onClick={() => {
                                             setMode("borrow");
@@ -934,7 +934,7 @@ export default function PeminjamanKioskPage() {
                                         style={{
                                             height: rem(64),
                                             borderRadius: rem(16),
-                                            boxShadow: "0 0 20px rgba(167, 139, 250, 0.35)",
+                                            boxShadow: "0 0 20px rgba(214, 161, 58, 0.35)",
                                         }}
                                     >
                                         {language === "id"
@@ -977,7 +977,7 @@ export default function PeminjamanKioskPage() {
                                             flex: 1,
                                             borderRadius: rem(16),
                                             overflow: "hidden",
-                                            border: "2px solid rgba(167, 139, 250, 0.3)",
+                                            border: "2px solid rgba(214, 161, 58, 0.3)",
                                         }}
                                     >
                                         <PersistentScanner onScan={handleCameraScan} />
@@ -992,13 +992,13 @@ export default function PeminjamanKioskPage() {
                                                 radius="xl"
                                                 variant="gradient"
                                                 gradient={{
-                                                    from: "violet.5",
-                                                    to: "grape.7",
+                                                    from: "brand.5",
+                                                    to: "accent.7",
                                                     deg: 135,
                                                 }}
                                                 style={{
                                                     boxShadow:
-                                                        "0 0 30px rgba(167, 139, 250, 0.35)",
+                                                        "0 0 30px rgba(214, 161, 58, 0.35)",
                                                 }}
                                             >
                                                 <IconScan size={36} />
@@ -1029,9 +1029,9 @@ export default function PeminjamanKioskPage() {
                                                 styles={{
                                                     input: {
                                                         textAlign: "center",
-                                                        backgroundColor: "rgba(15, 23, 42, 0.8)",
+                                                        backgroundColor: "rgba(32, 43, 29, 0.8)",
                                                         border:
-                                                            "2px solid rgba(167, 139, 250, 0.4)",
+                                                            "2px solid rgba(214, 161, 58, 0.4)",
                                                         color: "white",
                                                         borderRadius: rem(12),
                                                     },
@@ -1048,17 +1048,17 @@ export default function PeminjamanKioskPage() {
                                     width: 480,
                                     display: "flex",
                                     flexDirection: "column",
-                                    background: "rgba(15, 23, 42, 0.6)",
+                                    background: "rgba(32, 43, 29, 0.6)",
                                     backdropFilter: "blur(24px)",
                                     borderRadius: rem(16),
-                                    border: "1px solid rgba(148, 163, 184, 0.15)",
+                                    border: "1px solid rgba(230, 234, 223, 0.15)",
                                     overflow: "hidden",
                                 }}
                             >
                                 <Box
                                     p="md"
                                     style={{
-                                        borderBottom: "1px solid rgba(148, 163, 184, 0.15)",
+                                        borderBottom: "1px solid rgba(230, 234, 223, 0.15)",
                                     }}
                                 >
                                     <Group justify="space-between">
@@ -1101,9 +1101,9 @@ export default function PeminjamanKioskPage() {
                                                             key={item.itemCode}
                                                             p="sm"
                                                             style={{
-                                                                background: "rgba(167, 139, 250, 0.08)",
+                                                                background: "rgba(214, 161, 58, 0.08)",
                                                                 borderRadius: rem(10),
-                                                                border: "1px solid rgba(167, 139, 250, 0.15)",
+                                                                border: "1px solid rgba(214, 161, 58, 0.15)",
                                                             }}
                                                             justify="space-between"
                                                         >
@@ -1183,7 +1183,7 @@ export default function PeminjamanKioskPage() {
                                                     style={{
                                                         background: "rgba(255,255,255,0.04)",
                                                         borderRadius: rem(12),
-                                                        border: "1px solid rgba(148, 163, 184, 0.15)",
+                                                        border: "1px solid rgba(230, 234, 223, 0.15)",
                                                     }}
                                                 >
                                                     <Stack gap="sm">
@@ -1369,7 +1369,7 @@ export default function PeminjamanKioskPage() {
                                 <Box
                                     p="md"
                                     style={{
-                                        borderTop: "1px solid rgba(148, 163, 184, 0.15)",
+                                        borderTop: "1px solid rgba(230, 234, 223, 0.15)",
                                     }}
                                 >
                                     <Button
@@ -1378,8 +1378,8 @@ export default function PeminjamanKioskPage() {
                                         variant="gradient"
                                         gradient={
                                             transactionType === "booking"
-                                                ? { from: "cyan.5", to: "blue.6", deg: 135 }
-                                                : { from: "violet.5", to: "grape.7", deg: 135 }
+                                                ? { from: "success.5", to: "sky.6", deg: 135 }
+                                                : { from: "brand.5", to: "accent.7", deg: 135 }
                                         }
                                         disabled={
                                             cart.length === 0 ||
@@ -1418,17 +1418,17 @@ export default function PeminjamanKioskPage() {
                                 w="100%"
                                 maw={600}
                                 style={{
-                                    background: "rgba(15, 23, 42, 0.6)",
+                                    background: "rgba(32, 43, 29, 0.6)",
                                     backdropFilter: "blur(24px)",
                                     borderRadius: rem(16),
-                                    border: "1px solid rgba(148, 163, 184, 0.15)",
+                                    border: "1px solid rgba(230, 234, 223, 0.15)",
                                     overflow: "hidden",
                                 }}
                             >
                                 <Box
                                     p="lg"
                                     style={{
-                                        borderBottom: "1px solid rgba(148, 163, 184, 0.15)",
+                                        borderBottom: "1px solid rgba(230, 234, 223, 0.15)",
                                     }}
                                 >
                                     <Group justify="space-between">
@@ -1460,12 +1460,12 @@ export default function PeminjamanKioskPage() {
                                                     p="sm"
                                                     style={{
                                                         background: isSelected
-                                                            ? "rgba(251, 146, 60, 0.12)"
+                                                            ? "rgba(214, 161, 58, 0.12)"
                                                             : "rgba(255,255,255,0.04)",
                                                         borderRadius: rem(10),
                                                         border: isSelected
-                                                            ? "1px solid rgba(251, 146, 60, 0.4)"
-                                                            : "1px solid rgba(148, 163, 184, 0.12)",
+                                                            ? "1px solid rgba(214, 161, 58, 0.4)"
+                                                            : "1px solid rgba(230, 234, 223, 0.12)",
                                                         cursor: "pointer",
                                                         transition: "all 0.2s ease",
                                                     }}
@@ -1487,8 +1487,8 @@ export default function PeminjamanKioskPage() {
                                                         color="orange"
                                                         styles={{
                                                             input: {
-                                                                backgroundColor: "rgba(15, 23, 42, 0.6)",
-                                                                borderColor: "rgba(148, 163, 184, 0.3)",
+                                                                backgroundColor: "rgba(32, 43, 29, 0.6)",
+                                                                borderColor: "rgba(230, 234, 223, 0.3)",
                                                             },
                                                         }}
                                                     />
@@ -1518,14 +1518,14 @@ export default function PeminjamanKioskPage() {
                                 <Box
                                     p="md"
                                     style={{
-                                        borderTop: "1px solid rgba(148, 163, 184, 0.15)",
+                                        borderTop: "1px solid rgba(230, 234, 223, 0.15)",
                                     }}
                                 >
                                     <Button
                                         fullWidth
                                         size="lg"
                                         variant="gradient"
-                                        gradient={{ from: "orange.5", to: "red.6", deg: 135 }}
+                                        gradient={{ from: "accent.5", to: "red.6", deg: 135 }}
                                         disabled={totalReturnItems === 0 || submitting}
                                         loading={submitting}
                                         onClick={handleSubmitReturn}
@@ -1550,9 +1550,9 @@ export default function PeminjamanKioskPage() {
                                     size={120}
                                     radius="xl"
                                     variant="gradient"
-                                    gradient={{ from: "green.5", to: "teal.6", deg: 135 }}
+                                    gradient={{ from: "success.5", to: "success.6", deg: 135 }}
                                     style={{
-                                        boxShadow: "0 0 40px rgba(16, 185, 129, 0.45)",
+                                        boxShadow: "0 0 40px rgba(157, 177, 143, 0.45)",
                                     }}
                                 >
                                     <IconCheck size={60} />
@@ -1581,14 +1581,14 @@ export default function PeminjamanKioskPage() {
                                 <Button
                                     size="xl"
                                     variant="gradient"
-                                    gradient={{ from: "violet.5", to: "grape.7", deg: 135 }}
+                                    gradient={{ from: "brand.5", to: "accent.7", deg: 135 }}
                                     onClick={handleNewSession}
                                     leftSection={<IconRefresh size={22} />}
                                     style={{
                                         height: rem(64),
                                         borderRadius: rem(16),
                                         paddingInline: rem(40),
-                                        boxShadow: "0 0 25px rgba(167, 139, 250, 0.35)",
+                                        boxShadow: "0 0 25px rgba(214, 161, 58, 0.35)",
                                     }}
                                 >
                                     {language === "id" ? "Sesi Baru" : "New Session"}
