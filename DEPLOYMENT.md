@@ -36,7 +36,7 @@ SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=notifications@example.com
 SMTP_PASSWORD=replace-with-google-app-password
-SMTP_FROM=Exima Notifications <notifications@example.com>
+SMTP_FROM=Sade Notifications <notifications@example.com>
 ```
 
 Never commit `.env` or expose Hub/Central secrets, OAuth secrets, SMTP passwords, tokens, session values, or database credentials in logs. For Google SMTP, use an App Password rather than the account's normal password whenever possible.
