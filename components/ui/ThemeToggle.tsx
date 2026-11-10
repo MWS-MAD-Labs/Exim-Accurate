@@ -243,8 +243,8 @@ export function ThemeCard() {
                 borderWidth: isSelected ? 2 : 1,
                 backgroundColor: isSelected
                   ? isDark
-                    ? "rgba(34, 139, 230, 0.1)"
-                    : "rgba(34, 139, 230, 0.05)"
+                    ? "rgba(111, 139, 106, 0.1)"
+                    : "rgba(111, 139, 106, 0.05)"
                   : undefined,
                 transition: "all 0.15s ease",
               }}

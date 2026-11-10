@@ -1,24 +1,35 @@
-/* Google Fonts - Inter */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-
-/* CSS Variables for custom theming */
+/* Shared Sade SAFESpace design tokens */
 :root {
-  /* Brand colors */
-  --exima-brand-gradient: linear-gradient(135deg, #228BE6 0%, #1C7ED6 100%);
-  --exima-accent-gradient: linear-gradient(135deg, #FF922B 0%, #FD7E14 100%);
-  --exima-success-gradient: linear-gradient(135deg, #51CF66 0%, #40C057 100%);
-  --exima-violet-gradient: linear-gradient(135deg, #845EF7 0%, #7950F2 100%);
+  --sade-sage: #6F8B6A;
+  --sade-sage-deep: #486142;
+  --sade-gold: #D6A13A;
+  --sade-ivory: #FFFAF4;
 
-  /* Shadows */
-  --exima-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --exima-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --exima-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --exima-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  /* Dark mode: warm espresso-green. Same values as theme.colors.dark[7]/[6]/[5] in lib/theme.ts,
+     because Mantine sets the dark body color from dark[7]. */
+  --sade-espresso: #1C2419;
+  --sade-dark-surface: #242E21;
+  --sade-dark-raised: #2C382A;
 
-  /* Transitions */
-  --exima-transition-fast: 0.15s ease;
-  --exima-transition-normal: 0.2s ease;
-  --exima-transition-slow: 0.3s ease;
+  --sade-rose: #CC6666;
+  --sade-sky: #79AFC7;
+  --sade-wordmark: #486142;
+  --sade-brand-gradient: linear-gradient(135deg, #6F8B6A 0%, #486142 100%);
+  --sade-gold-gradient: linear-gradient(135deg, #E2C36C 0%, #D6A13A 100%);
+  --sade-shadow-sm: 0 1px 3px rgba(43, 55, 37, 0.08), 0 1px 2px rgba(43, 55, 37, 0.05);
+  --sade-shadow-md: 0 4px 8px rgba(43, 55, 37, 0.08);
+  --sade-shadow-lg: 0 10px 24px rgba(43, 55, 37, 0.1);
+  --sade-shadow-xl: 0 20px 40px rgba(43, 55, 37, 0.14);
+  --sade-transition-fast: 0.15s ease;
+  --sade-transition-normal: 0.2s ease;
+  --sade-transition-slow: 0.3s ease;
+  --mantine-color-body: var(--sade-ivory);
+}
+
+[data-mantine-color-scheme="dark"] {
+  --mantine-color-body: var(--sade-espresso);
+  --mantine-color-text: #F4F0E8;
+  --sade-wordmark: #E8E1D4;
 }
 
 /* Base styles */
@@ -33,14 +44,31 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-nunito-sans), "Nunito Sans", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+button,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.mantine-Title-root,
+.mantine-Button-root {
+  font-family: var(--font-jakarta-sans), "Plus Jakarta Sans", sans-serif;
+}
+
+.sade-quote {
+  font-family: var(--font-lora), "Lora", serif;
+  font-style: italic;
+}
+
 /* Selection styles */
 ::selection {
-  background-color: rgba(34, 139, 230, 0.2);
+  background-color: rgba(111, 139, 106, 0.22);
   color: inherit;
 }
 
@@ -238,29 +266,29 @@ body {
 
 /* Transition utility classes */
 .transition-all {
-  transition: all var(--exima-transition-normal);
+  transition: all var(--sade-transition-normal);
 }
 
 .transition-fast {
-  transition: all var(--exima-transition-fast);
+  transition: all var(--sade-transition-fast);
 }
 
 .transition-slow {
-  transition: all var(--exima-transition-slow);
+  transition: all var(--sade-transition-slow);
 }
 
 /* Hover effect utilities */
 .hover-lift {
-  transition: transform var(--exima-transition-normal), box-shadow var(--exima-transition-normal);
+  transition: transform var(--sade-transition-normal), box-shadow var(--sade-transition-normal);
 }
 
 .hover-lift:hover {
   transform: translateY(-4px);
-  box-shadow: var(--exima-shadow-lg);
+  box-shadow: var(--sade-shadow-lg);
 }
 
 .hover-scale {
-  transition: transform var(--exima-transition-fast);
+  transition: transform var(--sade-transition-fast);
 }
 
 .hover-scale:hover {
@@ -268,23 +296,23 @@ body {
 }
 
 .hover-glow {
-  transition: box-shadow var(--exima-transition-normal);
+  transition: box-shadow var(--sade-transition-normal);
 }
 
 .hover-glow:hover {
-  box-shadow: 0 0 20px rgba(34, 139, 230, 0.3);
+  box-shadow: 0 0 20px rgba(111, 139, 106, 0.3);
 }
 
 /* Gradient text utility */
 .gradient-text {
-  background: var(--exima-brand-gradient);
+  background: var(--sade-brand-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .gradient-text-accent {
-  background: var(--exima-accent-gradient);
+  background: var(--sade-gold-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -375,12 +403,12 @@ body {
 
 /* Custom card hover styles */
 .card-hover {
-  transition: all var(--exima-transition-normal);
+  transition: all var(--sade-transition-normal);
 }
 
 .card-hover:hover {
   transform: translateY(-4px);
-  box-shadow: var(--exima-shadow-xl);
+  box-shadow: var(--sade-shadow-xl);
 }
 
 [data-mantine-color-scheme="dark"] .card-hover:hover {
@@ -393,39 +421,39 @@ body {
 .mantine-Select-input:focus,
 .mantine-Textarea-input:focus {
   border-color: var(--mantine-color-brand-6) !important;
-  box-shadow: 0 0 0 3px rgba(34, 139, 230, 0.15) !important;
+  box-shadow: 0 0 0 3px rgba(111, 139, 106, 0.15) !important;
 }
 
 /* Button gradient styles */
 .btn-gradient-brand {
-  background: var(--exima-brand-gradient) !important;
+  background: var(--sade-brand-gradient) !important;
   border: none !important;
-  transition: all var(--exima-transition-normal);
+  transition: all var(--sade-transition-normal);
 }
 
 .btn-gradient-brand:hover {
-  box-shadow: 0 4px 20px rgba(34, 139, 230, 0.4);
+  box-shadow: 0 4px 20px rgba(111, 139, 106, 0.4);
   transform: translateY(-1px);
 }
 
 .btn-gradient-accent {
-  background: var(--exima-accent-gradient) !important;
+  background: var(--sade-gold-gradient) !important;
   border: none !important;
-  transition: all var(--exima-transition-normal);
+  transition: all var(--sade-transition-normal);
 }
 
 .btn-gradient-accent:hover {
-  box-shadow: 0 4px 20px rgba(253, 126, 20, 0.4);
+  box-shadow: 0 4px 20px rgba(214, 161, 58, 0.4);
   transform: translateY(-1px);
 }
 
-/* POS cashier debt modal */
+/* POS cashier debt modal (warm SAFESpace dark green + gold, no cold slate) */
 .cashier-debt-modal {
-  background: rgba(8, 15, 30, 0.96) !important;
+  background: rgba(22, 32, 26, 0.96) !important;
   backdrop-filter: blur(24px);
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid rgba(214, 200, 170, 0.22);
   border-radius: 22px !important;
-  box-shadow: 0 28px 80px rgba(3, 8, 20, 0.72);
+  box-shadow: 0 28px 80px rgba(8, 14, 10, 0.72);
   color: white;
   overflow: hidden;
 }
@@ -434,7 +462,7 @@ body {
   min-height: 72px;
   padding: 22px 24px 14px;
   background: transparent !important;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  border-bottom: 1px solid rgba(214, 200, 170, 0.14);
 }
 
 .cashier-debt-modal__title {
@@ -449,8 +477,8 @@ body {
 }
 
 .cashier-debt-modal__alert {
-  background: rgba(245, 158, 11, 0.1) !important;
-  border: 1px solid rgba(251, 191, 36, 0.26);
+  background: rgba(214, 161, 58, 0.12) !important;
+  border: 1px solid rgba(214, 161, 58, 0.28);
   color: rgba(255, 255, 255, 0.88);
 }
 
@@ -460,21 +488,21 @@ body {
 }
 
 .cashier-debt-modal__alert[data-color="red"] {
-  background: rgba(239, 68, 68, 0.11) !important;
-  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(204, 102, 102, 0.12) !important;
+  border-color: rgba(204, 102, 102, 0.3);
 }
 
 .cashier-debt-modal__stat {
   min-width: 0;
   padding: 14px;
-  background: rgba(15, 23, 42, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(37, 53, 42, 0.78);
+  border: 1px solid rgba(214, 200, 170, 0.16);
   border-radius: 12px;
 }
 
 .cashier-debt-modal__muted {
   margin-bottom: 4px;
-  color: rgba(226, 232, 240, 0.66) !important;
+  color: rgba(244, 240, 232, 0.66) !important;
 }
 
 .cashier-debt-modal__action {
@@ -492,14 +520,14 @@ body {
 }
 
 .cashier-debt-modal__action[data-variant="default"] {
-  background: rgba(148, 163, 184, 0.12);
-  border-color: rgba(148, 163, 184, 0.24);
+  background: rgba(214, 200, 170, 0.12);
+  border-color: rgba(214, 200, 170, 0.24);
   color: white;
 }
 
 .cashier-debt-modal__action--secondary[data-variant="light"] {
-  background: rgba(56, 189, 248, 0.12);
-  color: #bae6fd;
+  background: rgba(121, 175, 199, 0.12);
+  color: #DDEEF4;
 }
 
 .cashier-debt-modal__action--full-row {
@@ -518,6 +546,6 @@ body {
 
 /* Badge gradient styles */
 .badge-gradient {
-  background: var(--exima-brand-gradient);
+  background: var(--sade-brand-gradient);
   color: white !important;
 }

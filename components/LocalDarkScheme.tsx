@@ -2,6 +2,7 @@
 
 import { MantineProvider } from "@mantine/core";
 import { useCallback, useRef, type CSSProperties, type ReactNode } from "react";
+import { theme } from "@/lib/theme";
 
 interface LocalDarkSchemeProps {
   children: ReactNode;
@@ -18,7 +19,11 @@ export function LocalDarkScheme({
   const getRootElement = useCallback(() => rootRef.current ?? undefined, []);
 
   return (
-    <MantineProvider forceColorScheme="dark" getRootElement={getRootElement}>
+    <MantineProvider
+      theme={theme}
+      forceColorScheme="dark"
+      getRootElement={getRootElement}
+    >
       <div
         ref={rootRef}
         data-mantine-color-scheme="dark"

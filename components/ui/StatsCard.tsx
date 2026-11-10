@@ -28,48 +28,48 @@ interface StatsCardProps {
 
 const colorGradients: Record<string, { light: string; dark: string }> = {
   brand: {
-    light: "linear-gradient(135deg, #E7F5FF 0%, #D0EBFF 100%)",
-    dark: "linear-gradient(135deg, rgba(34, 139, 230, 0.15) 0%, rgba(28, 126, 214, 0.1) 100%)",
+    light: "linear-gradient(135deg, #FFFEFB 0%, #F8F6F0 100%)",
+    dark: "linear-gradient(135deg, #242E21 0%, #202A1D 100%)",
   },
   accent: {
-    light: "linear-gradient(135deg, #FFF4E6 0%, #FFE8CC 100%)",
-    dark: "linear-gradient(135deg, rgba(255, 146, 43, 0.15) 0%, rgba(253, 126, 20, 0.1) 100%)",
+    light: "linear-gradient(135deg, #FFFEFB 0%, #FAF4E7 100%)",
+    dark: "linear-gradient(135deg, #2A3526 0%, #202A1D 100%)",
   },
   success: {
-    light: "linear-gradient(135deg, #EBFBEE 0%, #D3F9D8 100%)",
-    dark: "linear-gradient(135deg, rgba(81, 207, 102, 0.15) 0%, rgba(64, 192, 87, 0.1) 100%)",
+    light: "linear-gradient(135deg, #FFFEFB 0%, #F8F6F0 100%)",
+    dark: "linear-gradient(135deg, #242E21 0%, #202A1D 100%)",
   },
   danger: {
-    light: "linear-gradient(135deg, #FFF5F5 0%, #FFE3E3 100%)",
-    dark: "linear-gradient(135deg, rgba(255, 107, 107, 0.15) 0%, rgba(250, 82, 82, 0.1) 100%)",
+    light: "linear-gradient(135deg, #FFFEFB 0%, #FAF1EF 100%)",
+    dark: "linear-gradient(135deg, #2F2B27 0%, #202A1D 100%)",
   },
   violet: {
-    light: "linear-gradient(135deg, #F3F0FF 0%, #E5DBFF 100%)",
-    dark: "linear-gradient(135deg, rgba(132, 94, 247, 0.15) 0%, rgba(121, 80, 242, 0.1) 100%)",
+    light: "linear-gradient(135deg, #FFFEFB 0%, #F8F6F0 100%)",
+    dark: "linear-gradient(135deg, #242E21 0%, #202A1D 100%)",
   },
   cyan: {
-    light: "linear-gradient(135deg, #E3FAFC 0%, #C5F6FA 100%)",
-    dark: "linear-gradient(135deg, rgba(34, 184, 207, 0.15) 0%, rgba(21, 170, 191, 0.1) 100%)",
+    light: "linear-gradient(135deg, #FFFEFB 0%, #F3F6F5 100%)",
+    dark: "linear-gradient(135deg, #212E2B 0%, #202A1D 100%)",
   },
   grape: {
-    light: "linear-gradient(135deg, #F8F0FC 0%, #F3D9FA 100%)",
-    dark: "linear-gradient(135deg, rgba(190, 75, 219, 0.15) 0%, rgba(174, 62, 201, 0.1) 100%)",
+    light: "linear-gradient(135deg, #FFFEFB 0%, #FAF4E7 100%)",
+    dark: "linear-gradient(135deg, #2A3526 0%, #202A1D 100%)",
   },
   teal: {
-    light: "linear-gradient(135deg, #E6FCF5 0%, #C3FAE8 100%)",
-    dark: "linear-gradient(135deg, rgba(32, 201, 151, 0.15) 0%, rgba(18, 184, 134, 0.1) 100%)",
+    light: "linear-gradient(135deg, #FFFEFB 0%, #F8F6F0 100%)",
+    dark: "linear-gradient(135deg, #242E21 0%, #202A1D 100%)",
   },
 };
 
 const iconColors: Record<string, string> = {
-  brand: "#228BE6",
-  accent: "#FD7E14",
-  success: "#40C057",
-  danger: "#FA5252",
-  violet: "#7950F2",
-  cyan: "#15AABF",
-  grape: "#BE4BDB",
-  teal: "#12B886",
+  brand: "#486142",
+  accent: "#B98429",
+  success: "#486142",
+  danger: "#AD4E4E",
+  violet: "#486142",
+  cyan: "#4C7E95",
+  grape: "#B98429",
+  teal: "#486142",
 };
 
 export function StatsCard({
@@ -108,16 +108,16 @@ export function StatsCard({
       style={{
         background: isDark ? gradient.dark : gradient.light,
         border: isDark
-          ? `1px solid rgba(255, 255, 255, 0.1)`
-          : `1px solid rgba(0, 0, 0, 0.05)`,
+          ? "1px solid rgba(237, 232, 220, 0.12)"
+          : "1px solid rgba(72, 67, 55, 0.12)",
         transition: "all 0.2s ease",
         cursor: "default",
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "translateY(-2px)";
         e.currentTarget.style.boxShadow = isDark
-          ? "0 8px 32px rgba(0, 0, 0, 0.3)"
-          : "0 8px 32px rgba(0, 0, 0, 0.1)";
+          ? "0 8px 24px rgba(0, 0, 0, 0.22)"
+          : "0 8px 24px rgba(50, 45, 37, 0.1)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = "translateY(0)";
@@ -158,8 +158,8 @@ export function StatsCard({
           variant="light"
           style={{
             backgroundColor: isDark
-              ? `${iconColor}20`
-              : `${iconColor}15`,
+              ? `${iconColor}2B`
+              : `${iconColor}1A`,
             color: iconColor,
           }}
         >
