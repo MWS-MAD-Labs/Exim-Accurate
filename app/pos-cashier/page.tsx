@@ -216,7 +216,7 @@ export default function PosCashierPage() {
     backdropFilter: "blur(24px)",
     border: "1px solid var(--cashier-stroke)",
     borderRadius: rem(22),
-    boxShadow: "0 24px 60px rgba(3, 8, 20, 0.5)",
+    boxShadow: "0 24px 60px rgba(8, 14, 10, 0.5)",
   };
   const softPanelStyle = {
     background: "var(--cashier-panel-soft)",
@@ -226,7 +226,7 @@ export default function PosCashierPage() {
   const inputStyles = {
     label: { color: "rgba(255,255,255,0.78)", fontWeight: 600 },
     input: {
-      background: "rgba(7, 12, 23, 0.82)",
+      background: "rgba(22, 32, 26, 0.82)",
       border: "1px solid var(--cashier-stroke)",
       color: "white",
     },
@@ -884,8 +884,8 @@ export default function PosCashierPage() {
             size={72}
             radius="xl"
             variant="gradient"
-            gradient={{ from: "cyan.4", to: "indigo.6", deg: 135 }}
-            style={{ boxShadow: "0 0 28px rgba(56, 189, 248, 0.4)" }}
+            gradient={{ from: "brand.5", to: "accent.6", deg: 135 }}
+            style={{ boxShadow: "0 0 28px rgba(111, 139, 106, 0.4)" }}
           >
             <IconShoppingCart size={34} />
           </ThemeIcon>
@@ -916,8 +916,8 @@ export default function PosCashierPage() {
             size={44}
             radius="md"
             variant="gradient"
-            gradient={{ from: "cyan.4", to: "indigo.6", deg: 135 }}
-            style={{ boxShadow: "0 0 22px rgba(56, 189, 248, 0.35)" }}
+            gradient={{ from: "brand.5", to: "accent.6", deg: 135 }}
+            style={{ boxShadow: "0 0 22px rgba(111, 139, 106, 0.35)" }}
           >
             <IconShoppingCart size={24} />
           </ThemeIcon>
@@ -930,9 +930,9 @@ export default function PosCashierPage() {
             variant="light"
             leftSection={<IconKeyboard size={13} />}
             style={{
-              background: "rgba(56, 189, 248, 0.14)",
-              color: "#bae6fd",
-              border: "1px solid rgba(56, 189, 248, 0.28)",
+              background: "rgba(111, 139, 106, 0.14)",
+              color: "#E2C36C",
+              border: "1px solid rgba(111, 139, 106, 0.28)",
             }}
           >
             F2 {language === "id" ? "Cari" : "Search"} · F4 Checkout · Alt+N{" "}
@@ -1279,11 +1279,11 @@ export default function PosCashierPage() {
                         cursor: "pointer",
                         background:
                           index === highlightedStaffSuggestion
-                            ? "rgba(56, 189, 248, 0.16)"
-                            : "rgba(7, 12, 23, 0.5)",
+                            ? "rgba(111, 139, 106, 0.16)"
+                            : "rgba(22, 32, 26, 0.5)",
                         border:
                           index === highlightedStaffSuggestion
-                            ? "1px solid rgba(56, 189, 248, 0.3)"
+                            ? "1px solid rgba(111, 139, 106, 0.3)"
                             : "1px solid transparent",
                       }}
                       onMouseEnter={() => {
@@ -1422,11 +1422,11 @@ export default function PosCashierPage() {
                           cursor: "pointer",
                           background:
                             index === highlightedSuggestion
-                              ? "rgba(56, 189, 248, 0.16)"
-                              : "rgba(7, 12, 23, 0.5)",
+                              ? "rgba(111, 139, 106, 0.16)"
+                              : "rgba(22, 32, 26, 0.5)",
                           border:
                             index === highlightedSuggestion
-                              ? "1px solid rgba(56, 189, 248, 0.3)"
+                              ? "1px solid rgba(111, 139, 106, 0.3)"
                               : "1px solid transparent",
                         }}
                         onMouseEnter={() => {
@@ -1521,8 +1521,8 @@ export default function PosCashierPage() {
                         variant="subtle"
                         color="red"
                         style={{
-                          background: "rgba(239, 68, 68, 0.1)",
-                          border: "1px solid rgba(239, 68, 68, 0.3)",
+                          background: "rgba(204, 102, 102, 0.1)",
+                          border: "1px solid rgba(204, 102, 102, 0.3)",
                         }}
                         onClick={() => removeItem(line.itemCode)}
                       >
@@ -1591,13 +1591,13 @@ export default function PosCashierPage() {
                     <Text size="sm" c="rgba(255,255,255,0.6)">
                       {t.dashboard.pos.allowanceRemaining}
                     </Text>
-                    <Text fw={700} c="#7dd3fc">{formatMoney(displayedRemainingAllowance)}</Text>
+                    <Text fw={700} c="#D6A13A">{formatMoney(displayedRemainingAllowance)}</Text>
                   </Group>
                   <Group justify="space-between">
                     <Text size="sm" c="rgba(255,255,255,0.6)">
                       {t.dashboard.pos.activeAllowanceDebt}
                     </Text>
-                    <Text fw={700} c={activeAllowanceDebt > 0 ? "orange" : "#7dd3fc"}>
+                    <Text fw={700} c={activeAllowanceDebt > 0 ? "orange" : "#D6A13A"}>
                       {formatMoney(activeAllowanceDebt)}
                     </Text>
                   </Group>
@@ -1635,8 +1635,8 @@ export default function PosCashierPage() {
             p="lg"
             style={{
               ...softPanelStyle,
-              background: "rgba(56, 189, 248, 0.12)",
-              border: "1px solid rgba(56, 189, 248, 0.3)",
+              background: "rgba(111, 139, 106, 0.12)",
+              border: "1px solid rgba(111, 139, 106, 0.3)",
             }}
           >
             <Text fw={700} ta="center" size="32px" c="white">
@@ -1744,8 +1744,8 @@ export default function PosCashierPage() {
               size={88}
               radius="xl"
               variant="gradient"
-              gradient={{ from: "teal.4", to: "green.6", deg: 135 }}
-              style={{ boxShadow: "0 0 30px rgba(52, 211, 153, 0.4)" }}
+              gradient={{ from: "success.4", to: "success.6", deg: 135 }}
+              style={{ boxShadow: "0 0 30px rgba(157, 177, 143, 0.4)" }}
             >
               <IconShoppingCart size={36} />
             </ThemeIcon>

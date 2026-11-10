@@ -439,7 +439,7 @@ export default function KioskCheckoutPage() {
     backdropFilter: "blur(24px)",
     border: "1px solid var(--kiosk-stroke)",
     borderRadius: rem(22),
-    boxShadow: "0 25px 60px rgba(3, 8, 20, 0.55)",
+    boxShadow: "0 25px 60px rgba(8, 14, 10, 0.55)",
   };
 
   // Checkout complete screen
@@ -455,16 +455,16 @@ export default function KioskCheckoutPage() {
                   height: 100,
                   borderRadius: "50%",
                   background:
-                    "linear-gradient(135deg, rgba(34, 211, 153, 0.35) 0%, rgba(20, 184, 166, 0.35) 100%)",
+                    "linear-gradient(135deg, rgba(157, 177, 143, 0.35) 0%, rgba(111, 139, 106, 0.35) 100%)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   animation: "successPulse 1s ease-out",
-                  border: "1px solid rgba(34, 211, 153, 0.4)",
-                  boxShadow: "0 0 30px rgba(34, 211, 153, 0.45)",
+                  border: "1px solid rgba(157, 177, 143, 0.4)",
+                  boxShadow: "0 0 30px rgba(157, 177, 143, 0.45)",
                 }}
               >
-                <IconCircleCheck size={60} color="#34d399" />
+                <IconCircleCheck size={60} color="#9DB18F" />
               </Box>
 
               <Stack align="center" gap="sm">
@@ -484,9 +484,9 @@ export default function KioskCheckoutPage() {
                 <Box
                   p="md"
                   style={{
-                    background: "rgba(34, 211, 153, 0.12)",
+                    background: "rgba(157, 177, 143, 0.12)",
                     borderRadius: rem(12),
-                    border: "1px solid rgba(34, 211, 153, 0.35)",
+                    border: "1px solid rgba(157, 177, 143, 0.35)",
                   }}
                 >
                   <Text c="rgba(255,255,255,0.6)" size="sm" ta="center">
@@ -506,7 +506,7 @@ export default function KioskCheckoutPage() {
                   size="xl"
                   fullWidth
                   variant="gradient"
-                  gradient={{ from: "cyan.5", to: "indigo.6", deg: 135 }}
+                  gradient={{ from: "success.5", to: "accent.6", deg: 135 }}
                   leftSection={<IconScan size={22} />}
                   onClick={handleNewSession}
                   h={60}
@@ -561,7 +561,7 @@ export default function KioskCheckoutPage() {
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.12), transparent 40%), radial-gradient(circle at 90% 15%, rgba(167, 139, 250, 0.12), transparent 38%), radial-gradient(circle at 50% 90%, rgba(16, 185, 129, 0.12), transparent 45%)",
+            "radial-gradient(circle at 15% 10%, rgba(111, 139, 106, 0.12), transparent 40%), radial-gradient(circle at 90% 15%, rgba(214, 161, 58, 0.12), transparent 38%), radial-gradient(circle at 50% 90%, rgba(157, 177, 143, 0.12), transparent 45%)",
           pointerEvents: "none",
           zIndex: 0,
         }}
@@ -576,9 +576,9 @@ export default function KioskCheckoutPage() {
             aria-label={t.kiosk.backToHome}
             onClick={handleCancel}
             style={{
-              background: "rgba(12, 18, 32, 0.85)",
+              background: "rgba(43, 55, 38, 0.85)",
               border: "1px solid var(--kiosk-stroke)",
-              boxShadow: "0 10px 25px rgba(3, 6, 14, 0.5)",
+              boxShadow: "0 10px 25px rgba(8, 14, 10, 0.5)",
             }}
           >
             <IconHome size={22} />
@@ -603,7 +603,7 @@ export default function KioskCheckoutPage() {
             onClick={() => router.push(`/kiosk/${credentialId}/peminjaman`)}
             leftSection={<IconArrowRight size={18} />}
             style={{
-              background: "rgba(12, 18, 32, 0.85)",
+              background: "rgba(43, 55, 38, 0.85)",
               border: "1px solid var(--kiosk-stroke)",
             }}
           >
@@ -620,7 +620,7 @@ export default function KioskCheckoutPage() {
             style={
               !useScanner
                 ? {
-                    background: "rgba(12, 18, 32, 0.85)",
+                    background: "rgba(43, 55, 38, 0.85)",
                     border: "1px solid var(--kiosk-stroke)",
                   }
                 : {}
@@ -646,7 +646,7 @@ export default function KioskCheckoutPage() {
               )
             }
             style={{
-              background: "rgba(12, 18, 32, 0.85)",
+              background: "rgba(43, 55, 38, 0.85)",
               border: "1px solid var(--kiosk-stroke)",
             }}
           >
@@ -656,11 +656,11 @@ export default function KioskCheckoutPage() {
             <Badge
               size="xl"
               variant="gradient"
-              gradient={{ from: "cyan.5", to: "indigo.6", deg: 135 }}
+              gradient={{ from: "success.5", to: "accent.6", deg: 135 }}
               leftSection={<IconShoppingCart size={16} />}
               style={{
                 padding: "12px 16px",
-                boxShadow: "0 0 20px rgba(56, 189, 248, 0.45)",
+                boxShadow: "0 0 20px rgba(111, 139, 106, 0.45)",
               }}
             >
               {totalItems} {language === "id" ? "barang" : "items"}
@@ -685,7 +685,7 @@ export default function KioskCheckoutPage() {
             height: 2,
             background:
               currentStep !== "identify"
-                ? "linear-gradient(90deg, #7dd3fc, #818cf8)"
+                ? "linear-gradient(90deg, #D6A13A, #486142)"
                 : "rgba(255,255,255,0.2)",
             borderRadius: 1,
           }}
@@ -704,7 +704,7 @@ export default function KioskCheckoutPage() {
             height: 2,
             background:
               currentStep === "confirm"
-                ? "linear-gradient(90deg, #7dd3fc, #818cf8)"
+                ? "linear-gradient(90deg, #D6A13A, #486142)"
                 : "rgba(255,255,255,0.2)",
             borderRadius: 1,
           }}
@@ -740,8 +740,8 @@ export default function KioskCheckoutPage() {
                     size={86}
                     radius="xl"
                     variant="gradient"
-                    gradient={{ from: "cyan.4", to: "indigo.6", deg: 135 }}
-                    style={{ boxShadow: "0 0 25px rgba(56, 189, 248, 0.4)" }}
+                    gradient={{ from: "brand.5", to: "accent.6", deg: 135 }}
+                    style={{ boxShadow: "0 0 25px rgba(111, 139, 106, 0.4)" }}
                   >
                     <IconId size={42} />
                   </ThemeIcon>
@@ -795,7 +795,7 @@ export default function KioskCheckoutPage() {
                     autoFocus={useScanner}
                     styles={{
                       input: {
-                        background: "rgba(12, 18, 32, 0.85)",
+                        background: "rgba(43, 55, 38, 0.85)",
                         border: "1px solid var(--kiosk-stroke)",
                         color: "white",
                         "&::placeholder": { color: "rgba(255,255,255,0.4)" },
@@ -887,7 +887,7 @@ export default function KioskCheckoutPage() {
                     autoFocus={useScanner}
                     styles={{
                       input: {
-                        background: "rgba(12, 18, 32, 0.85)",
+                        background: "rgba(43, 55, 38, 0.85)",
                         border: "1px solid var(--kiosk-stroke)",
                         color: "white",
                         "&::placeholder": { color: "rgba(255,255,255,0.4)" },
@@ -898,13 +898,13 @@ export default function KioskCheckoutPage() {
                   <Box
                     p="md"
                     style={{
-                      background: "rgba(56, 189, 248, 0.12)",
+                      background: "rgba(111, 139, 106, 0.12)",
                       borderRadius: rem(12),
-                      border: "1px solid rgba(56, 189, 248, 0.3)",
+                      border: "1px solid rgba(111, 139, 106, 0.3)",
                     }}
                   >
                     <Group gap="sm">
-                      <IconCircleCheck size={20} color="#7dd3fc" />
+                      <IconCircleCheck size={20} color="#D6A13A" />
                       <Text c="rgba(255,255,255,0.82)" size="sm">
                         {language === "id"
                           ? "Barang akan otomatis ditambahkan setiap selesai scan."
@@ -933,9 +933,9 @@ export default function KioskCheckoutPage() {
                     variant="light"
                     color="blue"
                     style={{
-                      background: "rgba(56, 189, 248, 0.15)",
-                      color: "#7dd3fc",
-                      border: "1px solid rgba(56, 189, 248, 0.25)",
+                      background: "rgba(111, 139, 106, 0.15)",
+                      color: "#D6A13A",
+                      border: "1px solid rgba(111, 139, 106, 0.25)",
                     }}
                   >
                     {cart.length} {language === "id" ? "barang" : "items"}
@@ -952,7 +952,7 @@ export default function KioskCheckoutPage() {
                           variant="light"
                           color="gray"
                           style={{
-                            background: "rgba(12, 18, 32, 0.75)",
+                            background: "rgba(43, 55, 38, 0.75)",
                             border: "1px solid var(--kiosk-stroke)",
                           }}
                         >
@@ -972,7 +972,7 @@ export default function KioskCheckoutPage() {
                           key={idx}
                           p="sm"
                           style={{
-                            background: "rgba(12, 18, 32, 0.65)",
+                            background: "rgba(43, 55, 38, 0.65)",
                             borderRadius: rem(12),
                             border: "1px solid var(--kiosk-stroke)",
                           }}
@@ -993,7 +993,7 @@ export default function KioskCheckoutPage() {
                                 aria-label={`${language === "id" ? "Kurangi jumlah" : "Decrease quantity"}: ${item.itemName}`}
                                 onClick={() => updateQuantity(idx, -1)}
                                 style={{
-                                  background: "rgba(12, 18, 32, 0.85)",
+                                  background: "rgba(43, 55, 38, 0.85)",
                                   border: "1px solid var(--kiosk-stroke)",
                                 }}
                               >
@@ -1015,7 +1015,7 @@ export default function KioskCheckoutPage() {
                                 styles={{
                                   input: {
                                     textAlign: "center",
-                                    background: "rgba(12, 18, 32, 0.85)",
+                                    background: "rgba(43, 55, 38, 0.85)",
                                     border: "1px solid var(--kiosk-stroke)",
                                     color: "white",
                                     fontWeight: 600,
@@ -1028,7 +1028,7 @@ export default function KioskCheckoutPage() {
                                 aria-label={`${language === "id" ? "Tambah jumlah" : "Increase quantity"}: ${item.itemName}`}
                                 onClick={() => updateQuantity(idx, 1)}
                                 style={{
-                                  background: "rgba(12, 18, 32, 0.85)",
+                                  background: "rgba(43, 55, 38, 0.85)",
                                   border: "1px solid var(--kiosk-stroke)",
                                 }}
                               >
@@ -1040,8 +1040,8 @@ export default function KioskCheckoutPage() {
                                 aria-label={`${language === "id" ? "Hapus" : "Remove"}: ${item.itemName}`}
                                 onClick={() => removeFromCart(idx)}
                                 style={{
-                                  background: "rgba(239, 68, 68, 0.1)",
-                                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                                  background: "rgba(204, 102, 102, 0.1)",
+                                  border: "1px solid rgba(204, 102, 102, 0.3)",
                                 }}
                               >
                                 <IconTrash size={16} />
@@ -1088,18 +1088,18 @@ export default function KioskCheckoutPage() {
                   <Group
                     p="md"
                     style={{
-                      background: "rgba(56, 189, 248, 0.12)",
+                      background: "rgba(111, 139, 106, 0.12)",
                       borderRadius: rem(12),
-                      border: "1px solid rgba(56, 189, 248, 0.3)",
+                      border: "1px solid rgba(111, 139, 106, 0.3)",
                     }}
                   >
                     <ThemeIcon
                       size="xl"
                       radius="xl"
                       variant="gradient"
-                      gradient={{ from: "cyan.4", to: "indigo.6", deg: 135 }}
+                      gradient={{ from: "brand.5", to: "accent.6", deg: 135 }}
                       style={{
-                        boxShadow: "0 0 18px rgba(56, 189, 248, 0.4)",
+                        boxShadow: "0 0 18px rgba(111, 139, 106, 0.4)",
                       }}
                     >
                       <IconUser size={24} />
@@ -1148,9 +1148,9 @@ export default function KioskCheckoutPage() {
                             variant="light"
                             size="lg"
                             style={{
-                              background: "rgba(167, 139, 250, 0.18)",
-                              color: "#c4b5fd",
-                              border: "1px solid rgba(167, 139, 250, 0.35)",
+                              background: "rgba(214, 161, 58, 0.18)",
+                              color: "#D6A13A",
+                              border: "1px solid rgba(214, 161, 58, 0.35)",
                             }}
                           >
                             ×{item.quantity}
@@ -1167,7 +1167,7 @@ export default function KioskCheckoutPage() {
                     size="xl"
                     fullWidth
                     variant="gradient"
-                    gradient={{ from: "emerald.5", to: "teal.4", deg: 135 }}
+                    gradient={{ from: "brand.5", to: "brand.7", deg: 135 }}
                     leftSection={<IconCheck size={24} />}
                     onClick={handleSubmit}
                     loading={submitting}
@@ -1194,8 +1194,8 @@ export default function KioskCheckoutPage() {
           leftSection={<IconX size={20} />}
           onClick={handleCancel}
           style={{
-            background: "rgba(239, 68, 68, 0.12)",
-            border: "1px solid rgba(239, 68, 68, 0.35)",
+            background: "rgba(204, 102, 102, 0.12)",
+            border: "1px solid rgba(204, 102, 102, 0.35)",
           }}
         >
           {t.selfCheckout.actions.cancel}
@@ -1213,7 +1213,7 @@ export default function KioskCheckoutPage() {
               }
               disabled={submitting}
               style={{
-                background: "rgba(12, 18, 32, 0.85)",
+                background: "rgba(43, 55, 38, 0.85)",
                 border: "1px solid var(--kiosk-stroke)",
               }}
             >
@@ -1225,7 +1225,7 @@ export default function KioskCheckoutPage() {
               ref={reviewButtonRef}
               size="lg"
               variant="gradient"
-              gradient={{ from: "cyan.5", to: "indigo.6", deg: 135 }}
+              gradient={{ from: "success.5", to: "accent.6", deg: 135 }}
               rightSection={<IconArrowRight size={20} />}
               onClick={() => setCurrentStep("confirm")}
             >
@@ -1262,24 +1262,24 @@ function StepIndicator({
           height: 54,
           borderRadius: 18,
           background: completed
-            ? "linear-gradient(135deg, rgba(56, 189, 248, 0.9) 0%, rgba(99, 102, 241, 0.9) 100%)"
+            ? "linear-gradient(135deg, rgba(111, 139, 106, 0.9) 0%, rgba(214, 161, 58, 0.9) 100%)"
             : active
-              ? "rgba(12, 18, 32, 0.9)"
-              : "rgba(12, 18, 32, 0.6)",
+              ? "rgba(43, 55, 38, 0.9)"
+              : "rgba(43, 55, 38, 0.6)",
           border: completed
-            ? "1px solid rgba(125, 211, 252, 0.6)"
+            ? "1px solid rgba(214, 161, 58, 0.6)"
             : "1px solid var(--kiosk-stroke)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           transition: "all 0.3s ease",
-          boxShadow: active ? "0 0 20px rgba(56, 189, 248, 0.35)" : "none",
+          boxShadow: active ? "0 0 20px rgba(111, 139, 106, 0.35)" : "none",
         }}
       >
         {completed ? (
           <IconCheck size={22} color="white" />
         ) : (
-          <Box style={{ color: active ? "#7dd3fc" : "rgba(255,255,255,0.35)" }}>
+          <Box style={{ color: active ? "#D6A13A" : "rgba(255,255,255,0.35)" }}>
             {icon}
           </Box>
         )}
