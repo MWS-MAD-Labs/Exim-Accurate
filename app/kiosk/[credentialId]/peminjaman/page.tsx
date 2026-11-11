@@ -621,7 +621,7 @@ export default function PeminjamanKioskPage() {
             justify="space-between"
             p="md"
             style={{
-                borderBottom: "1px solid rgba(230, 234, 223, 0.15)",
+                borderBottom: "1px solid var(--kiosk-border)",
                 position: "relative",
                 zIndex: 10,
             }}
@@ -646,7 +646,7 @@ export default function PeminjamanKioskPage() {
                             }
                         }
                     }}
-                    style={{ color: "rgba(255,255,255,0.7)" }}
+                    style={{ color: "var(--kiosk-text-3)" }}
                 >
                     <IconArrowLeft size={20} />
                 </ActionIcon>
@@ -655,7 +655,7 @@ export default function PeminjamanKioskPage() {
                     radius="xl"
                     variant="gradient"
                     gradient={{ from: "brand.5", to: "accent.7", deg: 135 }}
-                    style={{ boxShadow: "0 0 15px rgba(214, 161, 58, 0.35)" }}
+                    style={{ boxShadow: "none" }}
                 >
                     <IconClipboardList size={20} />
                 </ThemeIcon>
@@ -664,7 +664,7 @@ export default function PeminjamanKioskPage() {
                         {language === "id" ? "Peminjaman" : "Borrowing"}
                     </Text>
                     {borrowerName && (
-                        <Text c="rgba(255,255,255,0.6)" size="xs">
+                        <Text c="var(--kiosk-text-4)" size="xs">
                             {borrowerName}
                             {borrowerDept ? ` • ${borrowerDept}` : ""}
                         </Text>
@@ -679,9 +679,9 @@ export default function PeminjamanKioskPage() {
                     onClick={() => router.push(`/kiosk/${credentialId}`)}
                     leftSection={<IconArrowRight size={14} />}
                     style={{
-                        backgroundColor: "rgba(111, 139, 106, 0.16)",
-                        border: "1px solid rgba(111, 139, 106, 0.35)",
-                        color: "white",
+                        backgroundColor: "var(--kiosk-raised)",
+                        border: "1px solid var(--kiosk-border)",
+                        color: "var(--kiosk-text)",
                     }}
                 >
                     {language === "id" ? "Ke Pengambilan" : "Go to Pickup"}
@@ -693,10 +693,10 @@ export default function PeminjamanKioskPage() {
                     leftSection={<IconScan size={14} />}
                     style={{
                         backgroundColor: useScanner
-                            ? "rgba(214, 161, 58, 0.3)"
+                            ? "var(--kiosk-deep)"
                             : "transparent",
-                        border: "1px solid rgba(214, 161, 58, 0.4)",
-                        color: "white",
+                        border: useScanner ? "1px solid transparent" : "1px solid var(--kiosk-sage)",
+                        color: "var(--kiosk-text)",
                     }}
                 >
                     {useScanner
@@ -729,7 +729,7 @@ export default function PeminjamanKioskPage() {
                     position: "fixed",
                     inset: 0,
                     background:
-                        "radial-gradient(ellipse at top, rgba(111, 139, 106, 0.15) 0%, rgba(32, 43, 29, 0.97) 50%)",
+                        "none", // the layout already draws the one background glow
                     zIndex: 0,
                 }}
             />
@@ -756,7 +756,7 @@ export default function PeminjamanKioskPage() {
                                     variant="gradient"
                                     gradient={{ from: "brand.5", to: "accent.7", deg: 135 }}
                                     style={{
-                                        boxShadow: "0 0 40px rgba(214, 161, 58, 0.45)",
+                                        boxShadow: "none",
                                     }}
                                 >
                                     <IconUserCheck size={60} />
@@ -768,7 +768,7 @@ export default function PeminjamanKioskPage() {
                                             ? "Scan Kartu Identitas"
                                             : "Scan Your ID Card"}
                                     </Title>
-                                    <Text c="rgba(255,255,255,0.6)" size="lg" ta="center">
+                                    <Text c="var(--kiosk-text-4)" size="lg" ta="center">
                                         {language === "id"
                                             ? "Pindai badge / kartu ID untuk memulai peminjaman atau pengembalian"
                                             : "Scan your badge / ID card to start borrowing or returning"}
@@ -795,14 +795,9 @@ export default function PeminjamanKioskPage() {
                                             input: {
                                                 textAlign: "center",
                                                 fontSize: rem(20),
-                                                backgroundColor: "rgba(32, 43, 29, 0.8)",
-                                                border: "2px solid rgba(214, 161, 58, 0.4)",
-                                                color: "white",
+                                                color: "var(--kiosk-text)",
                                                 height: rem(64),
                                                 borderRadius: rem(16),
-                                                "&:focus": {
-                                                    borderColor: "rgba(214, 161, 58, 0.8)",
-                                                },
                                             },
                                         }}
                                     />
@@ -812,7 +807,7 @@ export default function PeminjamanKioskPage() {
                                         style={{
                                             borderRadius: rem(16),
                                             overflow: "hidden",
-                                            border: "2px solid rgba(214, 161, 58, 0.4)",
+                                            border: "2px solid var(--kiosk-border)",
                                         }}
                                     >
                                         <PersistentScanner onScan={handleCameraScan} />
@@ -834,7 +829,7 @@ export default function PeminjamanKioskPage() {
                                     variant="gradient"
                                     gradient={{ from: "accent.5", to: "red.6", deg: 135 }}
                                     style={{
-                                        boxShadow: "0 0 30px rgba(214, 161, 58, 0.45)",
+                                        boxShadow: "none",
                                     }}
                                 >
                                     <IconAlertTriangle size={50} />
@@ -846,7 +841,7 @@ export default function PeminjamanKioskPage() {
                                             ? `Hai ${borrowerName}!`
                                             : `Hi ${borrowerName}!`}
                                     </Title>
-                                    <Text c="rgba(255,255,255,0.6)" size="lg" ta="center">
+                                    <Text c="var(--kiosk-text-4)" size="lg" ta="center">
                                         {language === "id"
                                             ? `Kamu masih memiliki ${activeItems.length} barang yang belum dikembalikan.`
                                             : `You still have ${activeItems.length} unreturned items.`}
@@ -858,8 +853,8 @@ export default function PeminjamanKioskPage() {
                                     w="100%"
                                     p="md"
                                     style={{
-                                        background: "rgba(32, 43, 29, 0.6)",
-                                        border: "1px solid rgba(214, 161, 58, 0.3)",
+                                        background: "var(--kiosk-surface)",
+                                        border: "1px solid var(--kiosk-border)",
                                         borderRadius: rem(12),
                                     }}
                                 >
@@ -873,7 +868,7 @@ export default function PeminjamanKioskPage() {
                                                     <Group gap="sm">
                                                         <IconPackage
                                                             size={16}
-                                                            style={{ color: "rgba(214, 161, 58, 0.8)" }}
+                                                            style={{ color: "var(--kiosk-sage-lt)" }}
                                                         />
                                                         <Text c="white" size="sm">
                                                             {item.itemName}
@@ -913,7 +908,7 @@ export default function PeminjamanKioskPage() {
                                         style={{
                                             height: rem(64),
                                             borderRadius: rem(16),
-                                            boxShadow: "0 0 20px rgba(214, 161, 58, 0.35)",
+                                            boxShadow: "none",
                                         }}
                                     >
                                         {language === "id"
@@ -934,7 +929,7 @@ export default function PeminjamanKioskPage() {
                                         style={{
                                             height: rem(64),
                                             borderRadius: rem(16),
-                                            boxShadow: "0 0 20px rgba(214, 161, 58, 0.35)",
+                                            boxShadow: "none",
                                         }}
                                     >
                                         {language === "id"
@@ -977,7 +972,7 @@ export default function PeminjamanKioskPage() {
                                             flex: 1,
                                             borderRadius: rem(16),
                                             overflow: "hidden",
-                                            border: "2px solid rgba(214, 161, 58, 0.3)",
+                                            border: "2px solid var(--kiosk-border)",
                                         }}
                                     >
                                         <PersistentScanner onScan={handleCameraScan} />
@@ -995,10 +990,6 @@ export default function PeminjamanKioskPage() {
                                                     from: "brand.5",
                                                     to: "accent.7",
                                                     deg: 135,
-                                                }}
-                                                style={{
-                                                    boxShadow:
-                                                        "0 0 30px rgba(214, 161, 58, 0.35)",
                                                 }}
                                             >
                                                 <IconScan size={36} />
@@ -1029,10 +1020,7 @@ export default function PeminjamanKioskPage() {
                                                 styles={{
                                                     input: {
                                                         textAlign: "center",
-                                                        backgroundColor: "rgba(32, 43, 29, 0.8)",
-                                                        border:
-                                                            "2px solid rgba(214, 161, 58, 0.4)",
-                                                        color: "white",
+                                                        color: "var(--kiosk-text)",
                                                         borderRadius: rem(12),
                                                     },
                                                 }}
@@ -1048,17 +1036,17 @@ export default function PeminjamanKioskPage() {
                                     width: 480,
                                     display: "flex",
                                     flexDirection: "column",
-                                    background: "rgba(32, 43, 29, 0.6)",
+                                    background: "var(--kiosk-surface)",
                                     backdropFilter: "blur(24px)",
-                                    borderRadius: rem(16),
-                                    border: "1px solid rgba(230, 234, 223, 0.15)",
+                                    borderRadius: "var(--kiosk-card-radius)",
+                                    border: "1px solid var(--kiosk-border)",
                                     overflow: "hidden",
                                 }}
                             >
                                 <Box
                                     p="md"
                                     style={{
-                                        borderBottom: "1px solid rgba(230, 234, 223, 0.15)",
+                                        borderBottom: "1px solid var(--kiosk-border)",
                                     }}
                                 >
                                     <Group justify="space-between">
@@ -1084,9 +1072,9 @@ export default function PeminjamanKioskPage() {
                                                 <Stack align="center" gap="sm">
                                                     <IconPackage
                                                         size={40}
-                                                        style={{ color: "rgba(255,255,255,0.3)" }}
+                                                        style={{ color: "var(--kiosk-text-4)" }}
                                                     />
-                                                    <Text c="rgba(255,255,255,0.5)" size="sm" ta="center">
+                                                    <Text c="var(--kiosk-text-4)" size="sm" ta="center">
                                                         {language === "id"
                                                             ? "Scan barang untuk menambahkan"
                                                             : "Scan items to add"}
@@ -1101,9 +1089,9 @@ export default function PeminjamanKioskPage() {
                                                             key={item.itemCode}
                                                             p="sm"
                                                             style={{
-                                                                background: "rgba(214, 161, 58, 0.08)",
+                                                                background: "var(--kiosk-raised)",
                                                                 borderRadius: rem(10),
-                                                                border: "1px solid rgba(214, 161, 58, 0.15)",
+                                                                border: "1px solid var(--kiosk-border)",
                                                             }}
                                                             justify="space-between"
                                                         >
@@ -1111,7 +1099,7 @@ export default function PeminjamanKioskPage() {
                                                                 <Text c="white" size="sm" fw={600}>
                                                                     {item.itemName}
                                                                 </Text>
-                                                                <Text c="rgba(255,255,255,0.5)" size="xs">
+                                                                <Text c="var(--kiosk-text-4)" size="xs">
                                                                     {item.itemCode}
                                                                 </Text>
                                                             </Stack>
@@ -1133,7 +1121,7 @@ export default function PeminjamanKioskPage() {
                                                                                 .filter((i) => i.quantity > 0)
                                                                         )
                                                                     }
-                                                                    style={{ color: "rgba(255,255,255,0.6)" }}
+                                                                    style={{ color: "var(--kiosk-text-4)" }}
                                                                 >
                                                                     <IconMinus size={14} />
                                                                 </ActionIcon>
@@ -1155,7 +1143,7 @@ export default function PeminjamanKioskPage() {
                                                                             )
                                                                         )
                                                                     }
-                                                                    style={{ color: "rgba(255,255,255,0.6)" }}
+                                                                    style={{ color: "var(--kiosk-text-4)" }}
                                                                 >
                                                                     <IconPlus size={14} />
                                                                 </ActionIcon>
@@ -1181,9 +1169,9 @@ export default function PeminjamanKioskPage() {
                                                 <Box
                                                     p="md"
                                                     style={{
-                                                        background: "rgba(255,255,255,0.04)",
+                                                        background: "var(--kiosk-raised)",
                                                         borderRadius: rem(12),
-                                                        border: "1px solid rgba(230, 234, 223, 0.15)",
+                                                        border: "1px solid var(--kiosk-border)",
                                                     }}
                                                 >
                                                     <Stack gap="sm">
@@ -1220,7 +1208,7 @@ export default function PeminjamanKioskPage() {
 
                                                         {transactionType === "borrow" ? (
                                                             <Stack gap="xs">
-                                                                <Text c="rgba(255,255,255,0.7)" size="xs">
+                                                                <Text c="var(--kiosk-text-3)" size="xs">
                                                                     {language === "id"
                                                                         ? "Pilih durasi pinjam. Opsi akan dikurangi jika ada booking yang bentrok."
                                                                         : "Choose the loan duration. Options are reduced when a booking conflicts."}
@@ -1271,7 +1259,7 @@ export default function PeminjamanKioskPage() {
                                                                     }
                                                                 />
                                                                 {availability?.durationOptions?.nextConflictDate && (
-                                                                    <Text c="rgba(255,255,255,0.55)" size="xs">
+                                                                    <Text c="var(--kiosk-text-4)" size="xs">
                                                                         {language === "id"
                                                                             ? `Booking terdekat bentrok pada ${availability.durationOptions.nextConflictDate}.`
                                                                             : `The next conflict starts on ${availability.durationOptions.nextConflictDate}.`}
@@ -1312,7 +1300,7 @@ export default function PeminjamanKioskPage() {
                                                         {availabilityLoading && (
                                                             <Group gap="xs">
                                                                 <Loader size="xs" />
-                                                                <Text c="rgba(255,255,255,0.6)" size="xs">
+                                                                <Text c="var(--kiosk-text-4)" size="xs">
                                                                     {language === "id"
                                                                         ? "Memeriksa ketersediaan..."
                                                                         : "Checking availability..."}
@@ -1369,7 +1357,7 @@ export default function PeminjamanKioskPage() {
                                 <Box
                                     p="md"
                                     style={{
-                                        borderTop: "1px solid rgba(230, 234, 223, 0.15)",
+                                        borderTop: "1px solid var(--kiosk-border)",
                                     }}
                                 >
                                     <Button
@@ -1418,17 +1406,17 @@ export default function PeminjamanKioskPage() {
                                 w="100%"
                                 maw={600}
                                 style={{
-                                    background: "rgba(32, 43, 29, 0.6)",
+                                    background: "var(--kiosk-surface)",
                                     backdropFilter: "blur(24px)",
-                                    borderRadius: rem(16),
-                                    border: "1px solid rgba(230, 234, 223, 0.15)",
+                                    borderRadius: "var(--kiosk-card-radius)",
+                                    border: "1px solid var(--kiosk-border)",
                                     overflow: "hidden",
                                 }}
                             >
                                 <Box
                                     p="lg"
                                     style={{
-                                        borderBottom: "1px solid rgba(230, 234, 223, 0.15)",
+                                        borderBottom: "1px solid var(--kiosk-border)",
                                     }}
                                 >
                                     <Group justify="space-between">
@@ -1438,7 +1426,7 @@ export default function PeminjamanKioskPage() {
                                                     ? "Pilih Barang untuk Dikembalikan"
                                                     : "Select Items to Return"}
                                             </Text>
-                                            <Text c="rgba(255,255,255,0.6)" size="sm">
+                                            <Text c="var(--kiosk-text-4)" size="sm">
                                                 {language === "id"
                                                     ? "Centang barang yang ingin dikembalikan"
                                                     : "Check items you want to return"}
@@ -1460,12 +1448,12 @@ export default function PeminjamanKioskPage() {
                                                     p="sm"
                                                     style={{
                                                         background: isSelected
-                                                            ? "rgba(214, 161, 58, 0.12)"
-                                                            : "rgba(255,255,255,0.04)",
+                                                            ? "var(--kiosk-raised)"
+                                                            : "transparent",
                                                         borderRadius: rem(10),
                                                         border: isSelected
-                                                            ? "1px solid rgba(214, 161, 58, 0.4)"
-                                                            : "1px solid rgba(230, 234, 223, 0.12)",
+                                                            ? "1px solid var(--kiosk-sage)"
+                                                            : "1px solid var(--kiosk-border)",
                                                         cursor: "pointer",
                                                         transition: "all 0.2s ease",
                                                     }}
@@ -1487,8 +1475,8 @@ export default function PeminjamanKioskPage() {
                                                         color="orange"
                                                         styles={{
                                                             input: {
-                                                                backgroundColor: "rgba(32, 43, 29, 0.6)",
-                                                                borderColor: "rgba(230, 234, 223, 0.3)",
+                                                                backgroundColor: "var(--kiosk-well)",
+                                                                borderColor: "var(--kiosk-border)",
                                                             },
                                                         }}
                                                     />
@@ -1496,7 +1484,7 @@ export default function PeminjamanKioskPage() {
                                                         <Text c="white" size="sm" fw={600}>
                                                             {item.itemName}
                                                         </Text>
-                                                        <Text c="rgba(255,255,255,0.5)" size="xs">
+                                                        <Text c="var(--kiosk-text-4)" size="xs">
                                                             {item.itemCode} •{" "}
                                                             {language === "id" ? "Dipinjam" : "Borrowed"}:{" "}
                                                             {new Date(item.borrowedAt).toLocaleDateString()}
@@ -1518,7 +1506,7 @@ export default function PeminjamanKioskPage() {
                                 <Box
                                     p="md"
                                     style={{
-                                        borderTop: "1px solid rgba(230, 234, 223, 0.15)",
+                                        borderTop: "1px solid var(--kiosk-border)",
                                     }}
                                 >
                                     <Button
@@ -1552,7 +1540,7 @@ export default function PeminjamanKioskPage() {
                                     variant="gradient"
                                     gradient={{ from: "success.5", to: "success.6", deg: 135 }}
                                     style={{
-                                        boxShadow: "0 0 40px rgba(157, 177, 143, 0.45)",
+                                        boxShadow: "none",
                                     }}
                                 >
                                     <IconCheck size={60} />
@@ -1572,7 +1560,7 @@ export default function PeminjamanKioskPage() {
                                                 ? "Pengembalian Berhasil! ✨"
                                                 : "Return Successful! ✨"}
                                     </Title>
-                                    <Text c="rgba(255,255,255,0.6)" size="lg" ta="center">
+                                    <Text c="var(--kiosk-text-4)" size="lg" ta="center">
                                         {borrowerName}
                                         {borrowerDept ? ` | ${borrowerDept}` : ""}
                                     </Text>
@@ -1588,7 +1576,7 @@ export default function PeminjamanKioskPage() {
                                         height: rem(64),
                                         borderRadius: rem(16),
                                         paddingInline: rem(40),
-                                        boxShadow: "0 0 25px rgba(214, 161, 58, 0.35)",
+                                        boxShadow: "none",
                                     }}
                                 >
                                     {language === "id" ? "Sesi Baru" : "New Session"}

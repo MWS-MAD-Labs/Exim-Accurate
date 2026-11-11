@@ -438,8 +438,8 @@ export default function KioskCheckoutPage() {
     background: "var(--kiosk-panel)",
     backdropFilter: "blur(24px)",
     border: "1px solid var(--kiosk-stroke)",
-    borderRadius: rem(22),
-    boxShadow: "0 25px 60px rgba(8, 14, 10, 0.55)",
+    borderRadius: "var(--kiosk-card-radius)",
+    boxShadow: "var(--kiosk-card-shadow)",
   };
 
   // Checkout complete screen
@@ -455,16 +455,16 @@ export default function KioskCheckoutPage() {
                   height: 100,
                   borderRadius: "50%",
                   background:
-                    "linear-gradient(135deg, rgba(157, 177, 143, 0.35) 0%, rgba(111, 139, 106, 0.35) 100%)",
+                    "var(--kiosk-raised)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   animation: "successPulse 1s ease-out",
-                  border: "1px solid rgba(157, 177, 143, 0.4)",
-                  boxShadow: "0 0 30px rgba(157, 177, 143, 0.45)",
+                  border: "1px solid var(--kiosk-border)",
+                  boxShadow: "none",
                 }}
               >
-                <IconCircleCheck size={60} color="#9DB18F" />
+                <IconCircleCheck size={60} color="var(--kiosk-sage-lt)" />
               </Box>
 
               <Stack align="center" gap="sm">
@@ -473,7 +473,7 @@ export default function KioskCheckoutPage() {
                     ? "Checkout Selesai!"
                     : "Checkout Complete!"}
                 </Title>
-                <Text c="rgba(255,255,255,0.6)" ta="center" size="lg">
+                <Text c="var(--kiosk-text-4)" ta="center" size="lg">
                   {language === "id"
                     ? "Barang Anda sudah berhasil diproses."
                     : "Your items have been processed successfully."}
@@ -484,12 +484,12 @@ export default function KioskCheckoutPage() {
                 <Box
                   p="md"
                   style={{
-                    background: "rgba(157, 177, 143, 0.12)",
+                    background: "var(--kiosk-raised)",
                     borderRadius: rem(12),
-                    border: "1px solid rgba(157, 177, 143, 0.35)",
+                    border: "1px solid var(--kiosk-border)",
                   }}
                 >
-                  <Text c="rgba(255,255,255,0.6)" size="sm" ta="center">
+                  <Text c="var(--kiosk-text-4)" size="sm" ta="center">
                     {language === "id"
                       ? "Nomor Adjustment"
                       : "Adjustment Number"}
@@ -561,7 +561,7 @@ export default function KioskCheckoutPage() {
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 15% 10%, rgba(111, 139, 106, 0.12), transparent 40%), radial-gradient(circle at 90% 15%, rgba(214, 161, 58, 0.12), transparent 38%), radial-gradient(circle at 50% 90%, rgba(157, 177, 143, 0.12), transparent 45%)",
+            "none", // the layout already draws the one background glow
           pointerEvents: "none",
           zIndex: 0,
         }}
@@ -576,9 +576,9 @@ export default function KioskCheckoutPage() {
             aria-label={t.kiosk.backToHome}
             onClick={handleCancel}
             style={{
-              background: "rgba(43, 55, 38, 0.85)",
+              background: "var(--kiosk-surface)",
               border: "1px solid var(--kiosk-stroke)",
-              boxShadow: "0 10px 25px rgba(8, 14, 10, 0.5)",
+              boxShadow: "var(--kiosk-card-shadow)",
             }}
           >
             <IconHome size={22} />
@@ -587,7 +587,7 @@ export default function KioskCheckoutPage() {
             <Title order={3} c="white" className="kiosk-heading">
               {language === "id" ? "Pengambilan" : "Pickup"}
             </Title>
-            <Text c="rgba(255,255,255,0.5)" size="xs">
+            <Text c="var(--kiosk-text-4)" size="xs">
               {staffInfo?.name ||
                 (language === "id"
                   ? "Silakan scan kartu ID Anda"
@@ -603,7 +603,7 @@ export default function KioskCheckoutPage() {
             onClick={() => router.push(`/kiosk/${credentialId}/peminjaman`)}
             leftSection={<IconArrowRight size={18} />}
             style={{
-              background: "rgba(43, 55, 38, 0.85)",
+              background: "var(--kiosk-surface)",
               border: "1px solid var(--kiosk-stroke)",
             }}
           >
@@ -620,7 +620,7 @@ export default function KioskCheckoutPage() {
             style={
               !useScanner
                 ? {
-                    background: "rgba(43, 55, 38, 0.85)",
+                    background: "var(--kiosk-surface)",
                     border: "1px solid var(--kiosk-stroke)",
                   }
                 : {}
@@ -646,7 +646,7 @@ export default function KioskCheckoutPage() {
               )
             }
             style={{
-              background: "rgba(43, 55, 38, 0.85)",
+              background: "var(--kiosk-surface)",
               border: "1px solid var(--kiosk-stroke)",
             }}
           >
@@ -660,7 +660,7 @@ export default function KioskCheckoutPage() {
               leftSection={<IconShoppingCart size={16} />}
               style={{
                 padding: "12px 16px",
-                boxShadow: "0 0 20px rgba(111, 139, 106, 0.45)",
+                boxShadow: "none",
               }}
             >
               {totalItems} {language === "id" ? "barang" : "items"}
@@ -685,8 +685,8 @@ export default function KioskCheckoutPage() {
             height: 2,
             background:
               currentStep !== "identify"
-                ? "linear-gradient(90deg, #D6A13A, #486142)"
-                : "rgba(255,255,255,0.2)",
+                ? "var(--kiosk-sage)"
+                : "var(--kiosk-border)",
             borderRadius: 1,
           }}
         />
@@ -704,8 +704,8 @@ export default function KioskCheckoutPage() {
             height: 2,
             background:
               currentStep === "confirm"
-                ? "linear-gradient(90deg, #D6A13A, #486142)"
-                : "rgba(255,255,255,0.2)",
+                ? "var(--kiosk-sage)"
+                : "var(--kiosk-border)",
             borderRadius: 1,
           }}
         />
@@ -741,7 +741,7 @@ export default function KioskCheckoutPage() {
                     radius="xl"
                     variant="gradient"
                     gradient={{ from: "brand.5", to: "accent.6", deg: 135 }}
-                    style={{ boxShadow: "0 0 25px rgba(111, 139, 106, 0.4)" }}
+                    style={{ boxShadow: "none" }}
                   >
                     <IconId size={42} />
                   </ThemeIcon>
@@ -755,7 +755,7 @@ export default function KioskCheckoutPage() {
                     >
                       {language === "id" ? "Scan ID Anda" : "Scan Your ID"}
                     </Title>
-                    <Text c="rgba(255,255,255,0.6)" ta="center" size="lg">
+                    <Text c="var(--kiosk-text-4)" ta="center" size="lg">
                       {language === "id"
                         ? "Arahkan kartu staf Anda ke depan scanner."
                         : "Point your staff card at the scanner."}
@@ -795,10 +795,7 @@ export default function KioskCheckoutPage() {
                     autoFocus={useScanner}
                     styles={{
                       input: {
-                        background: "rgba(43, 55, 38, 0.85)",
-                        border: "1px solid var(--kiosk-stroke)",
-                        color: "white",
-                        "&::placeholder": { color: "rgba(255,255,255,0.4)" },
+                        color: "var(--kiosk-text)",
                       },
                     }}
                   />
@@ -831,7 +828,7 @@ export default function KioskCheckoutPage() {
                     {lookingUp && (
                       <Group gap="xs">
                         <Loader size="xs" color="blue" />
-                        <Text c="rgba(255,255,255,0.6)" size="sm">
+                        <Text c="var(--kiosk-text-4)" size="sm">
                           {language === "id" ? "Mencari..." : "Searching..."}
                         </Text>
                       </Group>
@@ -887,10 +884,7 @@ export default function KioskCheckoutPage() {
                     autoFocus={useScanner}
                     styles={{
                       input: {
-                        background: "rgba(43, 55, 38, 0.85)",
-                        border: "1px solid var(--kiosk-stroke)",
-                        color: "white",
-                        "&::placeholder": { color: "rgba(255,255,255,0.4)" },
+                        color: "var(--kiosk-text)",
                       },
                     }}
                   />
@@ -898,14 +892,14 @@ export default function KioskCheckoutPage() {
                   <Box
                     p="md"
                     style={{
-                      background: "rgba(111, 139, 106, 0.12)",
+                      background: "var(--kiosk-raised)",
                       borderRadius: rem(12),
-                      border: "1px solid rgba(111, 139, 106, 0.3)",
+                      border: "1px solid var(--kiosk-border)",
                     }}
                   >
                     <Group gap="sm">
-                      <IconCircleCheck size={20} color="#D6A13A" />
-                      <Text c="rgba(255,255,255,0.82)" size="sm">
+                      <IconCircleCheck size={20} color="var(--kiosk-sage-lt)" />
+                      <Text c="var(--kiosk-text-2)" size="sm">
                         {language === "id"
                           ? "Barang akan otomatis ditambahkan setiap selesai scan."
                           : "Items are automatically added after each scan."}
@@ -933,9 +927,9 @@ export default function KioskCheckoutPage() {
                     variant="light"
                     color="blue"
                     style={{
-                      background: "rgba(111, 139, 106, 0.15)",
-                      color: "#D6A13A",
-                      border: "1px solid rgba(111, 139, 106, 0.25)",
+                      background: "var(--kiosk-raised)",
+                      color: "var(--kiosk-text)",
+                      border: "1px solid var(--kiosk-border)",
                     }}
                   >
                     {cart.length} {language === "id" ? "barang" : "items"}
@@ -952,13 +946,13 @@ export default function KioskCheckoutPage() {
                           variant="light"
                           color="gray"
                           style={{
-                            background: "rgba(43, 55, 38, 0.75)",
+                            background: "var(--kiosk-surface)",
                             border: "1px solid var(--kiosk-stroke)",
                           }}
                         >
                           <IconShoppingCart size={30} />
                         </ThemeIcon>
-                        <Text c="rgba(255,255,255,0.5)" ta="center">
+                        <Text c="var(--kiosk-text-4)" ta="center">
                           {language === "id"
                             ? "Scan barang untuk mengisi keranjang."
                             : "Scan items to fill the cart."}
@@ -972,7 +966,7 @@ export default function KioskCheckoutPage() {
                           key={idx}
                           p="sm"
                           style={{
-                            background: "rgba(43, 55, 38, 0.65)",
+                            background: "var(--kiosk-surface)",
                             borderRadius: rem(12),
                             border: "1px solid var(--kiosk-stroke)",
                           }}
@@ -982,7 +976,7 @@ export default function KioskCheckoutPage() {
                               <Text c="white" fw={500} lineClamp={1}>
                                 {item.itemName}
                               </Text>
-                              <Text c="rgba(255,255,255,0.5)" size="xs">
+                              <Text c="var(--kiosk-text-4)" size="xs">
                                 {item.itemCode}
                               </Text>
                             </Stack>
@@ -993,7 +987,7 @@ export default function KioskCheckoutPage() {
                                 aria-label={`${language === "id" ? "Kurangi jumlah" : "Decrease quantity"}: ${item.itemName}`}
                                 onClick={() => updateQuantity(idx, -1)}
                                 style={{
-                                  background: "rgba(43, 55, 38, 0.85)",
+                                  background: "var(--kiosk-surface)",
                                   border: "1px solid var(--kiosk-stroke)",
                                 }}
                               >
@@ -1015,9 +1009,7 @@ export default function KioskCheckoutPage() {
                                 styles={{
                                   input: {
                                     textAlign: "center",
-                                    background: "rgba(43, 55, 38, 0.85)",
-                                    border: "1px solid var(--kiosk-stroke)",
-                                    color: "white",
+                                    color: "var(--kiosk-text)",
                                     fontWeight: 600,
                                   },
                                 }}
@@ -1028,7 +1020,7 @@ export default function KioskCheckoutPage() {
                                 aria-label={`${language === "id" ? "Tambah jumlah" : "Increase quantity"}: ${item.itemName}`}
                                 onClick={() => updateQuantity(idx, 1)}
                                 style={{
-                                  background: "rgba(43, 55, 38, 0.85)",
+                                  background: "var(--kiosk-surface)",
                                   border: "1px solid var(--kiosk-stroke)",
                                 }}
                               >
@@ -1082,15 +1074,15 @@ export default function KioskCheckoutPage() {
                       : "Confirm Checkout"}
                   </Title>
 
-                  <Divider color="rgba(255,255,255,0.1)" />
+                  <Divider color="var(--kiosk-border)" />
 
                   {/* Staff Info */}
                   <Group
                     p="md"
                     style={{
-                      background: "rgba(111, 139, 106, 0.12)",
+                      background: "var(--kiosk-raised)",
                       borderRadius: rem(12),
-                      border: "1px solid rgba(111, 139, 106, 0.3)",
+                      border: "1px solid var(--kiosk-border)",
                     }}
                   >
                     <ThemeIcon
@@ -1099,7 +1091,7 @@ export default function KioskCheckoutPage() {
                       variant="gradient"
                       gradient={{ from: "brand.5", to: "accent.6", deg: 135 }}
                       style={{
-                        boxShadow: "0 0 18px rgba(111, 139, 106, 0.4)",
+                        boxShadow: "none",
                       }}
                     >
                       <IconUser size={24} />
@@ -1109,12 +1101,12 @@ export default function KioskCheckoutPage() {
                         {staffInfo?.name || staffEmail}
                       </Text>
                       {staffInfo?.dept && (
-                        <Text c="rgba(255,255,255,0.6)" size="sm">
+                        <Text c="var(--kiosk-text-4)" size="sm">
                           {language === "id" ? "Departemen" : "Department"}:{" "}
                           {staffInfo.dept}
                         </Text>
                       )}
-                      <Text c="rgba(255,255,255,0.5)" size="sm">
+                      <Text c="var(--kiosk-text-4)" size="sm">
                         {staffEmail}
                       </Text>
                     </Stack>
@@ -1122,13 +1114,13 @@ export default function KioskCheckoutPage() {
 
                   <Divider
                     label={
-                      <Text c="rgba(255,255,255,0.5)" size="sm">
+                      <Text c="var(--kiosk-text-4)" size="sm">
                         {language === "id" ? "Barang" : "Items"} ({totalItems}{" "}
                         {language === "id" ? "total" : "total"})
                       </Text>
                     }
                     labelPosition="center"
-                    color="rgba(255,255,255,0.1)"
+                    color="var(--kiosk-border)"
                   />
 
                   {/* Items Summary */}
@@ -1140,7 +1132,7 @@ export default function KioskCheckoutPage() {
                             <Text c="white" size="sm" lineClamp={1}>
                               {item.itemName}
                             </Text>
-                            <Text c="rgba(255,255,255,0.5)" size="xs">
+                            <Text c="var(--kiosk-text-4)" size="xs">
                               {item.itemCode}
                             </Text>
                           </Stack>
@@ -1148,9 +1140,9 @@ export default function KioskCheckoutPage() {
                             variant="light"
                             size="lg"
                             style={{
-                              background: "rgba(214, 161, 58, 0.18)",
-                              color: "#D6A13A",
-                              border: "1px solid rgba(214, 161, 58, 0.35)",
+                              background: "var(--kiosk-raised)",
+                              color: "var(--kiosk-text)",
+                              border: "1px solid var(--kiosk-border)",
                             }}
                           >
                             ×{item.quantity}
@@ -1160,7 +1152,7 @@ export default function KioskCheckoutPage() {
                     </Stack>
                   </ScrollArea>
 
-                  <Divider color="rgba(255,255,255,0.1)" />
+                  <Divider color="var(--kiosk-border)" />
 
                   <Button
                     ref={completeButtonRef}
@@ -1213,7 +1205,7 @@ export default function KioskCheckoutPage() {
               }
               disabled={submitting}
               style={{
-                background: "rgba(43, 55, 38, 0.85)",
+                background: "var(--kiosk-surface)",
                 border: "1px solid var(--kiosk-stroke)",
               }}
             >
@@ -1261,35 +1253,31 @@ function StepIndicator({
           width: 54,
           height: 54,
           borderRadius: 18,
-          background: completed
-            ? "linear-gradient(135deg, rgba(111, 139, 106, 0.9) 0%, rgba(214, 161, 58, 0.9) 100%)"
-            : active
-              ? "rgba(43, 55, 38, 0.9)"
-              : "rgba(43, 55, 38, 0.6)",
-          border: completed
-            ? "1px solid rgba(214, 161, 58, 0.6)"
-            : "1px solid var(--kiosk-stroke)",
+          background: completed ? "var(--kiosk-deep)" : "var(--kiosk-surface)",
+          border: completed || active
+            ? "1px solid var(--kiosk-sage)"
+            : "1px solid var(--kiosk-border)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           transition: "all 0.3s ease",
-          boxShadow: active ? "0 0 20px rgba(111, 139, 106, 0.35)" : "none",
+          boxShadow: "none",
         }}
       >
         {completed ? (
-          <IconCheck size={22} color="white" />
+          <IconCheck size={22} color="#FFFAF4" />
         ) : (
-          <Box style={{ color: active ? "#D6A13A" : "rgba(255,255,255,0.35)" }}>
+          <Box style={{ color: active ? "var(--kiosk-sage-lt)" : "var(--kiosk-text-4)" }}>
             {icon}
           </Box>
         )}
       </Box>
       <Stack gap={2}>
-        <Text c="rgba(255,255,255,0.45)" size="xs">
+        <Text c="var(--kiosk-text-4)" size="xs">
           {stepLabel} {step}
         </Text>
         <Text
-          c={active || completed ? "white" : "rgba(255,255,255,0.4)"}
+          c={active || completed ? "var(--kiosk-text)" : "var(--kiosk-text-4)"}
           fw={active ? 600 : 500}
           size="sm"
           visibleFrom="sm"
