@@ -1,7 +1,11 @@
 import { Prisma } from "@prisma/client";
-import { sadeWordmark, sendEmail } from "@/lib/email";
+import { sadeLogoImg, sadeWordmark, sendEmail } from "@/lib/email";
 import { startOfDate, toDateOnlyValue } from "@/lib/pos";
-import { getOutstandingCurrentAllowanceDebt, getStaffAllowance, resolveStaffAllowancePeriod } from "@/lib/pos-server";
+import {
+  getOutstandingCurrentAllowanceDebt,
+  getStaffAllowance,
+  resolveStaffAllowancePeriod,
+} from "@/lib/pos-server";
 import { prisma } from "@/lib/prisma";
 
 const RETRY_AFTER_MS = 15 * 60 * 1000;
@@ -18,29 +22,45 @@ const dateFormatter = new Intl.DateTimeFormat("id-ID", {
 
 type NotificationScenario = "debt" | "remaining_balance";
 
-export function classifyAllowanceNotification(remaining: number, outstandingDebt: number) {
-  if (outstandingDebt > 0.005) return { scenario: "debt" as const, amount: outstandingDebt };
-  if (remaining > 0.005) return { scenario: "remaining_balance" as const, amount: remaining };
+export function classifyAllowanceNotification(
+  remaining: number,
+  outstandingDebt: number,
+) {
+  if (outstandingDebt > 0.005)
+    return { scenario: "debt" as const, amount: outstandingDebt };
+  if (remaining > 0.005)
+    return { scenario: "remaining_balance" as const, amount: remaining };
   return null;
 }
-type NotificationRecipient = { email: string; name: string | null; personId: string | null };
+type NotificationRecipient = {
+  email: string;
+  name: string | null;
+  personId: string | null;
+};
 type ClaimResult =
   | { status: "claimed"; notificationId: string }
   | { status: "already_notified" }
   | { status: "locked" };
 
 function calendarDayNumber(value: Date) {
-  return Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()) / 86_400_000;
+  return (
+    Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()) /
+    86_400_000
+  );
 }
 
 function escapeHtml(value: string) {
-  return value.replace(/[&<>'"]/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "'": "&#39;",
-    '"': "&quot;",
-  })[character]!);
+  return value.replace(
+    /[&<>'"]/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;",
+      })[character]!,
+  );
 }
 
 // Ganti fungsi buildNotificationMessage yang lama dengan ini.
@@ -66,7 +86,9 @@ export function buildNotificationMessage(input: {
   const subject = isDebt
     ? `Tindakan diperlukan: tagihan allowance ${amount}`
     : `Pengingat: sisa allowance ${amount}`;
-  const title = isDebt ? "Tagihan allowance perlu diselesaikan" : "Allowance Anda masih tersedia";
+  const title = isDebt
+    ? "Tagihan allowance perlu diselesaikan"
+    : "Allowance Anda masih tersedia";
   const amountLabel = isDebt ? "Jumlah tagihan" : "Sisa allowance";
   const statusLabel = isDebt ? "Tagihan" : "Sisa allowance";
   const summary = isDebt
@@ -90,9 +112,10 @@ export function buildNotificationMessage(input: {
   const buttonLabel = isDebt ? "Lihat tagihan" : "Buka Sade";
 
   const headingFont = "'Plus Jakarta Sans','Nunito Sans',Arial,sans-serif";
-  const bodyFont = "'Nunito Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const bodyFont =
+    "'Nunito Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
-  const logoHtml = sadeWordmark();
+  const logoHtml = sadeLogoImg();
   const year = new Date().getFullYear();
 
   const divider = `<tr><td colspan="2" style="padding:14px 0;"><div style="height:1px;line-height:1px;font-size:1px;background-color:#D9E2D4;">&nbsp;</div></td></tr>`;
@@ -290,33 +313,59 @@ async function claimNotification(input: {
           reminderDay: input.reminderDay,
         },
       };
-  const existing = await prisma.posAllowanceNotification.findUnique({ where: key });
+  const existing = await prisma.posAllowanceNotification.findUnique({
+    where: key,
+  });
   if (!existing) {
     try {
-      const notification = await prisma.posAllowanceNotification.create({ data: { ...input, status: "processing" } });
-      return { status: "claimed", notificationId: notification.id } satisfies ClaimResult;
+      const notification = await prisma.posAllowanceNotification.create({
+        data: { ...input, status: "processing" },
+      });
+      return {
+        status: "claimed",
+        notificationId: notification.id,
+      } satisfies ClaimResult;
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
         return { status: "locked" } satisfies ClaimResult;
       }
       throw error;
     }
   }
-  if (existing.status === "sent") return { status: "already_notified" } satisfies ClaimResult;
-  if (existing.status === "processing" && existing.updatedAt.getTime() > Date.now() - RETRY_AFTER_MS) {
+  if (existing.status === "sent")
+    return { status: "already_notified" } satisfies ClaimResult;
+  if (
+    existing.status === "processing" &&
+    existing.updatedAt.getTime() > Date.now() - RETRY_AFTER_MS
+  ) {
     return { status: "locked" } satisfies ClaimResult;
   }
 
   const claimed = await prisma.posAllowanceNotification.updateMany({
-    where: { id: existing.id, status: existing.status, updatedAt: existing.updatedAt },
-    data: { scenario: input.scenario, amount: input.amount, status: "processing", errorMessage: null },
+    where: {
+      id: existing.id,
+      status: existing.status,
+      updatedAt: existing.updatedAt,
+    },
+    data: {
+      scenario: input.scenario,
+      amount: input.amount,
+      status: "processing",
+      errorMessage: null,
+    },
   });
   return claimed.count === 1
     ? { status: "claimed", notificationId: existing.id }
     : { status: "locked" };
 }
 
-async function getNotificationRecipients(credentialId: string, organizationId: string) {
+async function getNotificationRecipients(
+  credentialId: string,
+  organizationId: string,
+) {
   const [users, salesStaff, reservationStaff] = await Promise.all([
     prisma.user.findMany({
       where: { organizationId, permissions: { has: "store.use" } },
@@ -342,11 +391,17 @@ async function getNotificationRecipients(credentialId: string, organizationId: s
   const knownPeople = new Set<string>();
   for (const user of users) {
     const email = user.email.toLowerCase().trim();
-    recipients.set(email, { email, name: user.name, personId: user.centralPersonId });
+    recipients.set(email, {
+      email,
+      name: user.name,
+      personId: user.centralPersonId,
+    });
     if (user.centralPersonId) knownPeople.add(user.centralPersonId);
   }
   const previousEmails = new Set(
-    (await prisma.userEmailHistory.findMany({ select: { email: true } })).map((row) => row.email),
+    (await prisma.userEmailHistory.findMany({ select: { email: true } })).map(
+      (row) => row.email,
+    ),
   );
   for (const entry of [...reservationStaff, ...salesStaff]) {
     const email = entry.staffEmail?.toLowerCase().trim();
@@ -357,8 +412,14 @@ async function getNotificationRecipients(credentialId: string, organizationId: s
     }
     if (previousEmails.has(email)) continue;
     const existing = recipients.get(email);
-    if (!existing) recipients.set(email, { email, name: entry.staffName || null, personId: entry.staffPersonId });
-    else if (!existing.name && entry.staffName) recipients.set(email, { ...existing, name: entry.staffName });
+    if (!existing)
+      recipients.set(email, {
+        email,
+        name: entry.staffName || null,
+        personId: entry.staffPersonId,
+      });
+    else if (!existing.name && entry.staffName)
+      recipients.set(email, { ...existing, name: entry.staffName });
   }
   return [...recipients.values()];
 }
@@ -387,20 +448,41 @@ export async function sendPosAllowanceCutoffNotifications(now = new Date()) {
 
   for (const setting of settings) {
     try {
-      const { period } = await resolveStaffAllowancePeriod(setting.credentialId, setting.allowanceCutoffDay, today);
-      const daysUntilCutoff = calendarDayNumber(period.endsAt) - calendarDayNumber(today);
+      const { period } = await resolveStaffAllowancePeriod(
+        setting.credentialId,
+        setting.allowanceCutoffDay,
+        today,
+      );
+      const daysUntilCutoff =
+        calendarDayNumber(period.endsAt) - calendarDayNumber(today);
       if (daysUntilCutoff !== 0 && daysUntilCutoff !== 1) continue;
       summary.storesDue += 1;
       const reminderDay = daysUntilCutoff as 0 | 1;
-      const recipients = await getNotificationRecipients(setting.credentialId, setting.organizationId);
+      const recipients = await getNotificationRecipients(
+        setting.credentialId,
+        setting.organizationId,
+      );
 
       for (const recipient of recipients) {
         try {
           const [allowance, debt] = await Promise.all([
-            getStaffAllowance(setting.credentialId, recipient.email, today, period),
-            getOutstandingCurrentAllowanceDebt(setting.credentialId, recipient.email, today, period),
+            getStaffAllowance(
+              setting.credentialId,
+              recipient.email,
+              today,
+              period,
+            ),
+            getOutstandingCurrentAllowanceDebt(
+              setting.credentialId,
+              recipient.email,
+              today,
+              period,
+            ),
           ]);
-          const notification = classifyAllowanceNotification(allowance.remaining, debt.outstanding);
+          const notification = classifyAllowanceNotification(
+            allowance.remaining,
+            debt.outstanding,
+          );
           if (!notification) {
             summary.zeroBalance += 1;
             continue;
@@ -444,26 +526,44 @@ export async function sendPosAllowanceCutoffNotifications(now = new Date()) {
             });
             summary.sent += 1;
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Unknown email delivery error";
+            const errorMessage =
+              error instanceof Error
+                ? error.message
+                : "Unknown email delivery error";
             summary.failed += 1;
-            console.error(`[pos-allowance-notifications] Delivery failed for ${recipient.email}`, error);
+            console.error(
+              `[pos-allowance-notifications] Delivery failed for ${recipient.email}`,
+              error,
+            );
             try {
               await prisma.posAllowanceNotification.update({
                 where: { id: claim.notificationId },
-                data: { status: "failed", errorMessage: errorMessage.slice(0, 2000) },
+                data: {
+                  status: "failed",
+                  errorMessage: errorMessage.slice(0, 2000),
+                },
               });
             } catch (persistenceError) {
-              console.error(`[pos-allowance-notifications] Could not persist delivery failure for ${recipient.email}`, persistenceError);
+              console.error(
+                `[pos-allowance-notifications] Could not persist delivery failure for ${recipient.email}`,
+                persistenceError,
+              );
             }
           }
         } catch (error) {
           summary.failed += 1;
-          console.error(`[pos-allowance-notifications] Recipient processing failed for ${recipient.email}`, error);
+          console.error(
+            `[pos-allowance-notifications] Recipient processing failed for ${recipient.email}`,
+            error,
+          );
         }
       }
     } catch (error) {
       summary.storesFailed += 1;
-      console.error(`[pos-allowance-notifications] Store processing failed for ${setting.credentialId}`, error);
+      console.error(
+        `[pos-allowance-notifications] Store processing failed for ${setting.credentialId}`,
+        error,
+      );
     }
   }
 

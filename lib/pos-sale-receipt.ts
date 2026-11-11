@@ -19,13 +19,17 @@ const dateFormatter = new Intl.DateTimeFormat("id-ID", {
 });
 
 function escapeHtml(value: string) {
-  return value.replace(/[&<>'"]/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "'": "&#39;",
-    '"': "&quot;",
-  })[character]!);
+  return value.replace(
+    /[&<>'"]/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;",
+      })[character]!,
+  );
 }
 
 function paymentMethodLabel(value: string) {
@@ -49,13 +53,25 @@ export function buildReceiptMessage(input: {
   purchasedAt: Date;
 }) {
   const greeting = input.customerName?.trim() || "Bapak/Ibu";
-  const paymentText = input.payments.map((payment) => `${paymentMethodLabel(payment.method)} ${moneyFormatter.format(payment.amount)}`);
-  const externalSettlement = input.paymentStrategy === "allowance_then_external"
-    ? input.payments.find((payment) => payment.method === "cash" || payment.method === "qris")
-    : undefined;
-  const strategyLabel = input.paymentStrategy === "allowance_debt" ? "Allowance debt" : input.paymentStrategy === "allowance_then_external" ? "Allowance first" : "External payment";
-  const itemText = input.items.map((item) =>
-    `- ${item.itemName} × ${item.quantity}: ${moneyFormatter.format(item.quantity * item.unitPrice)}`,
+  const paymentText = input.payments.map(
+    (payment) =>
+      `${paymentMethodLabel(payment.method)} ${moneyFormatter.format(payment.amount)}`,
+  );
+  const externalSettlement =
+    input.paymentStrategy === "allowance_then_external"
+      ? input.payments.find(
+          (payment) => payment.method === "cash" || payment.method === "qris",
+        )
+      : undefined;
+  const strategyLabel =
+    input.paymentStrategy === "allowance_debt"
+      ? "Allowance debt"
+      : input.paymentStrategy === "allowance_then_external"
+        ? "Allowance first"
+        : "External payment";
+  const itemText = input.items.map(
+    (item) =>
+      `- ${item.itemName} × ${item.quantity}: ${moneyFormatter.format(item.quantity * item.unitPrice)}`,
   );
   const text = [
     `Halo ${greeting},`,
@@ -68,11 +84,17 @@ export function buildReceiptMessage(input: {
     `Strategi pembayaran: ${strategyLabel}`,
     `Alokasi pembayaran: ${paymentText.join(" + ")}`,
     `Total pembayaran: ${moneyFormatter.format(input.total)}`,
-    ...(input.allowanceBalanceAfter === null ? [] : [
-      `Saldo allowance sebelum: ${moneyFormatter.format(input.allowanceBalanceBefore ?? 0)}`,
-      `Saldo allowance sesudah dibebankan: ${moneyFormatter.format(input.allowanceBalanceAfter)}`,
-      ...(externalSettlement ? [`Utang langsung dibayar via ${paymentMethodLabel(externalSettlement.method)}: ${moneyFormatter.format(externalSettlement.amount)}`] : []),
-    ]),
+    ...(input.allowanceBalanceAfter === null
+      ? []
+      : [
+          `Saldo allowance sebelum: ${moneyFormatter.format(input.allowanceBalanceBefore ?? 0)}`,
+          `Saldo allowance sesudah dibebankan: ${moneyFormatter.format(input.allowanceBalanceAfter)}`,
+          ...(externalSettlement
+            ? [
+                `Utang langsung dibayar via ${paymentMethodLabel(externalSettlement.method)}: ${moneyFormatter.format(externalSettlement.amount)}`,
+              ]
+            : []),
+        ]),
     "",
     `Waktu transaksi: ${dateFormatter.format(input.purchasedAt)}`,
     `Referensi: ${input.saleId}`,
@@ -83,30 +105,50 @@ export function buildReceiptMessage(input: {
   ].join("\n");
 
   const headingFont = "'Plus Jakarta Sans','Nunito Sans',Arial,sans-serif";
-  const bodyFont = "'Nunito Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const bodyFont =
+    "'Nunito Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
   const logoHtml = sadeLogoImg();
 
   const solidDivider = `<tr><td colspan="2" style="padding:14px 0;"><div style="height:1px;line-height:1px;font-size:1px;background-color:#D9E2D4;">&nbsp;</div></td></tr>`;
   const dashedDivider = `<tr><td colspan="2" style="padding:12px 0;"><div style="height:0;line-height:0;font-size:0;border-top:1px dashed #D9D2C3;">&nbsp;</div></td></tr>`;
 
-  const itemRows = input.items.map((item) => `<tr>
+  const itemRows = input.items
+    .map(
+      (item) => `<tr>
                       <td valign="top" style="padding:8px 12px 8px 0;">
                         <div style="color:#211F1A;font-size:12px;font-weight:800;line-height:1.5;">${escapeHtml(item.itemName)}</div>
                         <div style="color:#7C776E;font-size:12px;line-height:1.5;">${escapeHtml(moneyFormatter.format(item.unitPrice))} × ${item.quantity}</div>
                       </td>
                       <td align="right" valign="top" style="padding:8px 0;color:#211F1A;font-size:12px;font-weight:800;white-space:nowrap;">${escapeHtml(moneyFormatter.format(item.quantity * item.unitPrice))}</td>
-                    </tr>`).join("");
+                    </tr>`,
+    )
+    .join("");
 
-  const paymentRows = input.payments.map((payment) => `<tr>
+  const paymentRows = input.payments
+    .map(
+      (payment) => `<tr>
                       <td style="padding:5px 0;color:#7C776E;font-size:12px;font-weight:700;">${escapeHtml(paymentMethodLabel(payment.method))}</td>
                       <td align="right" style="padding:5px 0;color:#211F1A;font-size:12px;font-weight:800;white-space:nowrap;">${escapeHtml(moneyFormatter.format(payment.amount))}</td>
-                    </tr>`).join("");
+                    </tr>`,
+    )
+    .join("");
 
   const remainingBalance = input.allowanceBalanceAfter;
-  const balanceColors = (remainingBalance ?? 0) < 0
-    ? { background: "#FFF1F1", border: "#F2B8B8", label: "#8D3E3E", value: "#AD4E4E" }
-    : { background: "#F1F4EF", border: "#C1D0B9", label: "#3A5035", value: "#486142" };
+  const balanceColors =
+    (remainingBalance ?? 0) < 0
+      ? {
+          background: "#FFF1F1",
+          border: "#F2B8B8",
+          label: "#8D3E3E",
+          value: "#AD4E4E",
+        }
+      : {
+          background: "#F1F4EF",
+          border: "#C1D0B9",
+          label: "#3A5035",
+          value: "#486142",
+        };
   const settlementHtml = externalSettlement
     ? `<div style="margin-top:8px;font-size:12px;line-height:1.6;color:#635F57;">Utang ${escapeHtml(moneyFormatter.format(externalSettlement.amount))} langsung dibayar via ${escapeHtml(paymentMethodLabel(externalSettlement.method))}.</div>`
     : "";
@@ -225,7 +267,10 @@ export function buildReceiptMessage(input: {
     html,
   };
 }
-export function receiptPurchasedAt(sale: { createdAt: Date; syncedAt?: Date | null }) {
+export function receiptPurchasedAt(sale: {
+  createdAt: Date;
+  syncedAt?: Date | null;
+}) {
   return sale.createdAt;
 }
 
@@ -245,7 +290,10 @@ export async function sendPosSaleReceipt(saleId: string) {
             receiptEmailStatus: "disabled",
             receiptEmailError: LEGACY_ROLE_RESTRICTION_ERROR,
           },
-          { receiptEmailStatus: "processing", receiptEmailAttemptedAt: { lt: staleBefore } },
+          {
+            receiptEmailStatus: "processing",
+            receiptEmailAttemptedAt: { lt: staleBefore },
+          },
         ],
       },
       data: {
@@ -273,7 +321,12 @@ export async function sendPosSaleReceipt(saleId: string) {
         organizationId: sale.credential.organizationId,
         ...(sale.staffPersonId
           ? { centralPersonId: sale.staffPersonId }
-          : { email: { equals: sale.staffEmail.trim(), mode: "insensitive" as const } }),
+          : {
+              email: {
+                equals: sale.staffEmail.trim(),
+                mode: "insensitive" as const,
+              },
+            }),
       },
       select: { id: true, name: true, email: true },
     });
@@ -293,7 +346,10 @@ export async function sendPosSaleReceipt(saleId: string) {
       quantity: item.quantity,
       unitPrice: Number(item.unitPrice),
     }));
-    const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const total = items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0,
+    );
     await sendEmail({
       to: registeredStaff.email.toLowerCase(),
       ...buildReceiptMessage({
@@ -301,40 +357,68 @@ export async function sendPosSaleReceipt(saleId: string) {
         customerName: registeredStaff.name ?? sale.staffName,
         items,
         paymentStrategy: sale.paymentStrategy,
-        payments: sale.payments.map((payment) => ({ method: payment.method, amount: Number(payment.amount) })),
+        payments: sale.payments.map((payment) => ({
+          method: payment.method,
+          amount: Number(payment.amount),
+        })),
         total,
-        allowanceBalanceBefore: sale.allowanceBalanceBefore === null ? null : Number(sale.allowanceBalanceBefore),
-        allowanceBalanceAfter: sale.allowanceBalanceAfter === null ? null : Number(sale.allowanceBalanceAfter),
+        allowanceBalanceBefore:
+          sale.allowanceBalanceBefore === null
+            ? null
+            : Number(sale.allowanceBalanceBefore),
+        allowanceBalanceAfter:
+          sale.allowanceBalanceAfter === null
+            ? null
+            : Number(sale.allowanceBalanceAfter),
         purchasedAt: receiptPurchasedAt(sale),
       }),
     });
     await prisma.posSale.update({
       where: { id: sale.id },
-      data: { receiptEmailStatus: "sent", receiptEmailSentAt: new Date(), receiptEmailError: null },
+      data: {
+        receiptEmailStatus: "sent",
+        receiptEmailSentAt: new Date(),
+        receiptEmailError: null,
+      },
     });
     return { status: "sent" as const };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown receipt email error";
+    const message =
+      error instanceof Error ? error.message : "Unknown receipt email error";
     if (claimed) {
-      await prisma.posSale.updateMany({
-        where: { id: saleId, receiptEmailStatus: "processing" },
-        data: { receiptEmailStatus: "failed", receiptEmailError: message.slice(0, 2000) },
-      }).catch((persistenceError) => {
-        console.error(`[pos-sale-receipt] Could not persist failure for sale ${saleId}`, persistenceError);
-      });
+      await prisma.posSale
+        .updateMany({
+          where: { id: saleId, receiptEmailStatus: "processing" },
+          data: {
+            receiptEmailStatus: "failed",
+            receiptEmailError: message.slice(0, 2000),
+          },
+        })
+        .catch((persistenceError) => {
+          console.error(
+            `[pos-sale-receipt] Could not persist failure for sale ${saleId}`,
+            persistenceError,
+          );
+        });
     }
-    console.error(`[pos-sale-receipt] Delivery failed for sale ${saleId}`, error);
+    console.error(
+      `[pos-sale-receipt] Delivery failed for sale ${saleId}`,
+      error,
+    );
     return { status: "failed" as const };
   }
 }
 
-export const POS_SALE_RECEIPT_RETRY_ORDER_BY: Prisma.PosSaleOrderByWithRelationInput[] = [
-  { receiptEmailAttemptedAt: { sort: "asc", nulls: "first" } },
-  { createdAt: "asc" },
-];
+export const POS_SALE_RECEIPT_RETRY_ORDER_BY: Prisma.PosSaleOrderByWithRelationInput[] =
+  [
+    { receiptEmailAttemptedAt: { sort: "asc", nulls: "first" } },
+    { createdAt: "asc" },
+  ];
 
 // Retries stale `processing` sales using an at-least-once delivery pattern with a 15-minute claim timeout.
-export async function retryPosSaleReceipts(input: { credentialId?: string; limit?: number } = {}) {
+export async function retryPosSaleReceipts(
+  input: { credentialId?: string; limit?: number } = {},
+) {
   const staleBefore = new Date(Date.now() - CLAIM_TIMEOUT_MS);
   const sales = await prisma.posSale.findMany({
     where: {
@@ -348,14 +432,23 @@ export async function retryPosSaleReceipts(input: { credentialId?: string; limit
           receiptEmailStatus: "disabled",
           receiptEmailError: LEGACY_ROLE_RESTRICTION_ERROR,
         },
-        { receiptEmailStatus: "processing", receiptEmailAttemptedAt: { lt: staleBefore } },
+        {
+          receiptEmailStatus: "processing",
+          receiptEmailAttemptedAt: { lt: staleBefore },
+        },
       ],
     },
     select: { id: true },
     orderBy: POS_SALE_RECEIPT_RETRY_ORDER_BY,
     take: Math.min(Math.max(input.limit ?? 50, 1), 100),
   });
-  const summary = { attempted: sales.length, sent: 0, failed: 0, disabled: 0, skipped: 0 };
+  const summary = {
+    attempted: sales.length,
+    sent: 0,
+    failed: 0,
+    disabled: 0,
+    skipped: 0,
+  };
   for (const sale of sales) {
     const result = await sendPosSaleReceipt(sale.id);
     summary[result.status] += 1;
