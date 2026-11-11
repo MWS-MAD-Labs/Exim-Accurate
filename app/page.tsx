@@ -12,11 +12,11 @@ import {
   Title,
   Box,
   ThemeIcon,
-  useMantineColorScheme,
   Anchor,
   Divider,
   rem,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import {
   IconDownload,
   IconUpload,
@@ -79,7 +79,7 @@ export default function HomePage() {
     t.home.benefits.exportFormat,
   ];
 
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const currentYear = new Date().getFullYear();
 

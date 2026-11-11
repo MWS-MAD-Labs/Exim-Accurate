@@ -8,10 +8,10 @@ import {
   Badge,
   ThemeIcon,
   Stack,
-  useMantineColorScheme,
   Box,
   Anchor,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import {
   IconFileExport,
   IconFileImport,
@@ -178,7 +178,7 @@ export function ActivityTimeline({
   emptyMessage,
 }: ActivityTimelineProps) {
   const { language } = useLanguage();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const localizedTypeConfig = {
     ...typeConfig,
@@ -383,7 +383,7 @@ export function CompactActivityList({
   maxItems = 5,
 }: CompactActivityListProps) {
   const { language } = useLanguage();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   const displayedActivities = activities.slice(0, maxItems);
@@ -480,7 +480,7 @@ export function ActivityCard({
   compact = false,
 }: ActivityCardProps) {
   const { language } = useLanguage();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const resolvedTitle =
     title || (language === "id" ? "Aktivitas Terbaru" : "Recent Activity");

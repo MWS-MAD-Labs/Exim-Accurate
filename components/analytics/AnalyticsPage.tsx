@@ -19,8 +19,8 @@ import {
   ThemeIcon,
   Title,
   rem,
-  useMantineColorScheme,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import { DatePickerInput } from "@mantine/dates";
 import {
   IconAlertCircle,
@@ -192,7 +192,7 @@ function DashboardPanel({
   badge?: string | number;
   children: ReactNode;
 }) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   return (
@@ -232,7 +232,7 @@ function DashboardPanel({
 }
 
 function CustomTooltip({ active, payload, label }: any) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   if (!active || !payload?.length) return null;
@@ -282,7 +282,7 @@ function DataTable({
   minWidth?: number;
   compact?: boolean;
 }) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const columns = rows.length
     ? Object.keys(rows[0])
@@ -364,7 +364,7 @@ function ChartCard({
   data: Record<string, unknown>[];
   bars: string[];
 }) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const chartGridColor = isDark
     ? "rgba(255, 255, 255, 0.1)"
@@ -511,7 +511,7 @@ function ChartCard({
 export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
   const config = titles[mode];
   const searchParams = useSearchParams();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const now = new Date();
   const startDateParam = parseDateParam(searchParams.get("startDate"));

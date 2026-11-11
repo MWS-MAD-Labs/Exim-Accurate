@@ -12,8 +12,8 @@ import {
   Stack,
   Text,
   Title,
-  useMantineColorScheme,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
@@ -23,7 +23,7 @@ import { useLanguage } from "@/lib/language";
 export default function TermsPage() {
   const { t } = useLanguage();
   const router = useRouter();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const currentYear = new Date().getFullYear();
 

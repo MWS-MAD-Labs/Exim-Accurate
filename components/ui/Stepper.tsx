@@ -7,11 +7,11 @@ import {
   Text,
   ThemeIcon,
   UnstyledButton,
-  useMantineColorScheme,
   Paper,
   rem,
   Transition,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import { IconCheck, IconCircle } from "@tabler/icons-react";
 import { ReactNode } from "react";
 
@@ -71,7 +71,7 @@ export function Stepper({
   size = "md",
   completedSteps = [],
 }: StepperProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const config = sizeConfig[size];
 
@@ -369,7 +369,7 @@ export function StepperCard({
   title,
   description,
 }: StepperCardProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   return (

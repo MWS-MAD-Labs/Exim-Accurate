@@ -11,12 +11,12 @@ import {
   Menu,
   Divider,
   Box,
-  useMantineColorScheme,
   Badge,
   Tooltip,
   Stack,
   rem,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import { useDisclosure } from "@mantine/hooks";
 import { useSession } from "@/lib/session-client";
 import { usePathname, useRouter } from "next/navigation";
@@ -153,7 +153,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [opened, { toggle, close }] = useDisclosure();
   const pathname = usePathname();
   const router = useRouter();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const { data: session } = useSession();
   const isDark = colorScheme === "dark";
 

@@ -11,8 +11,8 @@ import {
   Text,
   ThemeIcon,
   Title,
-  useMantineColorScheme,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import {
   IconAlertCircle,
   IconArrowRight,
@@ -34,7 +34,7 @@ const errorMessages: Record<string, string> = {
 function LoginContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const [loading, setLoading] = useState(false);
   const error = searchParams.get("error");
 

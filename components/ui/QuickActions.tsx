@@ -7,11 +7,11 @@ import {
   Text,
   ThemeIcon,
   Group,
-  useMantineColorScheme,
   Box,
   Badge,
   UnstyledButton,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import {
   IconFileExport,
   IconFileImport,
@@ -134,7 +134,7 @@ interface QuickActionTileProps {
 
 function QuickActionTile({ action }: QuickActionTileProps) {
   const router = useRouter();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   const colors = colorMap[action.color || "brand"];
@@ -258,7 +258,7 @@ export function CompactQuickActions({
   actions = defaultQuickActions,
 }: CompactQuickActionsProps) {
   const router = useRouter();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   return (

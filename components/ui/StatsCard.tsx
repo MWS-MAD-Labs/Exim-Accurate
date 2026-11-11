@@ -6,10 +6,10 @@ import {
   Text,
   ThemeIcon,
   Stack,
-  useMantineColorScheme,
   Box,
   rem,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import { IconTrendingUp, IconTrendingDown, IconMinus } from "@tabler/icons-react";
 import { ReactNode } from "react";
 
@@ -81,7 +81,7 @@ export function StatsCard({
   color = "brand",
   compact = false,
 }: StatsCardProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   const gradient = colorGradients[color] || colorGradients.brand;

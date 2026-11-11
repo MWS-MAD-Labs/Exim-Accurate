@@ -18,8 +18,8 @@ import {
   Text,
   ThemeIcon,
   Title,
-  useMantineColorScheme,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import { DatePickerInput } from "@mantine/dates";
 import {
   IconAlertCircle,
@@ -172,7 +172,7 @@ function Panel({
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   return (
     <Paper
       p="lg"

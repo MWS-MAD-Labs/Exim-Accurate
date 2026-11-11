@@ -17,12 +17,12 @@ import {
   Checkbox,
   ScrollArea,
   List,
-  useMantineColorScheme,
   Transition,
   Progress,
   Divider,
   rem,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import { useState, useEffect } from "react";
 import {
   IconAlertCircle,
@@ -69,7 +69,7 @@ interface ValidatedRow {
 export default function ImportInventoryAdjustmentPage() {
   const router = useRouter();
   const { t, language } = useLanguage();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
 
   const steps: Step[] = [
     {

@@ -6,10 +6,10 @@ import {
   Text,
   Title,
   Group,
-  useMantineColorScheme,
   MantineColor,
   Stack,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import { ReactNode } from "react";
 
 interface GradientCardProps {
@@ -70,7 +70,7 @@ export function GradientCard({
   padding = "md",
   minHeight,
 }: GradientCardProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   const gradientStyle = gradients[gradient] || gradients.brand;
@@ -186,7 +186,7 @@ export function FullGradientCard({
   padding = "lg",
   minHeight,
 }: FullGradientCardProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   const gradientStyle = gradients[gradient] || gradients.brand;
@@ -245,7 +245,7 @@ export function BorderGradientCard({
   borderPosition = "top",
   borderWidth = 4,
 }: BorderGradientCardProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   const gradientStyle = gradients[gradient] || gradients.brand;
