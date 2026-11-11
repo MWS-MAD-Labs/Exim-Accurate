@@ -32,7 +32,7 @@ export const APP_PERMISSION_DETAILS: Record<
   { description: string; requires?: AppPermission[] }
 > = {
   "app.admin": {
-    description: "Open the admin tools of Exima",
+    description: "Open the admin tools of Sade",
     requires: ["dashboard.read"],
   },
   "dashboard.read": { description: "Open the dashboard" },
@@ -41,7 +41,7 @@ export const APP_PERMISSION_DETAILS: Record<
     requires: ["dashboard.read"],
   },
   "users.manage": {
-    description: "Manage Exima users",
+    description: "Manage Sade users",
     requires: ["dashboard.read"],
   },
   "credentials.read": { description: "See Accurate credentials" },

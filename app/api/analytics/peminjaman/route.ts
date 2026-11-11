@@ -220,7 +220,7 @@ export async function GET(req: NextRequest) {
     const message =
       error instanceof Error
         ? error.message
-        : "Gagal memuat analytics peminjaman";
+        : "Gagal memuat analitik peminjaman";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

@@ -205,9 +205,7 @@ export function PersistentScanner({
           leftSection={<IconCamera size={14} />}
           styles={{
             input: {
-              background: "rgba(255,255,255,0.1)",
-              border: "none",
-              color: "white",
+              color: "var(--kiosk-text)",
             },
           }}
         />
@@ -306,7 +304,7 @@ export function PersistentScanner({
               position: "absolute",
               top: 10,
               right: 10,
-              background: "rgba(111,139,106,0.9)",
+              background: "var(--kiosk-raised)",
               padding: "4px 12px",
               borderRadius: "20px",
             }}
@@ -317,7 +315,7 @@ export function PersistentScanner({
                   width: 8,
                   height: 8,
                   borderRadius: "50%",
-                  background: "white",
+                  background: "var(--kiosk-ivory)",
                   animation: "pulse 1s infinite",
                 }}
               />

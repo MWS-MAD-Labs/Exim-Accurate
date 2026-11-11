@@ -2,8 +2,6 @@
 
 import {
   ActionIcon,
-  useMantineColorScheme,
-  useComputedColorScheme,
   Tooltip,
   Group,
   SegmentedControl,
@@ -12,6 +10,7 @@ import {
   Box,
   Menu,
 } from "@mantine/core";
+import { useAppColorScheme, useColorSchemeChoice } from "@/lib/use-app-color-scheme";
 import {
   IconSun,
   IconMoon,
@@ -21,10 +20,8 @@ import {
 
 // Simple icon toggle button
 export function ThemeToggle() {
-  const { setColorScheme } = useMantineColorScheme();
-  const computedColorScheme = useComputedColorScheme("light", {
-    getInitialValueInEffect: true,
-  });
+  const { setColorScheme } = useColorSchemeChoice();
+  const computedColorScheme = useAppColorScheme();
 
   const isDark = computedColorScheme === "dark";
 
@@ -56,7 +53,7 @@ export function ThemeSegmentedControl({
   size = "sm",
   fullWidth = false,
 }: ThemeSegmentedControlProps) {
-  const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const { choice: colorScheme, setColorScheme } = useColorSchemeChoice();
 
   return (
     <SegmentedControl
@@ -99,10 +96,8 @@ export function ThemeSegmentedControl({
 
 // Dropdown menu for theme selection
 export function ThemeMenu() {
-  const { colorScheme, setColorScheme } = useMantineColorScheme();
-  const computedColorScheme = useComputedColorScheme("light", {
-    getInitialValueInEffect: true,
-  });
+  const { choice: colorScheme, setColorScheme } = useColorSchemeChoice();
+  const computedColorScheme = useAppColorScheme();
 
   const isDark = computedColorScheme === "dark";
 
@@ -189,10 +184,8 @@ export function ThemeMenu() {
 
 // Card-based theme selector for settings pages
 export function ThemeCard() {
-  const { colorScheme, setColorScheme } = useMantineColorScheme();
-  const computedColorScheme = useComputedColorScheme("light", {
-    getInitialValueInEffect: true,
-  });
+  const { choice: colorScheme, setColorScheme } = useColorSchemeChoice();
+  const computedColorScheme = useAppColorScheme();
   const isDark = computedColorScheme === "dark";
 
   const options = [

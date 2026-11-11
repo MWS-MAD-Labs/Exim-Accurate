@@ -7,11 +7,11 @@ import {
   Text,
   ThemeIcon,
   Group,
-  useMantineColorScheme,
   Box,
   Badge,
   UnstyledButton,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import {
   IconFileExport,
   IconFileImport,
@@ -49,55 +49,21 @@ interface QuickActionsProps {
   columns?: { base: number; sm?: number; md?: number; lg?: number };
 }
 
-const colorMap: Record<string, { bg: string; bgDark: string; icon: string }> = {
-  brand: {
-    bg: "linear-gradient(135deg, #F1F4EF 0%, #E6EBE2 100%)",
-    bgDark:
-      "linear-gradient(135deg, rgba(111, 139, 106, 0.18) 0%, rgba(72, 97, 66, 0.12) 100%)",
-    icon: "#486142",
-  },
-  accent: {
-    bg: "linear-gradient(135deg, #FBF4E6 0%, #F6E9C9 100%)",
-    bgDark:
-      "linear-gradient(135deg, rgba(214, 161, 58, 0.18) 0%, rgba(185, 132, 41, 0.12) 100%)",
-    icon: "#B98429",
-  },
-  success: {
-    bg: "linear-gradient(135deg, #F1F4EF 0%, #D5DFD0 100%)",
-    bgDark:
-      "linear-gradient(135deg, rgba(111, 139, 106, 0.18) 0%, rgba(72, 97, 66, 0.12) 100%)",
-    icon: "#486142",
-  },
-  danger: {
-    bg: "linear-gradient(135deg, #FFF1F1 0%, #FCE3E3 100%)",
-    bgDark:
-      "linear-gradient(135deg, rgba(204, 102, 102, 0.16) 0%, rgba(141, 62, 62, 0.1) 100%)",
-    icon: "#AD4E4E",
-  },
-  violet: {
-    bg: "linear-gradient(135deg, #F1F4EF 0%, #E6EBE2 100%)",
-    bgDark:
-      "linear-gradient(135deg, rgba(111, 139, 106, 0.18) 0%, rgba(72, 97, 66, 0.12) 100%)",
-    icon: "#486142",
-  },
-  cyan: {
-    bg: "linear-gradient(135deg, #EFF7FA 0%, #DDEEF4 100%)",
-    bgDark:
-      "linear-gradient(135deg, rgba(121, 175, 199, 0.16) 0%, rgba(76, 126, 149, 0.1) 100%)",
-    icon: "#4C7E95",
-  },
-  teal: {
-    bg: "linear-gradient(135deg, #F1F4EF 0%, #D5DFD0 100%)",
-    bgDark:
-      "linear-gradient(135deg, rgba(111, 139, 106, 0.18) 0%, rgba(72, 97, 66, 0.12) 100%)",
-    icon: "#486142",
-  },
-  grape: {
-    bg: "linear-gradient(135deg, #FBF4E6 0%, #F6E9C9 100%)",
-    bgDark:
-      "linear-gradient(135deg, rgba(214, 161, 58, 0.18) 0%, rgba(185, 132, 41, 0.12) 100%)",
-    icon: "#B98429",
-  },
+// Icon box tint and icon colour per family. The CSS variables switch to light icon shades in dark mode.
+const tint = (family: "sage" | "gold" | "sky" | "rose") => ({
+  box: `var(--sade-tint-${family})`,
+  icon: `var(--sade-tint-${family}-text)`,
+});
+
+const colorMap: Record<string, { box: string; icon: string }> = {
+  brand: tint("sage"),
+  success: tint("sage"),
+  violet: tint("sage"),
+  teal: tint("sage"),
+  cyan: tint("sky"),
+  accent: tint("gold"),
+  grape: tint("gold"),
+  danger: tint("rose"),
 };
 
 // Default quick actions for the dashboard
@@ -134,7 +100,7 @@ interface QuickActionTileProps {
 
 function QuickActionTile({ action }: QuickActionTileProps) {
   const router = useRouter();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   const colors = colorMap[action.color || "brand"];
@@ -162,10 +128,9 @@ function QuickActionTile({ action }: QuickActionTileProps) {
         p="lg"
         radius="lg"
         style={{
-          background: isDark ? colors.bgDark : colors.bg,
-          border: isDark
-            ? "1px solid rgba(255, 255, 255, 0.1)"
-            : "1px solid rgba(0, 0, 0, 0.05)",
+          background: "var(--sade-surface)",
+          border: "1px solid var(--sade-border)",
+          boxShadow: "var(--sade-card-shadow)",
           transition: "all 0.2s ease",
           height: "100%",
         }}
@@ -179,7 +144,7 @@ function QuickActionTile({ action }: QuickActionTileProps) {
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.boxShadow = "";
+          e.currentTarget.style.boxShadow = "var(--sade-card-shadow)";
         }}
       >
         <Stack gap="md">
@@ -189,9 +154,7 @@ function QuickActionTile({ action }: QuickActionTileProps) {
               radius="xl"
               variant="light"
               style={{
-                backgroundColor: isDark
-                  ? `${colors.icon}25`
-                  : `${colors.icon}20`,
+                backgroundColor: colors.box,
                 color: colors.icon,
               }}
             >
@@ -258,7 +221,7 @@ export function CompactQuickActions({
   actions = defaultQuickActions,
 }: CompactQuickActionsProps) {
   const router = useRouter();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   return (
@@ -310,9 +273,7 @@ export function CompactQuickActions({
                 radius="md"
                 variant="light"
                 style={{
-                  backgroundColor: isDark
-                    ? `${colors.icon}20`
-                    : `${colors.icon}15`,
+                  backgroundColor: colors.box,
                   color: colors.icon,
                 }}
               >

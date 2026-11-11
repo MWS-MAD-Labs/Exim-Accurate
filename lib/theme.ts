@@ -1,16 +1,25 @@
-import { createTheme, MantineColorsTuple, rem } from "@mantine/core";
+import {
+  createTheme,
+  CSSVariablesResolver,
+  defaultVariantColorsResolver,
+  MantineColorsTuple,
+  MantineTheme,
+  parseThemeColor,
+  rem,
+  VariantColorsResolver,
+} from "@mantine/core";
 
 const brand: MantineColorsTuple = [
   "#F1F4EF",
-  "#E6EBE2",
-  "#D5DFD0",
+  "#E7EEE4", // 1 sage tint (icon boxes, badges, light buttons)
+  "#D5E3CF", // 2 panel border, secondary button border
   "#C1D0B9",
   "#A9BD9F",
   "#8FA983",
-  "#6F8B6A",
-  "#486142",
-  "#3A5035",
-  "#2D402A",
+  "#6F8B6A", // 6 Goodness Sage: icons, status dots, borders, focus ring. Not for text.
+  "#486142", // 7 deep sage: primary buttons, green text
+  "#3A4F35", // 8 primary hover
+  "#2D3E29", // 9 primary pressed
 ];
 
 const accent: MantineColorsTuple = [
@@ -28,15 +37,15 @@ const accent: MantineColorsTuple = [
 
 const success: MantineColorsTuple = [
   "#F1F4EF",
-  "#E6EBE2",
-  "#D5DFD0",
+  "#E7EEE4", // 1 sage tint (icon boxes, badges, light buttons)
+  "#D5E3CF", // 2 panel border, secondary button border
   "#C1D0B9",
   "#A9BD9F",
   "#8FA983",
-  "#6F8B6A",
-  "#486142",
-  "#3A5035",
-  "#2D402A",
+  "#6F8B6A", // 6 Goodness Sage: icons, status dots, borders, focus ring. Not for text.
+  "#486142", // 7 deep sage: primary buttons, green text
+  "#3A4F35", // 8 primary hover
+  "#2D3E29", // 9 primary pressed
 ];
 
 const danger: MantineColorsTuple = [
@@ -91,9 +100,90 @@ const sky: MantineColorsTuple = [
   "#31515F",
 ];
 
+// Every Mantine colour name belongs to one of four Sade families. The colours themselves (per light/dark) are CSS
+// variables in globals.css, so buttons, badges, theme icons, alerts and nav links all follow the scheme.
+type Family = "sage" | "gold" | "sky" | "rose";
+const FAMILIES: Record<string, Family> = {
+  brand: "sage", success: "sage", green: "sage", teal: "sage", cyan: "sage", lime: "sage", violet: "sage", indigo: "sage",
+  accent: "gold", orange: "gold", yellow: "gold", grape: "gold",
+  sky: "sky", blue: "sky",
+  danger: "rose", red: "rose", pink: "rose",
+};
+
+// The family of a colour name, or null for gray, dark, a CSS colour or an explicit shade like "brand.5".
+function familyOf(color: string | undefined, theme: MantineTheme): Family | null {
+  const parsed = parseThemeColor({ color: color || theme.primaryColor, theme });
+  if (!parsed.isThemeColor || parsed.shade !== undefined) return null;
+  return FAMILIES[parsed.color] ?? null;
+}
+
+const sadeVariantColors: VariantColorsResolver = (input) => {
+  const defaults = defaultVariantColorsResolver(input);
+  // Secondary: white with a pale sage border and green text.
+  if (input.variant === "default") {
+    return {
+      background: "var(--sade-secondary-bg)",
+      hover: "var(--sade-secondary-hover)",
+      color: "var(--sade-secondary-text)",
+      border: "1px solid var(--sade-secondary-border)",
+    };
+  }
+
+  const family = familyOf(input.color, input.theme);
+  if (!family) return defaults;
+
+  switch (input.variant) {
+    case "filled":
+      return {
+        background: `var(--sade-${family}-filled)`,
+        hover: `var(--sade-${family}-filled-hover)`,
+        color: `var(--sade-${family}-filled-text)`,
+        border: "1px solid transparent",
+      };
+    case "light":
+      return {
+        background: `var(--sade-tint-${family})`,
+        hover: `var(--sade-tint-${family}-hover)`,
+        color: `var(--sade-tint-${family}-text)`,
+        border: family === "rose" ? "1px solid var(--sade-tint-rose-border)" : "1px solid transparent",
+      };
+    case "subtle":
+      return {
+        background: "transparent",
+        hover: `var(--sade-tint-${family})`,
+        color: `var(--sade-tint-${family}-text)`,
+        border: "1px solid transparent",
+      };
+    case "outline":
+      return family === "sage"
+        ? {
+            background: "var(--sade-secondary-bg)",
+            hover: "var(--sade-secondary-hover)",
+            color: "var(--sade-secondary-text)",
+            border: "1px solid var(--sade-secondary-border)",
+          }
+        : { ...defaults, color: `var(--sade-tint-${family}-text)`, border: `1px solid var(--sade-tint-${family}-text)` };
+    default:
+      return defaults;
+  }
+};
+
+// The colour a button takes while pressed (Mantine reuses the hover colour).
+function pressedFor(variant: string | undefined, color: string | undefined, theme: MantineTheme): string | undefined {
+  const v = variant ?? "filled";
+  if (v === "default") return "var(--sade-secondary-pressed)";
+  const family = familyOf(color, theme);
+  if (!family) return undefined;
+  if (v === "filled") return `var(--sade-${family}-filled-pressed)`;
+  if (v === "light") return `var(--sade-tint-${family}-pressed)`;
+  if (v === "outline" && family === "sage") return "var(--sade-secondary-pressed)";
+  return undefined;
+}
+
 export const theme = createTheme({
   primaryColor: "brand",
-  primaryShade: { light: 6, dark: 7 },
+  // Ivory text on #6F8B6A is only 3.6:1, so filled buttons use shade 7 (#486142, 6.6:1) in both modes.
+  primaryShade: { light: 7, dark: 7 },
   colors: {
     brand,
     accent,
@@ -115,7 +205,8 @@ export const theme = createTheme({
     red: danger,
     pink: danger,
   },
-  white: "#FFFAF4",
+  // Surfaces are pure white; ivory is only the page background (--sade-page in globals.css).
+  white: "#FFFFFF",
   black: "#211F1A",
   fontFamily:
     'var(--font-nunito-sans), "Nunito Sans", sans-serif',
@@ -149,35 +240,35 @@ export const theme = createTheme({
   },
   shadows: {
     xs: "0 1px 2px rgba(43, 55, 37, 0.05)",
-    sm: "0 1px 3px rgba(43, 55, 37, 0.08), 0 1px 2px rgba(43, 55, 37, 0.05)",
+    sm: "0 1px 2px rgba(43, 55, 37, 0.06)",
     md: "0 4px 8px rgba(43, 55, 37, 0.08)",
     lg: "0 10px 24px rgba(43, 55, 37, 0.1)",
     xl: "0 20px 36px rgba(43, 55, 37, 0.12)",
   },
   defaultRadius: "md",
   cursorType: "pointer",
+  variantColorResolver: sadeVariantColors,
   focusRing: "auto",
   components: {
     Checkbox: {
       defaultProps: { radius: "xs" },
     },
     Button: {
-      defaultProps: { radius: "md" },
-      styles: {
-        root: {
-          fontWeight: 700,
-          transition: "all 0.2s ease",
-          "&:hover": { transform: "translateY(-1px)" },
-          "&:active": { transform: "translateY(0)" },
-        },
-      },
+      defaultProps: { radius: 10 },
+      styles: { root: { fontWeight: 700 } },
+      vars: (theme: MantineTheme, props: { variant?: string; color?: string }) => ({
+        root: { "--sade-btn-pressed": pressedFor(props.variant, props.color, theme) },
+      }),
     },
     Card: {
-      defaultProps: { radius: "lg", shadow: "sm" },
+      defaultProps: { radius: "lg", shadow: "sm", withBorder: true },
       styles: { root: { transition: "all 0.2s ease" } },
     },
     Paper: {
-      defaultProps: { radius: "lg", shadow: "sm" },
+      defaultProps: { radius: "lg", shadow: "sm", withBorder: true },
+    },
+    SegmentedControl: {
+      defaultProps: { color: "brand" },
     },
     TextInput: {
       defaultProps: { radius: "md" },
@@ -216,7 +307,8 @@ export const theme = createTheme({
       defaultProps: { radius: "md" },
     },
     Badge: {
-      defaultProps: { radius: "md" },
+      defaultProps: { radius: "xl" },
+      styles: { root: { fontSize: rem(11), fontWeight: 700, textTransform: "uppercase" } },
     },
     Modal: {
       defaultProps: { radius: "lg" },
@@ -248,3 +340,22 @@ export const cssVariables = {
     border: "1px solid rgba(230, 234, 223, 0.12)",
   },
 };
+
+// Surfaces (cards, top bar, sidebar, modals) and text colours per scheme. Mantine injects its own variables after the
+// stylesheets, so these go through the provider instead of globals.css. The page background is --sade-page.
+// Dark values follow the "warm dark espresso-green" of the spec; the hexes are a guess pending the manager.
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: {
+    "--mantine-color-body": "#FFFFFF",
+    "--mantine-color-text": "#211F1A",
+    "--mantine-color-dimmed": "#6B665C",
+    "--mantine-color-error": "#AD4E4E",
+  },
+  dark: {
+    "--mantine-color-body": "#242E21",
+    "--mantine-color-text": "#F4F0E8",
+    "--mantine-color-dimmed": "#949B88",
+    "--mantine-color-error": "#E99C9C",
+  },
+});

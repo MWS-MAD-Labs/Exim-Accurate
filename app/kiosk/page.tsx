@@ -172,12 +172,12 @@ export default function KioskHomePage() {
               height: 90,
               borderRadius: "50%",
               background:
-                "radial-gradient(circle, rgba(111, 139, 106, 0.25), rgba(32, 43, 29, 0.1))",
+                "var(--kiosk-raised)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              border: "1px solid rgba(230, 234, 223, 0.25)",
-              boxShadow: "0 0 30px rgba(111, 139, 106, 0.35)",
+              border: "1px solid var(--kiosk-border)",
+              boxShadow: "none",
               animation: "pulse 2.4s infinite",
             }}
           >
@@ -187,7 +187,7 @@ export default function KioskHomePage() {
             <Text c="white" size="xl" fw={600} className="kiosk-heading">
               {t.kiosk.loadingTitle}
             </Text>
-            <Text c="rgba(255,255,255,0.6)" size="sm">
+            <Text c="var(--kiosk-text-4)" size="sm">
               {t.kiosk.loadingSubtitle}
             </Text>
           </Stack>
@@ -204,12 +204,12 @@ export default function KioskHomePage() {
           style={{
             background: "var(--kiosk-panel)",
             backdropFilter: "blur(24px)",
-            borderRadius: rem(24),
+            borderRadius: "var(--kiosk-card-radius)",
             border: "1px solid var(--kiosk-stroke)",
             maxWidth: 520,
             width: "92%",
             textAlign: "center",
-            boxShadow: "0 25px 70px rgba(8, 14, 10, 0.65)",
+            boxShadow: "var(--kiosk-card-shadow)",
           }}
         >
           <Stack align="center" gap="xl" p="xl">
@@ -228,7 +228,7 @@ export default function KioskHomePage() {
                   ? "Belum Ada Akun Tersinkron"
                   : "No Synced Account Yet"}
               </Title>
-              <Text c="rgba(255,255,255,0.65)" size="lg">
+              <Text c="var(--kiosk-text-3)" size="lg">
                 {language === "id"
                   ? "Konfigurasikan akun Accurate di dasbor untuk mengaktifkan kiosk ini."
                   : "Configure your Accurate account in the dashboard to enable this kiosk."}
@@ -247,7 +247,6 @@ export default function KioskHomePage() {
         id: "checkout",
         icon: <IconShoppingCart size={40} />,
         gradient: { from: "brand.5", to: "accent.6", deg: 135 },
-        glowColor: "rgba(111, 139, 106, 0.45)",
         title: language === "id" ? "Pengambilan" : "Pickup",
         description:
           language === "id"
@@ -259,7 +258,6 @@ export default function KioskHomePage() {
         id: "peminjaman",
         icon: <IconClipboardList size={40} />,
         gradient: { from: "brand.5", to: "accent.7", deg: 135 },
-        glowColor: "rgba(214, 161, 58, 0.45)",
         title: language === "id" ? "Peminjaman" : "Borrowing",
         description:
           language === "id"
@@ -286,7 +284,7 @@ export default function KioskHomePage() {
                   : "Back to station selection"
               }
               onClick={() => setSelectedCredential(null)}
-              style={{ color: "rgba(255,255,255,0.7)" }}
+              style={{ color: "var(--kiosk-text-3)" }}
             >
               <IconArrowLeft size={20} />
             </ActionIcon>
@@ -302,8 +300,8 @@ export default function KioskHomePage() {
               }
               onClick={toggleFullscreen}
               style={{
-                background: "rgba(43, 55, 38, 0.85)",
-                border: "1px solid rgba(230, 234, 223, 0.15)",
+                background: "var(--kiosk-surface)",
+                border: "1px solid var(--kiosk-border)",
               }}
             >
               {isFullscreen ? (
@@ -326,16 +324,14 @@ export default function KioskHomePage() {
                   height: 80,
                   borderRadius: 20,
                   background:
-                    "linear-gradient(135deg, rgba(111, 139, 106, 0.35) 0%, rgba(214, 161, 58, 0.35) 100%)",
-                  backdropFilter: "blur(10px)",
+                    "var(--kiosk-gold)",
+                  color: "var(--kiosk-bg)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  border: "1px solid rgba(230, 234, 223, 0.25)",
-                  boxShadow: "0 0 30px rgba(111, 139, 106, 0.25)",
                 }}
               >
-                <IconBuildingStore size={36} color="white" />
+                <IconBuildingStore size={36} />
               </Box>
               <Title
                 order={1}
@@ -345,11 +341,11 @@ export default function KioskHomePage() {
               >
                 {language === "id" ? "Pilih Mode" : "Select Mode"}
               </Title>
-              <Text c="rgba(255,255,255,0.6)" size="lg">
+              <Text c="var(--kiosk-text-4)" size="lg">
                 {selectedCredential.appKey}
                 {selectedCredential.host ? ` • ${selectedCredential.host}` : ""}
               </Text>
-              <Text c="rgba(255,255,255,0.48)" size="sm">
+              <Text c="var(--kiosk-text-4)" size="sm">
                 {language === "id"
                   ? "Gunakan Tab lalu Enter, atau tekan 1 untuk Pengambilan dan 2 untuk Peminjaman."
                   : "Use Tab then Enter, or press 1 for Pickup and 2 for Borrowing."}
@@ -371,7 +367,7 @@ export default function KioskHomePage() {
                     background: "var(--kiosk-panel)",
                     backdropFilter: "blur(24px)",
                     border: "1px solid var(--kiosk-stroke)",
-                    boxShadow: "0 20px 40px rgba(8, 14, 10, 0.45)",
+                    boxShadow: "var(--kiosk-card-shadow)",
                     minHeight: 220,
                   }}
                   role="button"
@@ -387,11 +383,8 @@ export default function KioskHomePage() {
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform =
                       "translateY(-8px) scale(1.02)";
-                    e.currentTarget.style.boxShadow = `0 30px 70px rgba(8, 14, 10, 0.75), 0 0 40px ${mode.glowColor}`;
-                    e.currentTarget.style.borderColor = mode.glowColor.replace(
-                      "0.45",
-                      "0.6",
-                    );
+                    e.currentTarget.style.boxShadow = "var(--kiosk-card-shadow)";
+                    e.currentTarget.style.borderColor = "var(--kiosk-sage)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = "translateY(0) scale(1)";
@@ -406,7 +399,6 @@ export default function KioskHomePage() {
                         radius="xl"
                         variant="gradient"
                         gradient={mode.gradient}
-                        style={{ boxShadow: `0 0 25px ${mode.glowColor}` }}
                       >
                         {mode.icon}
                       </ThemeIcon>
@@ -415,16 +407,16 @@ export default function KioskHomePage() {
                           {mode.id === "checkout" ? "1. " : "2. "}
                           {mode.title}
                         </Text>
-                        <Text c="rgba(255,255,255,0.55)" size="sm" lh={1.5}>
+                        <Text c="var(--kiosk-text-4)" size="sm" lh={1.5}>
                           {mode.description}
                         </Text>
                       </Stack>
                     </Stack>
                     <Group
                       gap="xs"
-                      style={{ color: "rgba(255, 255, 255, 0.65)" }}
+                      style={{ color: "var(--kiosk-gold)" }}
                     >
-                      <Text size="sm" fw={500}>
+                      <Text size="sm" fw={600}>
                         {language === "id" ? "Mulai →" : "Start →"}
                       </Text>
                     </Group>
@@ -437,9 +429,9 @@ export default function KioskHomePage() {
 
         {/* Footer */}
         <Group justify="center" py="lg">
-          <Text c="rgba(255,255,255,0.45)" size="xs" className="sade-quote">
+          <Text c="var(--kiosk-text-4)" size="xs" className="sade-quote">
             {language === "id" ? "Ditenagai oleh" : "Powered by"}{" "}
-            <span style={{ fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>
+            <span style={{ fontWeight: 600 }}>
               Sade
             </span>{" "}
             •{" "}
@@ -493,31 +485,25 @@ export default function KioskHomePage() {
               height: 64,
               borderRadius: 16,
               background:
-                "linear-gradient(135deg, rgba(111, 139, 106, 0.35) 0%, rgba(214, 161, 58, 0.35) 100%)",
-              backdropFilter: "blur(10px)",
+                "var(--kiosk-gold)",
+              color: "var(--kiosk-bg)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              border: "1px solid rgba(230, 234, 223, 0.25)",
-              boxShadow: "0 0 30px rgba(111, 139, 106, 0.35)",
             }}
           >
-            <IconBuildingStore size={30} color="white" />
+            <IconBuildingStore size={30} />
           </Box>
           <Stack gap={0}>
             <Text
               size="xl"
               fw={700}
-              style={{
-                background: "linear-gradient(135deg, #D6A13A 0%, #9DB18F 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
+              c="var(--kiosk-text)"
               className="kiosk-heading"
             >
               Sade Kiosk
             </Text>
-            <Text size="xs" c="rgba(255,255,255,0.5)" fw={500}>
+            <Text size="xs" c="var(--kiosk-text-4)" fw={500}>
               {language === "id"
                 ? "Terminal Pengambilan & Peminjaman"
                 : "Pickup & Borrowing Terminal"}
@@ -535,22 +521,16 @@ export default function KioskHomePage() {
           >
             {language === "id" ? "Tanpa Hambatan" : "Seamless"}
             <br />
-            <span
-              style={{
-                background: "linear-gradient(135deg, #D6A13A 0%, #9DB18F 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
+            <span>
               {language === "id" ? "Pengalaman Kiosk" : "Kiosk Experience"}
             </span>
           </Title>
-          <Text c="rgba(255,255,255,0.6)" size="lg">
+          <Text c="var(--kiosk-text-4)" size="lg">
             {language === "id"
               ? "Pilih profil stasiun untuk memulai."
               : "Select a station profile to get started."}
           </Text>
-          <Text c="rgba(255,255,255,0.48)" size="sm">
+          <Text c="var(--kiosk-text-4)" size="sm">
             {language === "id"
               ? "Gunakan Tab lalu Enter, atau tekan nomor stasiun."
               : "Use Tab then Enter, or press a station number."}
@@ -566,9 +546,9 @@ export default function KioskHomePage() {
                 radius="md"
                 variant="light"
                 style={{
-                  backgroundColor: "rgba(111, 139, 106, 0.15)",
-                  color: "#E6EADF",
-                  border: "1px solid rgba(111, 139, 106, 0.25)",
+                  backgroundColor: "var(--kiosk-raised)",
+                  color: "var(--kiosk-text)",
+                  border: "1px solid var(--kiosk-border)",
                 }}
               >
                 {feature.icon}
@@ -577,7 +557,7 @@ export default function KioskHomePage() {
                 <Text c="white" fw={600} size="sm">
                   {feature.title}
                 </Text>
-                <Text c="rgba(255,255,255,0.55)" size="xs">
+                <Text c="var(--kiosk-text-4)" size="xs">
                   {feature.description}
                 </Text>
               </Stack>
@@ -607,7 +587,7 @@ export default function KioskHomePage() {
                 backdropFilter: "blur(24px)",
                 border: "1px solid var(--kiosk-stroke)",
                 animationDelay: `${index * 100}ms`,
-                boxShadow: "0 20px 40px rgba(8, 14, 10, 0.45)",
+                boxShadow: "var(--kiosk-card-shadow)",
               }}
               role="button"
               tabIndex={0}
@@ -623,10 +603,8 @@ export default function KioskHomePage() {
                 e.currentTarget.style.transform =
                   "translateY(-8px) scale(1.02)";
                 e.currentTarget.style.boxShadow =
-                  "0 30px 70px rgba(8, 14, 10, 0.75)";
-                e.currentTarget.style.borderColor = "rgba(111, 139, 106, 0.5)";
-                e.currentTarget.style.background =
-                  "linear-gradient(135deg, rgba(32, 43, 29, 0.95) 0%, rgba(43, 55, 38, 0.9) 100%)";
+                  "var(--kiosk-card-shadow)";
+                e.currentTarget.style.borderColor = "var(--kiosk-sage)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0) scale(1)";
@@ -642,7 +620,6 @@ export default function KioskHomePage() {
                     radius="xl"
                     variant="gradient"
                     gradient={{ from: "brand.5", to: "accent.6", deg: 135 }}
-                    style={{ boxShadow: "0 0 20px rgba(111, 139, 106, 0.45)" }}
                   >
                     <IconBuildingStore size={26} />
                   </ThemeIcon>
@@ -651,9 +628,9 @@ export default function KioskHomePage() {
                     color="green"
                     size="sm"
                     style={{
-                      background: "rgba(157, 177, 143, 0.2)",
-                      color: "#9DB18F",
-                      border: "1px solid rgba(157, 177, 143, 0.4)",
+                      background: "var(--kiosk-raised)",
+                      color: "var(--kiosk-sage-lt)",
+                      border: "1px solid var(--kiosk-border)",
                     }}
                   >
                     {language === "id" ? "Aktif" : "Active"}
@@ -664,7 +641,7 @@ export default function KioskHomePage() {
                   <Text c="white" fw={700} size="lg">
                     {index + 1}. {cred.appKey}
                   </Text>
-                  <Text c="rgba(255,255,255,0.55)" size="sm">
+                  <Text c="var(--kiosk-text-4)" size="sm">
                     {cred.host ||
                       (language === "id"
                         ? "Belum dikonfigurasi"
@@ -676,7 +653,7 @@ export default function KioskHomePage() {
                   gap="xs"
                   style={{
                     marginTop: "auto",
-                    color: "rgba(255, 255, 255, 0.65)",
+                    color: "var(--kiosk-text-3)",
                   }}
                 >
                   <Text size="sm" fw={500}>
@@ -692,9 +669,9 @@ export default function KioskHomePage() {
 
       {/* Footer */}
       <Group justify="center" py="lg">
-        <Text c="rgba(255,255,255,0.45)" size="xs" className="sade-quote">
+        <Text c="var(--kiosk-text-4)" size="xs" className="sade-quote">
           {language === "id" ? "Ditenagai oleh" : "Powered by"}{" "}
-          <span style={{ fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>
+          <span style={{ fontWeight: 600 }}>
             Sade
           </span>{" "}
           • {language === "id" ? "Integrasi Accurate" : "Accurate Integration"}

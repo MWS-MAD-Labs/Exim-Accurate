@@ -14,6 +14,7 @@ export function LanguageSelect({ size = "sm" }: LanguageSelectProps) {
   return (
     <Tooltip label={t.common.languageTooltip} position="bottom">
       <Select
+        className="sade-language-select"
         size={size}
         w={190}
         data={options}

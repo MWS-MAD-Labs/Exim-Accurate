@@ -6,9 +6,9 @@ import {
   Title,
   Button,
   ThemeIcon,
-  useMantineColorScheme,
   Box,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import {
   IconDatabase,
   IconFileOff,
@@ -129,7 +129,7 @@ export function EmptyState({
   secondaryAction,
   size = "md",
 }: EmptyStateProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const { t } = useLanguage();
   const isDark = colorScheme === "dark";
 
@@ -236,7 +236,7 @@ export function IllustratedEmptyState({
   illustrationUrl,
   ...props
 }: IllustratedEmptyStateProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const { t } = useLanguage();
   const isDark = colorScheme === "dark";
   const sizeSettings = sizeConfig[props.size || "md"];

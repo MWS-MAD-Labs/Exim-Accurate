@@ -7,6 +7,7 @@ import {
   NumberInput,
   Paper,
   Select,
+  SimpleGrid,
   Stack,
   Text,
   TextInput,
@@ -167,59 +168,62 @@ export default function PosSettingsPage() {
           <Text size="sm" c="dimmed">
             Saving this page makes the selected credential the only active POS store for staff preorders and cashier operations.
           </Text>
-          <Select
-            label={t.dashboard.pos.credential}
-            data={credentials.map((credential) => ({ value: credential.id, label: credential.appKey }))}
-            value={credentialId}
-            onChange={(id) => id && void loadForCredential(id)}
-          />
-          <Select
-            label={t.dashboard.pos.warehouse}
-            data={warehouses.map((warehouse) => ({ value: String(warehouse.id), label: warehouse.name }))}
-            value={warehouseId ? String(warehouseId) : null}
-            onChange={(id) => {
-              const selected = warehouses.find((warehouse) => String(warehouse.id) === id);
-              if (selected) {
-                setWarehouseId(selected.id);
-                setWarehouseName(selected.name);
-              }
-            }}
-            disabled={!credentialId}
-          />
-          <NumberInput
-            label={t.dashboard.pos.allowancePerWorkingDay}
-            value={allowancePerWorkingDay}
-            onChange={(value) => setAllowancePerWorkingDay(typeof value === "number" ? value : "")}
-            min={0}
-            disabled={!credentialId}
-          />
-          <NumberInput
-            label="Preorder stock hold (hours)"
-            description="Available stock is locked for this many hours after a staff preorder is placed."
-            value={preorderHoldHours}
-            onChange={(value) => setPreorderHoldHours(typeof value === "number" ? value : "")}
-            min={1}
-            max={168}
-            disabled={!credentialId}
-          />
-          <NumberInput
-            label={t.dashboard.pos.allowanceCutoffDay}
-            description={t.dashboard.pos.allowanceCutoffDayDescription}
-            value={allowanceCutoffDay}
-            onChange={(value) => setAllowanceCutoffDay(typeof value === "number" ? value : "")}
-            min={1}
-            max={28}
-            disabled={!credentialId}
-          />
-          <NumberInput
-            label={t.dashboard.pos.staffSalaryPayday}
-            description={t.dashboard.pos.staffSalaryPaydayDescription}
-            value={staffPaydayDay}
-            onChange={(value) => setStaffPaydayDay(typeof value === "number" ? value : "")}
-            min={1}
-            max={28}
-            disabled={!credentialId}
-          />
+          {/* Two columns on wider screens so the form is not one long column; one column on phones. */}
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="md" style={{ alignItems: "end" }}>
+            <Select
+              label={t.dashboard.pos.credential}
+              data={credentials.map((credential) => ({ value: credential.id, label: credential.appKey }))}
+              value={credentialId}
+              onChange={(id) => id && void loadForCredential(id)}
+            />
+            <Select
+              label={t.dashboard.pos.warehouse}
+              data={warehouses.map((warehouse) => ({ value: String(warehouse.id), label: warehouse.name }))}
+              value={warehouseId ? String(warehouseId) : null}
+              onChange={(id) => {
+                const selected = warehouses.find((warehouse) => String(warehouse.id) === id);
+                if (selected) {
+                  setWarehouseId(selected.id);
+                  setWarehouseName(selected.name);
+                }
+              }}
+              disabled={!credentialId}
+            />
+            <NumberInput
+              label={t.dashboard.pos.allowancePerWorkingDay}
+              value={allowancePerWorkingDay}
+              onChange={(value) => setAllowancePerWorkingDay(typeof value === "number" ? value : "")}
+              min={0}
+              disabled={!credentialId}
+            />
+            <NumberInput
+              label="Preorder stock hold (hours)"
+              description="Available stock is locked for this many hours after a staff preorder is placed."
+              value={preorderHoldHours}
+              onChange={(value) => setPreorderHoldHours(typeof value === "number" ? value : "")}
+              min={1}
+              max={168}
+              disabled={!credentialId}
+            />
+            <NumberInput
+              label={t.dashboard.pos.allowanceCutoffDay}
+              description={t.dashboard.pos.allowanceCutoffDayDescription}
+              value={allowanceCutoffDay}
+              onChange={(value) => setAllowanceCutoffDay(typeof value === "number" ? value : "")}
+              min={1}
+              max={28}
+              disabled={!credentialId}
+            />
+            <NumberInput
+              label={t.dashboard.pos.staffSalaryPayday}
+              description={t.dashboard.pos.staffSalaryPaydayDescription}
+              value={staffPaydayDay}
+              onChange={(value) => setStaffPaydayDay(typeof value === "number" ? value : "")}
+              min={1}
+              max={28}
+              disabled={!credentialId}
+            />
+          </SimpleGrid>
           <Stack gap="xs">
             <Text size="sm" fw={500}>
               {t.dashboard.pos.customAllowancePeriods}

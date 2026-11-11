@@ -130,7 +130,7 @@ export const en = {
     noDatabases: "No databases found",
   },
   dashboard: {
-    welcome: "Welcome back 👋",
+    welcome: "Welcome back",
     title: "Dashboard",
     systemOperational: "All systems operational",
     stats: {

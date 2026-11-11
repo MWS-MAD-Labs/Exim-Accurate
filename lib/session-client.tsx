@@ -14,6 +14,28 @@ interface SessionResponse {
   expiresIn: number;
 }
 
+// Only 401 (signed out) and 403 (access taken away) end the session. A 500 from a dev server that is recompiling or
+// a 503 while Central is slow says nothing about the session, so the page stays.
+export function sessionEnded(status: number) {
+  return status === 401 || status === 403;
+}
+
+// The status of /api/session when the tab is looked at again. The Hub access token lives about five minutes, so after
+// a longer break it has usually expired, and this check runs at the same moment keepFresh asks for a new one. A 401
+// then only means "not renewed yet": renew once and ask again, and leave for the Hub only when that also says 401.
+export async function checkSession(refreshUrl: string, fetchImpl: typeof fetch = fetch): Promise<number> {
+  const first = await fetchImpl("/api/session", { cache: "no-store" });
+  if (first.status !== 401) return first.status;
+  const renewed = await fetchImpl(refreshUrl, {
+    method: "POST",
+    credentials: "include",
+    headers: { "X-Requested-With": "mws" },
+    cache: "no-store",
+  }).catch(() => null);
+  if (!renewed?.ok) return renewed?.status === 401 ? 401 : 503;
+  return (await fetchImpl("/api/session", { cache: "no-store" })).status;
+}
+
 // Reads the Hub session through /api/session, renews it while the page is open, and leaves for the Hub when it ends.
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<SessionState>({ data: null, status: "loading" });
@@ -45,7 +67,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         });
         // A sign-out in the Hub deletes the cookie; looking at the tab again notices.
         stopWatching = watchSession({
-          check: async () => (await fetch("/api/session", { cache: "no-store" })).ok,
+          check: async () => !sessionEnded(await checkSession(session.hub.refreshUrl)),
           onRevoked: () => {
             window.location.href = session.hub.homeUrl;
           },

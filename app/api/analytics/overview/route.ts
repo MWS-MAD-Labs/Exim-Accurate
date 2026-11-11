@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
       topUsers: mapToRankedRows(userMap),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Gagal memuat analytics overview";
+    const message = error instanceof Error ? error.message : "Gagal memuat ringkasan analitik";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

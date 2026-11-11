@@ -9,7 +9,6 @@ import {
   Group,
   Paper,
   Box,
-  useMantineColorScheme,
   Skeleton,
   Badge,
   ThemeIcon,
@@ -18,6 +17,7 @@ import {
   Button,
   Tooltip as MantineTooltip,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import {
   IconFileExport,
   IconFileImport,
@@ -102,7 +102,7 @@ interface TopCheckoutUser {
 }
 
 function CustomTooltip({ active, payload, label }: any) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   if (active && payload && payload.length) {
@@ -145,7 +145,7 @@ function CustomTooltip({ active, payload, label }: any) {
 export default function DashboardPage() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
@@ -248,10 +248,10 @@ export default function DashboardPage() {
       {/* Page Header */}
       <Group justify="space-between" align="flex-end">
         <Box>
-          <Text size="sm" c="dimmed" mb={4}>
+          <Text size="sm" c="dimmed" mb={4} className="sade-quote">
             {t.dashboard.welcome}
           </Text>
-          <Title order={2}>{t.dashboard.title}</Title>
+          <Title order={2} fw={800}>{t.dashboard.title}</Title>
         </Box>
         <Badge
           size="lg"
@@ -322,6 +322,7 @@ export default function DashboardPage() {
               }}
               icon={<IconCalendarStats size={26} />}
               color="accent"
+              highlight
             />
           </>
         )}

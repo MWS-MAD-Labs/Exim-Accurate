@@ -20,7 +20,7 @@ test("notifies a positive unused allowance balance", () => {
   });
 });
 
-test("allowance notification has a text header and no image", () => {
+test("allowance notification shows the Sade logo and has no attachment", () => {
   const message = buildNotificationMessage({
     name: "Faisal",
     email: "faisal@example.com",
@@ -30,6 +30,7 @@ test("allowance notification has a text header and no image", () => {
     scenario: "remaining_balance",
   });
 
-  assert.match(message.html, />Sade</);
-  assert.doesNotMatch(message.html, /<img /);
+  // The hosted logo when the app has an https address, the "Sade" word otherwise.
+  assert.match(message.html, /alt="Sade"|>Sade</);
+  assert.doesNotMatch(message.html, /cid:/);
 });

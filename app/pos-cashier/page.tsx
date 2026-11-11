@@ -215,8 +215,8 @@ export default function PosCashierPage() {
     background: "var(--cashier-panel)",
     backdropFilter: "blur(24px)",
     border: "1px solid var(--cashier-stroke)",
-    borderRadius: rem(22),
-    boxShadow: "0 24px 60px rgba(8, 14, 10, 0.5)",
+    borderRadius: "var(--kiosk-card-radius)",
+    boxShadow: "var(--kiosk-card-shadow)",
   };
   const softPanelStyle = {
     background: "var(--cashier-panel-soft)",
@@ -224,11 +224,9 @@ export default function PosCashierPage() {
     borderRadius: rem(12),
   };
   const inputStyles = {
-    label: { color: "rgba(255,255,255,0.78)", fontWeight: 600 },
+    label: { color: "var(--kiosk-text-2)", fontWeight: 600 },
     input: {
-      background: "rgba(22, 32, 26, 0.82)",
-      border: "1px solid var(--cashier-stroke)",
-      color: "white",
+      color: "var(--kiosk-text)",
     },
   };
 
@@ -883,9 +881,7 @@ export default function PosCashierPage() {
           <ThemeIcon
             size={72}
             radius="xl"
-            variant="gradient"
-            gradient={{ from: "brand.5", to: "accent.6", deg: 135 }}
-            style={{ boxShadow: "0 0 28px rgba(111, 139, 106, 0.4)" }}
+            style={{ background: "var(--kiosk-gold)", color: "var(--kiosk-bg)" }}
           >
             <IconShoppingCart size={34} />
           </ThemeIcon>
@@ -915,9 +911,7 @@ export default function PosCashierPage() {
           <ThemeIcon
             size={44}
             radius="md"
-            variant="gradient"
-            gradient={{ from: "brand.5", to: "accent.6", deg: 135 }}
-            style={{ boxShadow: "0 0 22px rgba(111, 139, 106, 0.35)" }}
+            style={{ background: "var(--kiosk-gold)", color: "var(--kiosk-bg)" }}
           >
             <IconShoppingCart size={24} />
           </ThemeIcon>
@@ -929,11 +923,7 @@ export default function PosCashierPage() {
           <Badge
             variant="light"
             leftSection={<IconKeyboard size={13} />}
-            style={{
-              background: "rgba(111, 139, 106, 0.14)",
-              color: "#E2C36C",
-              border: "1px solid rgba(111, 139, 106, 0.28)",
-            }}
+            className="kiosk-shortcut"
           >
             F2 {language === "id" ? "Cari" : "Search"} · F4 Checkout · Alt+N{" "}
             {language === "id" ? "Baru" : "New"}
@@ -1011,7 +1001,7 @@ export default function PosCashierPage() {
                 <Text fw={700} c={staffDebtPrompt.blocked ? "red.3" : "orange.3"}>{formatMoney(staffDebtPrompt.outstanding)}</Text>
               </Box>
             </SimpleGrid>
-            {staffDebtPrompt.periodType === "previous" && <Text size="sm" c="gray.3">
+            {staffDebtPrompt.periodType === "previous" && <Text size="sm" c="var(--kiosk-text-3)">
               {t.dashboard.pos.staffSalaryPayday}: {staffDebtPrompt.payday ? new Date(staffDebtPrompt.payday).toLocaleDateString() : t.dashboard.pos.notConfigured}
             </Text>}
             <NumberInput
@@ -1177,7 +1167,7 @@ export default function PosCashierPage() {
           style={{ ...glassStyle, width: "100%" }}
           gap="lg"
         >
-          <Text ta="center" c="rgba(255,255,255,0.68)" size="lg">
+          <Text ta="center" c="var(--kiosk-text-3)" size="lg">
             {t.dashboard.pos.identifyBuyer}
           </Text>
           <Box pos="relative">
@@ -1279,11 +1269,11 @@ export default function PosCashierPage() {
                         cursor: "pointer",
                         background:
                           index === highlightedStaffSuggestion
-                            ? "rgba(111, 139, 106, 0.16)"
-                            : "rgba(22, 32, 26, 0.5)",
+                            ? "var(--kiosk-raised)"
+                            : "transparent",
                         border:
                           index === highlightedStaffSuggestion
-                            ? "1px solid rgba(111, 139, 106, 0.3)"
+                            ? "1px solid var(--kiosk-border)"
                             : "1px solid transparent",
                       }}
                       onMouseEnter={() => {
@@ -1299,7 +1289,7 @@ export default function PosCashierPage() {
                         {staff.name || staff.email}
                       </Text>
                       {staff.name && (
-                        <Text size="xs" c="rgba(255,255,255,0.55)">
+                        <Text size="xs" c="var(--kiosk-text-4)">
                           {staff.email}
                         </Text>
                       )}
@@ -1422,11 +1412,11 @@ export default function PosCashierPage() {
                           cursor: "pointer",
                           background:
                             index === highlightedSuggestion
-                              ? "rgba(111, 139, 106, 0.16)"
-                              : "rgba(22, 32, 26, 0.5)",
+                              ? "var(--kiosk-raised)"
+                              : "transparent",
                           border:
                             index === highlightedSuggestion
-                              ? "1px solid rgba(111, 139, 106, 0.3)"
+                              ? "1px solid var(--kiosk-border)"
                               : "1px solid transparent",
                         }}
                         onMouseEnter={() => {
@@ -1443,7 +1433,7 @@ export default function PosCashierPage() {
                             <Text size="sm" fw={600} c="white">
                               {product.itemName}
                             </Text>
-                            <Text size="xs" c="rgba(255,255,255,0.55)">
+                            <Text size="xs" c="var(--kiosk-text-4)">
                               {product.itemCode}
                             </Text>
                           </Box>
@@ -1451,7 +1441,7 @@ export default function PosCashierPage() {
                             <Text size="sm" c="white">
                               {product.unitPrice.toLocaleString()}
                             </Text>
-                            <Text size="xs" c="rgba(255,255,255,0.55)">
+                            <Text size="xs" c="var(--kiosk-text-4)">
                               Stock: {product.stock}
                             </Text>
                           </Stack>
@@ -1462,7 +1452,7 @@ export default function PosCashierPage() {
                 </Card>
               )}
             </Box>
-            <Text size="xs" c="rgba(255,255,255,0.58)">
+            <Text size="xs" c="var(--kiosk-text-4)">
               {language === "id"
                 ? "Gunakan ↑/↓ untuk memilih saran, Enter untuk menambahkan, dan F4 untuk checkout. Barcode scanner dapat langsung mengetik ke kolom ini."
                 : "Use ↑/↓ to choose a suggestion, Enter to add it, and F4 to checkout. A barcode scanner can type directly into this field."}
@@ -1495,7 +1485,7 @@ export default function PosCashierPage() {
                       <Text size="sm" c="white" fw={500}>
                         {line.itemName}
                       </Text>
-                      <Text size="xs" c="rgba(255,255,255,0.55)">
+                      <Text size="xs" c="var(--kiosk-text-4)">
                         {line.unitPrice.toLocaleString()} x {line.quantity}
                       </Text>
                     </Box>
@@ -1543,7 +1533,7 @@ export default function PosCashierPage() {
                       >
                         <IconShoppingCart size={28} />
                       </ThemeIcon>
-                      <Text c="rgba(255,255,255,0.55)" size="sm" ta="center">
+                      <Text c="var(--kiosk-text-4)" size="sm" ta="center">
                         {t.dashboard.pos.scanItem}
                       </Text>
                     </Stack>
@@ -1551,7 +1541,7 @@ export default function PosCashierPage() {
                 )}
               </Stack>
               <Group justify="space-between" mt="md">
-                <Text fw={700} c="rgba(255,255,255,0.75)">
+                <Text fw={700} c="var(--kiosk-text-3)">
                   {t.dashboard.pos.total}
                 </Text>
                 <Text fw={700} size="xl" c="white">
@@ -1576,28 +1566,28 @@ export default function PosCashierPage() {
                 </Text>
                 <Stack gap={6}>
                   <Group justify="space-between">
-                    <Text size="sm" c="rgba(255,255,255,0.6)">
+                    <Text size="sm" c="var(--kiosk-text-4)">
                       {t.dashboard.pos.allowanceThisMonth}
                     </Text>
                     <Text c="white">{formatMoney(allowance.total)}</Text>
                   </Group>
                   <Group justify="space-between">
-                    <Text size="sm" c="rgba(255,255,255,0.6)">
+                    <Text size="sm" c="var(--kiosk-text-4)">
                       {t.dashboard.pos.allowanceUsed}
                     </Text>
                     <Text c="white">{formatMoney(allowance.used)}</Text>
                   </Group>
                   <Group justify="space-between">
-                    <Text size="sm" c="rgba(255,255,255,0.6)">
+                    <Text size="sm" c="var(--kiosk-text-4)">
                       {t.dashboard.pos.allowanceRemaining}
                     </Text>
-                    <Text fw={700} c="#D6A13A">{formatMoney(displayedRemainingAllowance)}</Text>
+                    <Text fw={700} c="var(--kiosk-text)">{formatMoney(displayedRemainingAllowance)}</Text>
                   </Group>
                   <Group justify="space-between">
-                    <Text size="sm" c="rgba(255,255,255,0.6)">
+                    <Text size="sm" c="var(--kiosk-text-4)">
                       {t.dashboard.pos.activeAllowanceDebt}
                     </Text>
-                    <Text fw={700} c={activeAllowanceDebt > 0 ? "orange" : "#D6A13A"}>
+                    <Text fw={700} c={activeAllowanceDebt > 0 ? "orange" : "var(--kiosk-text)"}>
                       {formatMoney(activeAllowanceDebt)}
                     </Text>
                   </Group>
@@ -1609,7 +1599,7 @@ export default function PosCashierPage() {
                       : t.dashboard.pos.debtDueByStaffPayday.replace("{payday}", allowance.previousDebt.payday ? new Date(allowance.previousDebt.payday).toLocaleDateString() : t.dashboard.pos.notConfigured)}
                   </Alert>
                 )}
-                <Text size="xs" c="rgba(255,255,255,0.5)" mt="sm">
+                <Text size="xs" c="var(--kiosk-text-4)" mt="sm">
                   {t.dashboard.pos.allowancePeriod}:{" "}
                   {allowance.period.startsAt.slice(0, 10)} –{" "}
                   {allowance.period.endsAt.slice(0, 10)}
@@ -1635,8 +1625,8 @@ export default function PosCashierPage() {
             p="lg"
             style={{
               ...softPanelStyle,
-              background: "rgba(111, 139, 106, 0.12)",
-              border: "1px solid rgba(111, 139, 106, 0.3)",
+              background: "var(--kiosk-raised)",
+              border: "1px solid var(--kiosk-border)",
             }}
           >
             <Text fw={700} ta="center" size="32px" c="white">
@@ -1712,7 +1702,7 @@ export default function PosCashierPage() {
               </Stack>
             </Alert>
           )}
-          {selectedUsesQris && <Checkbox checked={qrisConfirmed} onChange={(event) => setQrisConfirmed(event.currentTarget.checked)} label="QRIS payment received" styles={{ label: { color: "white" } }} />}
+          {selectedUsesQris && <Checkbox checked={qrisConfirmed} onChange={(event) => setQrisConfirmed(event.currentTarget.checked)} label="QRIS payment received" styles={{ label: { color: "var(--kiosk-text)" } }} />}
           {selectedIsDebt && allowance && (
             <Alert color="orange" title="Explicit allowance debt confirmation">
               <Stack gap="xs">
@@ -1745,7 +1735,7 @@ export default function PosCashierPage() {
               radius="xl"
               variant="gradient"
               gradient={{ from: "success.4", to: "success.6", deg: 135 }}
-              style={{ boxShadow: "0 0 30px rgba(157, 177, 143, 0.4)" }}
+              style={{ boxShadow: "none" }}
             >
               <IconShoppingCart size={36} />
             </ThemeIcon>
@@ -1753,7 +1743,7 @@ export default function PosCashierPage() {
               {t.dashboard.pos.saleCompleted}
             </Title>
             {adjustmentNumber && (
-              <Text c="rgba(255,255,255,0.65)" size="lg">
+              <Text c="var(--kiosk-text-3)" size="lg">
                 {adjustmentNumber}
               </Text>
             )}

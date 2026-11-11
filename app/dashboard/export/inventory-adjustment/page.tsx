@@ -18,10 +18,10 @@ import {
   ScrollArea,
   Tooltip,
   ActionIcon,
-  useMantineColorScheme,
   rem,
   Transition,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import { DatePickerInput } from "@mantine/dates";
 import { useState, useEffect } from "react";
 import {
@@ -93,7 +93,7 @@ const formatOptions = [
 export default function ExportInventoryAdjustmentPage() {
   const router = useRouter();
   const { t, language } = useLanguage();
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
   const steps: Step[] = [

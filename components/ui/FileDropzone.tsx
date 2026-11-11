@@ -6,12 +6,12 @@ import {
   Stack,
   Text,
   ThemeIcon,
-  useMantineColorScheme,
   rem,
   CloseButton,
   Paper,
   Progress,
 } from "@mantine/core";
+import { useAppColorScheme } from "@/lib/use-app-color-scheme";
 import {
   IconUpload,
   IconFile,
@@ -82,7 +82,7 @@ export function FileDropzone({
   showPreview = true,
   uploadProgress,
 }: FileDropzoneProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -387,7 +387,7 @@ export function CompactDropzone({
   placeholder = "Klik atau letakkan file",
   value,
 }: CompactDropzoneProps) {
-  const { colorScheme } = useMantineColorScheme();
+  const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
