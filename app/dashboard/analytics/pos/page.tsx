@@ -20,7 +20,6 @@ import {
   Title,
 } from "@mantine/core";
 import { useAppColorScheme } from "@/lib/use-app-color-scheme";
-import { DatePickerInput } from "@mantine/dates";
 import {
   IconAlertCircle,
   IconBox,
@@ -52,6 +51,7 @@ import {
 
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatsCard } from "@/components/ui/StatsCard";
+import { AnalyticsDateRangeFields } from "@/components/analytics/AnalyticsDateRangeFields";
 import { useLanguage } from "@/lib/language";
 import dayjs from "dayjs";
 import { resolveComparisonPeriod, type ComparisonMode } from "@/lib/pos-analytics-periods";
@@ -356,6 +356,8 @@ export default function PosAnalyticsPage() {
 
   const comparisonLabels = isId ? {
     title: "Perbandingan periode", current: "Periode utama", baseline: "Periode pembanding",
+    currentStart: "Mulai periode utama", currentEnd: "Akhir periode utama",
+    baselineStart: "Mulai periode pembanding", baselineEnd: "Akhir periode pembanding",
     compareTo: "Bandingkan dengan", previous: "Periode sebelumnya", year: "Periode yang sama tahun lalu",
     custom: "Tanggal khusus", change: "Perubahan", metric: "Metrik", today: "Hari ini",
     week: "7 hari terakhir", month: "30 hari terakhir", thisMonth: "Bulan ini", lastMonth: "Bulan lalu",
@@ -367,6 +369,8 @@ export default function PosAnalyticsPage() {
     noBaseline: "Tidak ada nilai pembanding untuk menghitung persentase.",
   } : {
     title: "Period comparison", current: "Main period", baseline: "Comparison period",
+    currentStart: "Main period start", currentEnd: "Main period end",
+    baselineStart: "Comparison start", baselineEnd: "Comparison end",
     compareTo: "Compare with", previous: "Previous period", year: "Same period last year",
     custom: "Custom dates", change: "Change", metric: "Metric", today: "Today",
     week: "Last 7 days", month: "Last 30 days", thisMonth: "This month", lastMonth: "Last month",
@@ -590,18 +594,14 @@ export default function PosAnalyticsPage() {
             <Button key={value} size="xs" variant={preset === value ? "filled" : "light"} onClick={() => selectPreset(value)} aria-pressed={preset === value}>{label}</Button>
           ))}
         </Group>
-        <Group align="flex-end">
-          <DatePickerInput
-            type="range"
-            label={comparisonLabels.current}
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: comparisonMode === "custom" ? 5 : 3 }} spacing="md">
+          <AnalyticsDateRangeFields
             value={dateRange}
             onChange={(value) => { setPreset("custom"); setDateRange(value); }}
-            allowSingleDateInRange
-            clearable={false}
-            leftSection={<IconCalendarStats size={16} />}
+            startLabel={comparisonLabels.currentStart}
+            endLabel={comparisonLabels.currentEnd}
             maxDate={today}
-            flex={1}
-            miw={260}
+            locale={language}
           />
           <Select
             label={comparisonLabels.compareTo}
@@ -609,13 +609,18 @@ export default function PosAnalyticsPage() {
             onChange={(value) => { if (value) setComparisonMode(value as ComparisonMode); }}
             data={[{ value: "previous", label: comparisonLabels.previous }, { value: "year", label: comparisonLabels.year }, { value: "custom", label: comparisonLabels.custom }]}
             allowDeselect={false}
-            flex={1}
-            miw={240}
           />
           {comparisonMode === "custom" ? (
-            <DatePickerInput type="range" label={comparisonLabels.baseline} value={customRange} onChange={setCustomRange} allowSingleDateInRange maxDate={today} clearable={false} leftSection={<IconCalendarStats size={16} />} flex={1} miw={260} />
+            <AnalyticsDateRangeFields
+              value={customRange}
+              onChange={setCustomRange}
+              startLabel={comparisonLabels.baselineStart}
+              endLabel={comparisonLabels.baselineEnd}
+              maxDate={today}
+              locale={language}
+            />
           ) : null}
-        </Group>
+        </SimpleGrid>
         <Group align="flex-end">
           <Select
             label={labels.credential}

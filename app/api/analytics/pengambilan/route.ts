@@ -163,7 +163,7 @@ export async function GET(req: NextRequest) {
     const message =
       error instanceof Error
         ? error.message
-        : "Gagal memuat analytics pengambilan";
+        : "Gagal memuat analitik pengambilan";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

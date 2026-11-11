@@ -21,10 +21,8 @@ import {
   rem,
 } from "@mantine/core";
 import { useAppColorScheme } from "@/lib/use-app-color-scheme";
-import { DatePickerInput } from "@mantine/dates";
 import {
   IconAlertCircle,
-  IconCalendarStats,
   IconChartAreaLine,
   IconChartBar,
   IconChecklist,
@@ -51,6 +49,8 @@ import {
 } from "recharts";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatsCard } from "@/components/ui/StatsCard";
+import { AnalyticsDateRangeFields } from "@/components/analytics/AnalyticsDateRangeFields";
+import { useLanguage, type AppLanguage } from "@/lib/language";
 import { sendToSignIn } from "@/lib/sign-in-redirect";
 
 type AnalyticsMode = "overview" | "peminjaman" | "pengambilan";
@@ -72,39 +72,55 @@ interface StatCardConfig {
   icon: ReactNode;
 }
 
-const titles: Record<
-  AnalyticsMode,
-  {
-    title: string;
-    subtitle: string;
-    endpoint: string;
-    badge: string;
-    color: string;
-  }
-> = {
+const modes: Record<AnalyticsMode, { endpoint: string; color: string }> = {
   overview: {
-    title: "Analytics Overview",
-    subtitle:
-      "Ringkasan peminjaman, pengambilan self-checkout, resource, dan pengguna teratas.",
     endpoint: "/api/analytics/overview",
-    badge: "Cross-module",
     color: "blue",
   },
   peminjaman: {
-    title: "Peminjaman Analytics",
-    subtitle:
-      "Analisis sesi pinjam, booking, return, overdue, dan resource yang sering dipinjam.",
     endpoint: "/api/analytics/peminjaman",
-    badge: "Borrowing",
     color: "violet",
   },
   pengambilan: {
-    title: "Pengambilan Analytics",
-    subtitle:
-      "Analisis self-checkout, staf, item, status, dan kegagalan transaksi.",
     endpoint: "/api/analytics/pengambilan",
-    badge: "Kiosk",
     color: "cyan",
+  },
+};
+
+const modeCopy = {
+  id: {
+    overview: {
+      title: "Ringkasan Analitik",
+      subtitle: "Ringkasan peminjaman, pengambilan mandiri, sumber daya, dan pengguna teratas.",
+      badge: "Lintas modul",
+    },
+    peminjaman: {
+      title: "Analitik Peminjaman",
+      subtitle: "Analisis sesi peminjaman, reservasi, pengembalian, keterlambatan, dan sumber daya yang sering dipinjam.",
+      badge: "Peminjaman",
+    },
+    pengambilan: {
+      title: "Analitik Pengambilan",
+      subtitle: "Analisis pengambilan mandiri, staf, item, status, dan kegagalan transaksi.",
+      badge: "Kios",
+    },
+  },
+  en: {
+    overview: {
+      title: "Analytics Overview",
+      subtitle: "A summary of borrowing, self-checkout, top resources, and top users.",
+      badge: "Cross-module",
+    },
+    peminjaman: {
+      title: "Borrowing Analytics",
+      subtitle: "Analyze borrowing sessions, bookings, returns, overdue items, and frequently borrowed resources.",
+      badge: "Borrowing",
+    },
+    pengambilan: {
+      title: "Checkout Analytics",
+      subtitle: "Analyze self-checkout activity, staff, items, statuses, and transaction failures.",
+      badge: "Kiosk",
+    },
   },
 };
 
@@ -120,18 +136,85 @@ function parseDateParam(value: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function formatValue(value: unknown) {
+const valueLabels: Record<AppLanguage, Record<string, string>> = {
+  id: {
+    active: "Aktif",
+    partial: "Dikembalikan sebagian",
+    returned: "Dikembalikan",
+    completed: "Selesai",
+    pending: "Menunggu",
+    failed: "Gagal",
+    booking: "Reservasi",
+    borrow: "Peminjaman",
+    peminjaman: "Peminjaman",
+    pengambilan: "Pengambilan",
+  },
+  en: {
+    active: "Active",
+    partial: "Partially returned",
+    returned: "Returned",
+    completed: "Completed",
+    pending: "Pending",
+    failed: "Failed",
+    booking: "Booking",
+    borrow: "Borrowing",
+    peminjaman: "Borrowing",
+    pengambilan: "Checkout",
+  },
+};
+
+function formatValue(value: unknown, language: AppLanguage) {
   if (value === null || value === undefined || value === "") return "-";
-  if (typeof value === "boolean") return value ? "Ya" : "Tidak";
+  if (typeof value === "boolean") {
+    return value ? (language === "id" ? "Ya" : "Yes") : (language === "id" ? "Tidak" : "No");
+  }
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
-    return new Date(value).toLocaleString("id-ID");
+    return new Date(value).toLocaleString(language === "id" ? "id-ID" : "en-US");
+  }
+  if (typeof value === "string") {
+    return valueLabels[language][value] ?? value;
   }
   return String(value);
 }
 
+const columnLabels: Record<AppLanguage, Record<string, string>> = {
+  id: {
+    rank: "Peringkat", borrowedAt: "Tanggal dipinjam", startsAt: "Tanggal mulai",
+    dueAt: "Jatuh tempo", returnedAt: "Tanggal kembali", createdAt: "Tanggal dibuat",
+    completedAt: "Tanggal selesai", type: "Jenis", status: "Status",
+    borrowerEmail: "Email peminjam", borrowerName: "Nama peminjam", staffEmail: "Email staf",
+    staffName: "Nama staf", email: "Email", name: "Nama", itemCode: "Kode item",
+    itemName: "Nama item", quantity: "Jumlah", returnedQty: "Jumlah kembali",
+    overdue: "Terlambat", total: "Total", source: "Sumber",
+    errorMessage: "Pesan kesalahan", adjustmentId: "ID penyesuaian",
+  },
+  en: {
+    rank: "Rank", borrowedAt: "Borrowed at", startsAt: "Start date", dueAt: "Due date",
+    returnedAt: "Returned at", createdAt: "Created at", completedAt: "Completed at",
+    type: "Type", status: "Status", borrowerEmail: "Borrower email",
+    borrowerName: "Borrower name", staffEmail: "Staff email", staffName: "Staff name",
+    email: "Email", name: "Name", itemCode: "Item code", itemName: "Item name",
+    quantity: "Quantity", returnedQty: "Returned quantity", overdue: "Overdue",
+    total: "Total", source: "Source", errorMessage: "Error message",
+    adjustmentId: "Adjustment ID",
+  },
+};
+
+const chartMetricLabels: Record<AppLanguage, Record<string, string>> = {
+  id: {
+    peminjaman: "Peminjaman", pengambilan: "Pengambilan", borrow: "Dipinjam",
+    booking: "Reservasi", return: "Dikembalikan", checkouts: "Pengambilan",
+  },
+  en: {
+    peminjaman: "Borrowing", pengambilan: "Checkout", borrow: "Borrowed",
+    booking: "Booked", return: "Returned", checkouts: "Checkouts",
+  },
+};
+
 function linkedCell(
   column: string,
   row: Record<string, unknown>,
+  language: AppLanguage,
   detailQueryString = "",
 ) {
   const value = row[column];
@@ -148,7 +231,7 @@ function linkedCell(
         fw={600}
         size="sm"
       >
-        {formatValue(value)}
+        {formatValue(value, language)}
       </Text>
     );
   }
@@ -162,7 +245,7 @@ function linkedCell(
         fw={600}
         size="sm"
       >
-        {formatValue(value)}
+        {formatValue(value, language)}
       </Text>
     );
   }
@@ -172,7 +255,7 @@ function linkedCell(
       size="sm"
       c={value === null || value === undefined ? "dimmed" : undefined}
     >
-      {formatValue(value)}
+      {formatValue(value, language)}
     </Text>
   );
 }
@@ -282,6 +365,7 @@ function DataTable({
   minWidth?: number;
   compact?: boolean;
 }) {
+  const { language } = useLanguage();
   const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const columns = rows.length
@@ -293,8 +377,8 @@ function DataTable({
   if (!rows.length) {
     return (
       <EmptyState
-        title="Belum ada data"
-        description="Ubah filter atau pilih rentang tanggal lain."
+        title={language === "id" ? "Belum ada data" : "No data yet"}
+        description={language === "id" ? "Ubah filter atau pilih rentang tanggal lain." : "Change the filters or select another date range."}
         size="sm"
       />
     );
@@ -325,7 +409,7 @@ function DataTable({
                 }}
               >
                 <Text size="xs" fw={700} c="dimmed" tt="uppercase" lts={0.4}>
-                  {column}
+                  {columnLabels[language][column] ?? column}
                 </Text>
               </Table.Th>
             ))}
@@ -342,7 +426,7 @@ function DataTable({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {linkedCell(column, row, detailQueryString)}
+                  {linkedCell(column, row, language, detailQueryString)}
                 </Table.Td>
               ))}
             </Table.Tr>
@@ -364,6 +448,7 @@ function ChartCard({
   data: Record<string, unknown>[];
   bars: string[];
 }) {
+  const { language } = useLanguage();
   const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
   const chartGridColor = isDark
@@ -377,7 +462,7 @@ function ChartCard({
       subtitle={subtitle}
       icon={<IconChartAreaLine size={14} />}
       color="blue"
-      badge={`${data.length} titik`}
+      badge={`${data.length} ${language === "id" ? "titik" : "points"}`}
     >
       {data.length ? (
         <Box h={300} miw={0}>
@@ -433,7 +518,7 @@ function ChartCard({
                     key={bar}
                     type="monotone"
                     dataKey={bar}
-                    name={bar}
+                    name={chartMetricLabels[language][bar] ?? bar}
                     stroke={chartColors[index] || chartColors[0]}
                     strokeWidth={2.5}
                     fillOpacity={1}
@@ -489,7 +574,7 @@ function ChartCard({
                 <Tooltip content={<CustomTooltip />} />
                 <Bar
                   dataKey={bars[0]}
-                  name={bars[0]}
+                  name={chartMetricLabels[language][bars[0]] ?? bars[0]}
                   fill="url(#analytics-bar)"
                   radius={[6, 6, 0, 0]}
                 />
@@ -499,8 +584,8 @@ function ChartCard({
         </Box>
       ) : (
         <EmptyState
-          title="Chart kosong"
-          description="Belum ada data untuk rentang filter ini."
+          title={language === "id" ? "Grafik kosong" : "Empty chart"}
+          description={language === "id" ? "Belum ada data untuk rentang filter ini." : "No data is available for the selected filters."}
           size="sm"
         />
       )}
@@ -508,8 +593,101 @@ function ChartCard({
   );
 }
 
+const pageCopy = {
+  id: {
+    loadError: "Gagal memuat analitik",
+    performance: "Insight performa",
+    refresh: "Perbarui",
+    filterTitle: "Filter Analitik",
+    filterSubtitle: "Sesuaikan periode, status, staf, dan item untuk menelusuri data.",
+    scope: "Cakupan utama",
+    startDate: "Tanggal mulai",
+    endDate: "Tanggal akhir",
+    groupBy: "Kelompokkan berdasarkan",
+    groups: [{ value: "day", label: "Harian" }, { value: "week", label: "Mingguan" }, { value: "month", label: "Bulanan" }],
+    statuses: [
+      { value: "active", label: "Aktif" }, { value: "partial", label: "Sebagian" },
+      { value: "returned", label: "Dikembalikan" }, { value: "completed", label: "Selesai" },
+      { value: "pending", label: "Menunggu" }, { value: "failed", label: "Gagal" },
+    ],
+    emailPlaceholder: "Cari email staf/pengguna",
+    itemLabel: "Kode / nama item",
+    itemPlaceholder: "Kode atau nama item",
+    activityTrend: "Tren Aktivitas",
+    trendSubtitle: "Pergerakan volume transaksi berdasarkan filter aktif.",
+    topResources: "Sumber Daya Teratas",
+    topResourcesSubtitle: "Sumber daya paling aktif pada periode ini.",
+    topPeople: "Pengguna / Staf Teratas",
+    topPeopleSubtitle: "Pengguna dan staf dengan aktivitas tertinggi.",
+    topEight: "8 Teratas",
+    detailTitle: "Detail Data",
+    detailSubtitle: "Data mentah terfilter untuk pemeriksaan lebih lanjut.",
+    records: "data",
+    overviewCards: [
+      ["Sesi Peminjaman", "Total sesi pinjam pada rentang filter"],
+      ["Jumlah Dipinjam", "Akumulasi jumlah dari semua sumber daya"],
+      ["Sesi Pengambilan", "Total sesi pengambilan mandiri"],
+      ["Sumber Daya Unik", "Sumber daya berbeda yang terlibat"],
+    ],
+    borrowingCards: [
+      ["Total Sesi", "Semua sesi peminjaman"], ["Aktif", "Sesi yang masih berjalan"],
+      ["Terlambat", "Sesi melewati jatuh tempo"], ["Jumlah Dipinjam", "Total jumlah yang dipinjam"],
+    ],
+    checkoutCards: [
+      ["Total Sesi", "Semua sesi pengambilan"], ["Selesai", "Sesi berhasil selesai"],
+      ["Gagal", "Sesi gagal diproses"], ["Staf Unik", "Staf unik yang melakukan pengambilan"],
+    ],
+  },
+  en: {
+    loadError: "Unable to load analytics",
+    performance: "Performance insights",
+    refresh: "Refresh",
+    filterTitle: "Analytics Filters",
+    filterSubtitle: "Adjust the period, status, staff, and item filters to explore the data.",
+    scope: "Primary scope",
+    startDate: "Start date",
+    endDate: "End date",
+    groupBy: "Group by",
+    groups: [{ value: "day", label: "Daily" }, { value: "week", label: "Weekly" }, { value: "month", label: "Monthly" }],
+    statuses: [
+      { value: "active", label: "Active" }, { value: "partial", label: "Partially returned" },
+      { value: "returned", label: "Returned" }, { value: "completed", label: "Completed" },
+      { value: "pending", label: "Pending" }, { value: "failed", label: "Failed" },
+    ],
+    emailPlaceholder: "Search staff/user email",
+    itemLabel: "Item code / name",
+    itemPlaceholder: "Item code or name",
+    activityTrend: "Activity Trend",
+    trendSubtitle: "Transaction volume over time based on the active filters.",
+    topResources: "Top Resources",
+    topResourcesSubtitle: "The most active resources in this period.",
+    topPeople: "Top Users / Staff",
+    topPeopleSubtitle: "Users and staff with the highest activity.",
+    topEight: "Top 8",
+    detailTitle: "Detailed Data",
+    detailSubtitle: "Filtered raw data for further investigation.",
+    records: "records",
+    overviewCards: [
+      ["Borrowing Sessions", "Total borrowing sessions in the selected range"],
+      ["Borrowed Quantity", "Total quantity across all resources"],
+      ["Checkout Sessions", "Total self-checkout sessions"],
+      ["Unique Resources", "Distinct resources involved"],
+    ],
+    borrowingCards: [
+      ["Total Sessions", "All borrowing sessions"], ["Active", "Sessions currently in progress"],
+      ["Overdue", "Sessions past their due date"], ["Borrowed Quantity", "Total quantity borrowed"],
+    ],
+    checkoutCards: [
+      ["Total Sessions", "All checkout sessions"], ["Completed", "Successfully completed sessions"],
+      ["Failed", "Sessions that failed to process"], ["Unique Staff", "Distinct staff who performed checkouts"],
+    ],
+  },
+} as const;
+
 export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
-  const config = titles[mode];
+  const { language } = useLanguage();
+  const copy = pageCopy[language];
+  const config = { ...modes[mode], ...modeCopy[language][mode] };
   const searchParams = useSearchParams();
   const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
@@ -553,14 +731,14 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
       }
       const payload = await response.json();
       if (!response.ok)
-        throw new Error(payload?.error || "Gagal memuat analytics");
+        throw new Error(payload?.error || copy.loadError);
       setData(payload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memuat analytics");
+      setError(err instanceof Error ? err.message : copy.loadError);
     } finally {
       setLoading(false);
     }
-  }, [config.endpoint, queryString]);
+  }, [config.endpoint, copy.loadError, queryString]);
 
   useEffect(() => {
     loadData();
@@ -571,30 +749,30 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
     if (mode === "overview") {
       return [
         {
-          label: "Sesi Peminjaman",
+          label: copy.overviewCards[0][0],
           value: data.peminjamanSummary?.sessions || 0,
-          description: "Total sesi pinjam pada rentang filter",
+          description: copy.overviewCards[0][1],
           color: "brand",
           icon: <IconDatabase size={24} />,
         },
         {
-          label: "Qty Dipinjam",
+          label: copy.overviewCards[1][0],
           value: data.peminjamanSummary?.quantity || 0,
-          description: "Akumulasi quantity dari semua resource",
+          description: copy.overviewCards[1][1],
           color: "success",
           icon: <IconPackage size={24} />,
         },
         {
-          label: "Sesi Pengambilan",
+          label: copy.overviewCards[2][0],
           value: data.pengambilanSummary?.sessions || 0,
-          description: "Total sesi self-checkout",
+          description: copy.overviewCards[2][1],
           color: "cyan",
           icon: <IconScan size={24} />,
         },
         {
-          label: "Resource Unik",
+          label: copy.overviewCards[3][0],
           value: data.resourceSummary?.uniqueResources || 0,
-          description: "Resource berbeda yang terlibat",
+          description: copy.overviewCards[3][1],
           color: "violet",
           icon: <IconChartBar size={24} />,
         },
@@ -603,30 +781,30 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
     if (mode === "peminjaman") {
       return [
         {
-          label: "Total Sesi",
+          label: copy.borrowingCards[0][0],
           value: data.summary?.totalSessions || 0,
-          description: "Semua sesi peminjaman",
+          description: copy.borrowingCards[0][1],
           color: "brand",
           icon: <IconDatabase size={24} />,
         },
         {
-          label: "Aktif",
+          label: copy.borrowingCards[1][0],
           value: data.summary?.active || 0,
-          description: "Sesi yang masih berjalan",
+          description: copy.borrowingCards[1][1],
           color: "success",
           icon: <IconClock size={24} />,
         },
         {
-          label: "Overdue",
+          label: copy.borrowingCards[2][0],
           value: data.summary?.overdue || 0,
-          description: "Sesi melewati jatuh tempo",
+          description: copy.borrowingCards[2][1],
           color: "danger",
           icon: <IconAlertCircle size={24} />,
         },
         {
-          label: "Qty Dipinjam",
+          label: copy.borrowingCards[3][0],
           value: data.summary?.totalQuantity || 0,
-          description: "Total quantity yang dipinjam",
+          description: copy.borrowingCards[3][1],
           color: "accent",
           icon: <IconPackage size={24} />,
         },
@@ -634,35 +812,35 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
     }
     return [
       {
-        label: "Total Sesi",
+        label: copy.checkoutCards[0][0],
         value: data.summary?.totalSessions || 0,
-        description: "Semua sesi pengambilan",
+        description: copy.checkoutCards[0][1],
         color: "cyan",
         icon: <IconScan size={24} />,
       },
       {
-        label: "Completed",
+        label: copy.checkoutCards[1][0],
         value: data.summary?.completed || 0,
-        description: "Sesi berhasil selesai",
+        description: copy.checkoutCards[1][1],
         color: "success",
         icon: <IconChecklist size={24} />,
       },
       {
-        label: "Failed",
+        label: copy.checkoutCards[2][0],
         value: data.summary?.failed || 0,
-        description: "Sesi gagal diproses",
+        description: copy.checkoutCards[2][1],
         color: "danger",
         icon: <IconX size={24} />,
       },
       {
-        label: "Unique Staff",
+        label: copy.checkoutCards[3][0],
         value: data.summary?.uniqueStaff || 0,
-        description: "Staf unik yang melakukan checkout",
+        description: copy.checkoutCards[3][1],
         color: "violet",
         icon: <IconUsers size={24} />,
       },
     ];
-  }, [data, mode]);
+  }, [copy, data, mode]);
 
   const mainTrend =
     mode === "overview"
@@ -682,10 +860,11 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
     if (dateRange[1]) params.set("endDate", dateValue(dateRange[1]));
     return params.toString();
   }, [dateRange]);
-  const dateLabel = `${dateRange[0]?.toLocaleDateString("id-ID", {
+  const numberLocale = language === "id" ? "id-ID" : "en-US";
+  const dateLabel = `${dateRange[0]?.toLocaleDateString(numberLocale, {
     day: "numeric",
     month: "short",
-  })} - ${dateRange[1]?.toLocaleDateString("id-ID", {
+  })} - ${dateRange[1]?.toLocaleDateString(numberLocale, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -696,7 +875,7 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
       <Group justify="space-between" align="flex-end">
         <Box>
           <Text size="sm" c="dimmed" mb={4}>
-            Performance insights
+            {copy.performance}
           </Text>
           <Group gap="xs" align="center">
             <Title order={2}>{config.title}</Title>
@@ -732,7 +911,7 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
             onClick={loadData}
             loading={loading}
           >
-            Refresh
+            {copy.refresh}
           </Button>
         </Group>
       </Group>
@@ -756,59 +935,47 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
               <IconFilter size={14} />
             </ThemeIcon>
             <Box>
-              <Text fw={600}>Filter Analytics</Text>
+              <Text fw={600}>{copy.filterTitle}</Text>
               <Text size="xs" c="dimmed">
-                Sesuaikan periode, status, staff, dan item untuk drill-down.
+                {copy.filterSubtitle}
               </Text>
             </Box>
           </Group>
           <Badge size="sm" variant="light" color="blue">
-            MVP scope
+            {copy.scope}
           </Badge>
         </Group>
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="md">
-          <DatePickerInput
-            type="range"
-            label="Rentang tanggal"
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+          <AnalyticsDateRangeFields
             value={dateRange}
             onChange={setDateRange}
-            clearable={false}
-            leftSection={<IconCalendarStats size={16} />}
+            startLabel={copy.startDate}
+            endLabel={copy.endDate}
+            locale={language}
           />
           <Select
-            label="Group by"
+            label={copy.groupBy}
             value={groupBy}
             onChange={setGroupBy}
-            data={[
-              { value: "day", label: "Harian" },
-              { value: "week", label: "Mingguan" },
-              { value: "month", label: "Bulanan" },
-            ]}
+            data={[...copy.groups]}
           />
           <Select
             label="Status"
             value={status}
             onChange={setStatus}
             clearable
-            data={[
-              "active",
-              "partial",
-              "returned",
-              "completed",
-              "pending",
-              "failed",
-            ]}
+            data={[...copy.statuses]}
           />
           <TextInput
             label="Email"
-            placeholder="Cari email staff/user"
+            placeholder={copy.emailPlaceholder}
             value={email}
             onChange={(event) => setEmail(event.currentTarget.value)}
             leftSection={<IconSearch size={16} />}
           />
           <TextInput
-            label="Item code / name"
-            placeholder="Kode atau nama item"
+            label={copy.itemLabel}
+            placeholder={copy.itemPlaceholder}
             value={itemCode}
             onChange={(event) => setItemCode(event.currentTarget.value)}
             leftSection={<IconPackage size={16} />}
@@ -848,7 +1015,7 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
               <StatsCard
                 key={card.label}
                 title={card.label}
-                value={card.value.toLocaleString("id-ID")}
+                value={card.value.toLocaleString(numberLocale)}
                 description={card.description}
                 icon={card.icon}
                 color={card.color}
@@ -863,8 +1030,8 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
         </Paper>
       ) : (
         <ChartCard
-          title="Trend Aktivitas"
-          subtitle="Pergerakan volume transaksi berdasarkan filter aktif."
+          title={copy.activityTrend}
+          subtitle={copy.trendSubtitle}
           data={mainTrend}
           bars={chartBars}
         />
@@ -873,11 +1040,11 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
       {!loading && (
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
           <DashboardPanel
-            title="Top Resources"
-            subtitle="Resource paling aktif pada periode ini."
+            title={copy.topResources}
+            subtitle={copy.topResourcesSubtitle}
             icon={<IconPackage size={14} />}
             color="orange"
-            badge="Top 8"
+            badge={copy.topEight}
           >
             <DataTable
               detailQueryString={detailQueryString}
@@ -892,11 +1059,11 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
             />
           </DashboardPanel>
           <DashboardPanel
-            title="Top Users / Staff"
-            subtitle="Pengguna dan staf dengan aktivitas tertinggi."
+            title={copy.topPeople}
+            subtitle={copy.topPeopleSubtitle}
             icon={<IconUsers size={14} />}
             color="grape"
-            badge="Top 8"
+            badge={copy.topEight}
           >
             <DataTable
               detailQueryString={detailQueryString}
@@ -916,11 +1083,11 @@ export function AnalyticsPage({ mode }: { mode: AnalyticsMode }) {
 
       {!loading && (
         <DashboardPanel
-          title="Detail Drill-down"
-          subtitle="Data mentah terfilter untuk investigasi lebih lanjut."
+          title={copy.detailTitle}
+          subtitle={copy.detailSubtitle}
           icon={<IconDatabase size={14} />}
           color="teal"
-          badge={`${totalRecords.toLocaleString("id-ID")} records`}
+          badge={`${totalRecords.toLocaleString(numberLocale)} ${copy.records}`}
         >
           <Box
             style={{
