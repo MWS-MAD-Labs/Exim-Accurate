@@ -248,10 +248,10 @@ export default function DashboardPage() {
       {/* Page Header */}
       <Group justify="space-between" align="flex-end">
         <Box>
-          <Text size="sm" c="dimmed" mb={4}>
+          <Text size="sm" c="dimmed" mb={4} className="sade-quote">
             {t.dashboard.welcome}
           </Text>
-          <Title order={2}>{t.dashboard.title}</Title>
+          <Title order={2} fw={800}>{t.dashboard.title}</Title>
         </Box>
         <Badge
           size="lg"
@@ -322,6 +322,7 @@ export default function DashboardPage() {
               }}
               icon={<IconCalendarStats size={26} />}
               color="accent"
+              highlight
             />
           </>
         )}

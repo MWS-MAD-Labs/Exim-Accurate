@@ -24,6 +24,7 @@ import {
     Tooltip,
     Modal,
     Divider,
+    Paper,
 } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
@@ -40,7 +41,6 @@ import {
     IconCalendarEvent,
     IconBuildingWarehouse,
 } from "@tabler/icons-react";
-import { DashboardLayout } from "@/components/DashboardLayout";
 import { ActivityTimeline, ActivityItem } from "@/components/ui/ActivityTimeline";
 import { useLanguage } from "@/lib/language";
 
@@ -642,7 +642,7 @@ export default function PeminjamanDashboardPage() {
             if (status === "unavailable") {
                 return {
                     color: "rgba(204, 102, 102, 0.16)",
-                    textColor: "#AD4E4E",
+                    textColor: "var(--sade-tint-rose-text)",
                     label:
                         language === "id"
                             ? "Tidak tersedia pada tanggal ini"
@@ -653,7 +653,7 @@ export default function PeminjamanDashboardPage() {
             if (status === "partial") {
                 return {
                     color: "rgba(214, 161, 58, 0.18)",
-                    textColor: "#956A22",
+                    textColor: "var(--sade-tint-gold-text)",
                     label:
                         language === "id"
                             ? "Sebagian stok masih tersedia"
@@ -663,7 +663,7 @@ export default function PeminjamanDashboardPage() {
 
             return {
                 color: "rgba(111, 139, 106, 0.16)",
-                textColor: "#486142",
+                textColor: "var(--sade-tint-sage-text)",
                 label:
                     language === "id"
                         ? "Tersedia pada tanggal ini"
@@ -675,16 +675,14 @@ export default function PeminjamanDashboardPage() {
 
     if (loading) {
         return (
-            <DashboardLayout>
-                <Center h={400}>
-                    <Loader />
-                </Center>
-            </DashboardLayout>
+            <Center h={400}>
+                <Loader />
+            </Center>
         );
     }
 
     return (
-        <DashboardLayout>
+        <>
             <Stack gap="lg">
                 {/* Header */}
                 <Group justify="space-between" align="flex-start">
@@ -867,33 +865,30 @@ export default function PeminjamanDashboardPage() {
                                     </Center>
                                 </Card>
                             ) : (
-                                <Card withBorder radius="md" p={0}>
+                                <Paper withBorder radius="md" style={{ overflow: "hidden" }}>
                                     <Table.ScrollContainer minWidth={600}>
-                                        <Table striped highlightOnHover>
+                                        <Table verticalSpacing="sm" highlightOnHover>
                                             <Table.Thead>
                                                 <Table.Tr>
                                                     <Table.Th>
-                                                        {language === "id" ? "Kode" : "Code"}
+                                                        {language === "id" ? "Barang" : "Item"}
                                                     </Table.Th>
-                                                    <Table.Th>
-                                                        {language === "id" ? "Nama Barang" : "Item Name"}
-                                                    </Table.Th>
-                                                    <Table.Th ta="center">
+                                                    <Table.Th ta="right">
                                                         {language === "id"
                                                             ? "Total Stok"
                                                             : "Total Stock"}
                                                     </Table.Th>
-                                                    <Table.Th ta="center">
+                                                    <Table.Th ta="right">
                                                         {language === "id"
                                                             ? "Dipinjam"
                                                             : "Borrowed"}
                                                     </Table.Th>
-                                                    <Table.Th ta="center">
+                                                    <Table.Th ta="right">
                                                         {language === "id"
                                                             ? "Tersedia"
                                                             : "Available"}
                                                     </Table.Th>
-                                                    <Table.Th ta="center">
+                                                    <Table.Th ta="right">
                                                         {language === "id" ? "Aksi" : "Action"}
                                                     </Table.Th>
                                                 </Table.Tr>
@@ -902,48 +897,32 @@ export default function PeminjamanDashboardPage() {
                                                 {items.map((item) => (
                                                     <Table.Tr key={item.id}>
                                                         <Table.Td>
-                                                            <Text size="sm" ff="monospace">
+                                                            <Text
+                                                                size="sm"
+                                                                fw={600}
+                                                                component="button"
+                                                                type="button"
+                                                                onClick={() => void openItemDetails(item)}
+                                                                style={{ cursor: "pointer", background: "none", border: 0, padding: 0, textAlign: "left" }}
+                                                            >
+                                                                {item.itemName}
+                                                            </Text>
+                                                            <Text size="xs" c="dimmed">
                                                                 {item.itemCode}
                                                             </Text>
                                                         </Table.Td>
-                                                        <Table.Td>
-                                                            <Button
-                                                                variant="subtle"
-                                                                size="compact-sm"
-                                                                px={0}
-                                                                onClick={() => void openItemDetails(item)}
-                                                            >
-                                                                {item.itemName}
-                                                            </Button>
-                                                        </Table.Td>
-                                                        <Table.Td ta="center">
-                                                            <Badge color="blue" variant="light">
-                                                                {item.totalStock}
-                                                            </Badge>
-                                                        </Table.Td>
-                                                        <Table.Td ta="center">
-                                                            <Badge
-                                                                color={
-                                                                    item.currentlyOut > 0
-                                                                        ? "orange"
-                                                                        : "gray"
-                                                                }
-                                                                variant="light"
-                                                            >
+                                                        <Table.Td ta="right">{item.totalStock}</Table.Td>
+                                                        <Table.Td ta="right">
+                                                            <Text size="sm" c={item.currentlyOut > 0 ? "orange.7" : "dimmed"}>
                                                                 {item.currentlyOut}
-                                                            </Badge>
+                                                            </Text>
                                                         </Table.Td>
-                                                        <Table.Td ta="center">
-                                                            <Badge
-                                                                color={
-                                                                    item.available > 0 ? "green" : "red"
-                                                                }
-                                                                variant="light"
-                                                            >
+                                                        <Table.Td ta="right">
+                                                            <Text size="sm" fw={600} c={item.available > 0 ? undefined : "red.7"}>
                                                                 {item.available}
-                                                            </Badge>
+                                                            </Text>
                                                         </Table.Td>
-                                                        <Table.Td ta="center">
+                                                        <Table.Td ta="right">
                                                             <Tooltip
                                                                 label={
                                                                     language === "id" ? "Hapus" : "Delete"
@@ -965,7 +944,7 @@ export default function PeminjamanDashboardPage() {
                                             </Table.Tbody>
                                         </Table>
                                     </Table.ScrollContainer>
-                                </Card>
+                                </Paper>
                             )}
                         </Stack>
                     </Tabs.Panel>
@@ -1166,9 +1145,9 @@ export default function PeminjamanDashboardPage() {
                                     </Center>
                                 </Card>
                             ) : (
-                                <Card withBorder radius="md" p={0}>
+                                <Paper withBorder radius="md" style={{ overflow: "hidden" }}>
                                     <Table.ScrollContainer minWidth={700}>
-                                        <Table striped highlightOnHover>
+                                        <Table verticalSpacing="sm" highlightOnHover>
                                             <Table.Thead>
                                                 <Table.Tr>
                                                     <Table.Th>
@@ -1210,7 +1189,7 @@ export default function PeminjamanDashboardPage() {
                                                         </Table.Td>
                                                         <Table.Td>
                                                             <Stack gap={0}>
-                                                                <Text size="sm" fw={500}>
+                                                                <Text size="sm" fw={600}>
                                                                     {session.borrowerName ||
                                                                         session.borrowerEmail}
                                                                 </Text>
@@ -1220,31 +1199,29 @@ export default function PeminjamanDashboardPage() {
                                                             </Stack>
                                                         </Table.Td>
                                                         <Table.Td>
-                                                            <Group gap="xs" wrap="wrap">
+                                                            <Stack gap={2}>
                                                                 {session.items.map((item) => (
-                                                                    <Badge
-                                                                        key={item.id}
-                                                                        variant="light"
-                                                                        size="sm"
-                                                                    >
-                                                                        {item.itemName} ×{item.quantity}
-                                                                    </Badge>
+                                                                    <Text key={item.id} size="sm">
+                                                                        {item.itemName}{" "}
+                                                                        <Text span size="xs" c="dimmed">
+                                                                            × {item.quantity}
+                                                                        </Text>
+                                                                    </Text>
                                                                 ))}
-                                                            </Group>
+                                                            </Stack>
                                                         </Table.Td>
                                                         <Table.Td>
                                                             <Text size="sm">
-                                                                {new Date(
-                                                                    session.startsAt
-                                                                ).toLocaleDateString()}
+                                                                {formatHumanDate(session.startsAt, language)}
                                                             </Text>
                                                         </Table.Td>
                                                         <Table.Td>
                                                             <Text size="sm">
                                                                 {(session.returnedAt || session.dueAt)
-                                                                    ? new Date(
-                                                                        session.returnedAt || session.dueAt || session.borrowedAt
-                                                                    ).toLocaleDateString()
+                                                                    ? formatHumanDate(
+                                                                        session.returnedAt || session.dueAt || session.borrowedAt,
+                                                                        language
+                                                                    )
                                                                     : "-"}
                                                             </Text>
                                                         </Table.Td>
@@ -1261,7 +1238,7 @@ export default function PeminjamanDashboardPage() {
                                             </Table.Tbody>
                                         </Table>
                                     </Table.ScrollContainer>
-                                </Card>
+                                </Paper>
                             )}
 
                             {totalSessions > 20 && (
@@ -1470,6 +1447,6 @@ export default function PeminjamanDashboardPage() {
                     )}
                 </Stack>
             </Modal>
-        </DashboardLayout>
+        </>
     );
 }
