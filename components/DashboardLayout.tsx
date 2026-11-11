@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  AppShell,
-  Burger,
+  ActionIcon,
+  Drawer,
   Group,
   NavLink,
   Text,
@@ -14,9 +14,10 @@ import {
   Badge,
   Tooltip,
   Stack,
+  ScrollArea,
   rem,
 } from "@mantine/core";
-import { useAppColorScheme } from "@/lib/use-app-color-scheme";
+import { useEffect, useState } from "react";
 import { useDisclosure } from "@mantine/hooks";
 import { useSession } from "@/lib/session-client";
 import { usePathname, useRouter } from "next/navigation";
@@ -43,6 +44,9 @@ import {
   IconClock,
   IconWallet,
   IconReceipt,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+  IconMenu2,
 } from "@tabler/icons-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
@@ -148,14 +152,47 @@ function UserMenu() {
   );
 }
 
+const COLLAPSED_KEY = "sade.sidebar.collapsed";
+
+// The deepest menu entry whose page is open, with the group it sits in, for the header.
+function activeTrail(items: NavItem[], isActive: (item: NavItem) => boolean): NavItem[] {
+  for (const item of items) {
+    if (!isActive(item)) continue;
+    if (!item.children) return [item];
+    const rest = activeTrail(item.children, isActive);
+    return rest.length ? [item, ...rest] : [item];
+  }
+  return [];
+}
+
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { t } = useLanguage();
-  const [opened, { toggle, close }] = useDisclosure();
+  const { t, language } = useLanguage();
+  const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure();
+  // Remembered per browser. Read after mounting so the server and the first render agree.
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const colorScheme = useAppColorScheme();
   const { data: session } = useSession();
-  const isDark = colorScheme === "dark";
+
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCollapsed(localStorage.getItem(COLLAPSED_KEY) === "1");
+    } catch {
+      // Storage can be blocked; the sidebar then starts open.
+    }
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((current) => {
+      try {
+        localStorage.setItem(COLLAPSED_KEY, current ? "0" : "1");
+      } catch {
+        // Not remembered, still toggled.
+      }
+      return !current;
+    });
+  };
 
   const resourceManagementItem: NavItem = {
     label: t.dashboard.nav.resourceManagement,
@@ -245,29 +282,29 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       ],
     },
     {
-      label: "Analytics",
+      label: language === "id" ? "Analitik" : "Analytics",
       icon: <IconChartBar size={20} />,
       children: [
         {
-          label: "Overview",
+          label: language === "id" ? "Ringkasan" : "Overview",
           icon: <IconChartLine size={16} />,
           href: "/dashboard/analytics",
           requires: ["analytics.read"],
         },
         {
-          label: "Peminjaman",
+          label: language === "id" ? "Peminjaman" : "Borrowing",
           icon: <IconClipboardList size={16} />,
           href: "/dashboard/analytics/peminjaman",
           requires: ["analytics.read"],
         },
         {
-          label: "Pengambilan",
+          label: language === "id" ? "Pengambilan" : "Checkout",
           icon: <IconScan size={16} />,
           href: "/dashboard/analytics/pengambilan",
           requires: ["analytics.read"],
         },
         {
-          label: "POS Sales",
+          label: language === "id" ? "Penjualan POS" : "POS Sales",
           icon: <IconShoppingCart size={16} />,
           href: "/dashboard/analytics/pos",
           requires: ["analytics.read"],
@@ -308,50 +345,46 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     return item.children?.some(isItemActive) ?? false;
   };
 
-  const handleNavClick = (href: string) => {
+  const trail = activeTrail(navItems, isItemActive);
+
+  const go = (href: string) => {
     router.push(href);
-    close();
+    closeDrawer();
   };
 
+  // The full menu: the open sidebar and the phone drawer.
   const renderNavItem = (item: NavItem, depth = 0): React.ReactNode => {
     const active = isItemActive(item);
+    const label = (selected: boolean) => (
+      <Group gap="xs" wrap="nowrap">
+        <Text size="sm" fw={selected ? 700 : 500} truncate>
+          {item.label}
+        </Text>
+        {item.badge && (
+          <Badge size="xs" variant="light">
+            {item.badge}
+          </Badge>
+        )}
+      </Group>
+    );
 
     if (item.children) {
       return (
         <NavLink
           key={item.label}
-          label={
-            <Group gap="xs">
-              <Text size="sm" fw={active ? 600 : 500}>
-                {item.label}
-              </Text>
-              {item.badge && (
-                <Badge size="xs" variant="light">
-                  {item.badge}
-                </Badge>
-              )}
-            </Group>
-          }
+          className="sade-nav"
+          label={label(active)}
           leftSection={item.icon}
           childrenOffset={depth === 0 ? 28 : 20}
           defaultOpened={active}
-          style={{
-            borderRadius: rem(depth === 0 ? 8 : 6),
-            fontWeight: active ? 600 : 500,
-          }}
+          // A group holding the current page is marked too: solid at the top level, a tint below it.
+          active={active}
+          variant={depth === 0 ? "filled" : "light"}
+          style={{ borderRadius: rem(depth === 0 ? 8 : 6) }}
           styles={{
-            root: {
-              "&:hover": {
-                backgroundColor: isDark
-                  ? "var(--mantine-color-dark-5)"
-                  : "var(--mantine-color-gray-1)",
-              },
-            },
             children: {
               paddingLeft: rem(depth === 0 ? 12 : 8),
-              borderLeft: isDark
-                ? "2px solid var(--mantine-color-dark-4)"
-                : "2px solid var(--mantine-color-gray-2)",
+              borderLeft: "2px solid var(--sade-border)",
               marginLeft: rem(depth === 0 ? 14 : 10),
             },
           }}
@@ -364,138 +397,183 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     return (
       <NavLink
         key={item.href}
-        label={
-          <Group gap="xs">
-            <Text size="sm" fw={isActive(item.href!) ? 600 : 500}>
-              {item.label}
-            </Text>
-            {item.badge && (
-              <Badge size="xs" variant="light">
-                {item.badge}
-              </Badge>
-            )}
-          </Group>
-        }
+        className="sade-nav"
+        label={label(isActive(item.href!))}
         leftSection={item.icon}
         active={isActive(item.href!)}
-        onClick={() => handleNavClick(item.href!)}
-        style={{
-          borderRadius: rem(depth === 0 ? 8 : 6),
-        }}
-        styles={{
-          root: {
-            "&[dataActive]": {
-              backgroundColor: isDark
-                ? "rgba(111, 139, 106, 0.15)"
-                : "rgba(111, 139, 106, 0.1)",
-              color: "var(--mantine-color-brand-6)",
-              fontWeight: 600,
-            },
-            "&:hover": {
-              backgroundColor: isDark
-                ? "var(--mantine-color-dark-5)"
-                : "var(--mantine-color-gray-1)",
-            },
-          },
-        }}
+        variant={depth === 0 ? "filled" : "light"}
+        onClick={() => go(item.href!)}
+        style={{ borderRadius: rem(depth === 0 ? 8 : 6) }}
       />
     );
   };
 
-  return (
-    <AppShell
-      header={{ height: 64 }}
-      navbar={{
-        width: 280,
-        breakpoint: "sm",
-        collapsed: { mobile: !opened },
-      }}
-      padding="md"
-      styles={{
-        main: {
-          backgroundColor: isDark
-            ? "var(--mantine-color-dark-8)"
-            : "var(--sade-ivory)",
-        },
-      }}
-    >
-      <AppShell.Header
-        style={{
-          borderBottom: isDark
-            ? "1px solid var(--mantine-color-dark-4)"
-            : "1px solid var(--mantine-color-gray-2)",
-          backgroundColor: isDark ? "var(--mantine-color-dark-7)" : "var(--sade-ivory)",
-        }}
+  // Collapsed sidebar: icons only. A link shows its name on hover, a group opens its pages beside the bar.
+  const renderMenuEntries = (items: NavItem[]): React.ReactNode =>
+    items.map((child) =>
+      child.children ? (
+        <Box key={child.label}>
+          <Menu.Label>{child.label}</Menu.Label>
+          {renderMenuEntries(child.children)}
+        </Box>
+      ) : (
+        <Menu.Item
+          key={child.href}
+          leftSection={child.icon}
+          onClick={() => go(child.href!)}
+          className="sade-flyout-item"
+          data-active={isActive(child.href!) || undefined}
+        >
+          {child.label}
+        </Menu.Item>
+      ),
+    );
+
+  const renderRailItem = (item: NavItem): React.ReactNode => {
+    const active = isItemActive(item);
+    const button = (
+      <UnstyledButton
+        className="sade-rail-item"
+        data-active={active || undefined}
+        aria-label={item.label}
+        onClick={item.href ? () => go(item.href!) : undefined}
       >
-        <Group h="100%" px="md" justify="space-between">
-          <Group>
-            <Burger
-              opened={opened}
-              onClick={toggle}
-              hiddenFrom="sm"
-              size="sm"
-            />
-            <Group
-              gap="xs"
-              style={{ cursor: "pointer" }}
-              onClick={() => router.push(getRoleHome(session?.user?.role, session?.user?.permissions))}
-            >
-              <BrandMark size={32} />
-            </Group>
+        {item.icon}
+      </UnstyledButton>
+    );
+
+    if (!item.children) {
+      return (
+        <Tooltip key={item.href} label={item.label} position="right" withArrow>
+          {button}
+        </Tooltip>
+      );
+    }
+
+    return (
+      <Menu key={item.label} trigger="click-hover" position="right-start" offset={10} withArrow shadow="md" width={240}>
+        <Menu.Target>{button}</Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Label>{item.label}</Menu.Label>
+          {renderMenuEntries(item.children)}
+        </Menu.Dropdown>
+      </Menu>
+    );
+  };
+
+  const statusPanel = (
+    <Box className="sade-status">
+      <Group gap="xs" mb={4} wrap="nowrap">
+        <Box className="sade-status-dot" />
+        <Text size="xs" fw={600} truncate>
+          {t.dashboard.status.connected}
+        </Text>
+      </Group>
+      <Text size="xs" c="dimmed">
+        {t.dashboard.status.operational}
+      </Text>
+    </Box>
+  );
+
+  const home = () => router.push(getRoleHome(session?.user?.role, session?.user?.permissions));
+
+  return (
+    <div className="sade-shell">
+      {/* Sidebar: full height beside the main column, so the content never sits under it */}
+      <aside className="sade-sidebar" data-collapsed={collapsed || undefined} aria-label="Sidebar">
+        <UnstyledButton className="sade-sidebar-brand" onClick={home} aria-label="Sade">
+          <BrandMark size={32} withWordmark={!collapsed} />
+        </UnstyledButton>
+
+        <ScrollArea className="sade-sidebar-nav" scrollbarSize={6} type="hover">
+          {collapsed ? (
+            <Stack gap={6} align="center" py="md">
+              {navItems.map(renderRailItem)}
+            </Stack>
+          ) : (
+            <Stack gap={4} p="md">
+              {navItems.map((item) => renderNavItem(item))}
+            </Stack>
+          )}
+        </ScrollArea>
+
+        <div className="sade-sidebar-footer">
+          {collapsed ? (
+            <Tooltip label={t.dashboard.status.connected} position="right" withArrow>
+              <Box className="sade-status-dot" mx="auto" />
+            </Tooltip>
+          ) : (
+            statusPanel
+          )}
+        </div>
+
+        <UnstyledButton
+          className="sade-sidebar-toggle"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <IconLayoutSidebarLeftExpand size={15} /> : <IconLayoutSidebarLeftCollapse size={15} />}
+        </UnstyledButton>
+      </aside>
+
+      {/* Phones and small tablets: the same menu in a drawer */}
+      <Drawer
+        opened={drawerOpened}
+        onClose={closeDrawer}
+        size={280}
+        padding={0}
+        withCloseButton={false}
+        hiddenFrom="sm"
+        classNames={{ content: "sade-drawer" }}
+      >
+        <div className="sade-sidebar-brand">
+          <BrandMark size={32} />
+        </div>
+        <Stack gap={4} p="md">
+          {navItems.map((item) => renderNavItem(item))}
+        </Stack>
+        <div className="sade-sidebar-footer">{statusPanel}</div>
+      </Drawer>
+
+      <div className="sade-main">
+        <header className="sade-header">
+          <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+            <ActionIcon variant="subtle" color="gray" hiddenFrom="sm" onClick={openDrawer} aria-label="Open menu">
+              <IconMenu2 size={20} />
+            </ActionIcon>
+            <Box hiddenFrom="sm">
+              <BrandMark size={28} withWordmark={false} />
+            </Box>
+            {trail.length > 0 && (
+              <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }} visibleFrom="xs">
+                {trail.slice(0, -1).map((item) => (
+                  <Group key={item.label} gap={6} wrap="nowrap">
+                    <Text size="sm" c="dimmed" truncate>
+                      {item.label}
+                    </Text>
+                    <IconChevronRight size={14} style={{ opacity: 0.5, flexShrink: 0 }} />
+                  </Group>
+                ))}
+                <Text size="sm" fw={700} truncate>
+                  {trail[trail.length - 1].label}
+                </Text>
+              </Group>
+            )}
           </Group>
 
-          <Group gap="sm">
-            <LanguageSelect />
+          <Group gap="sm" wrap="nowrap">
+            <Box visibleFrom="sm">
+              <LanguageSelect />
+            </Box>
             <ThemeToggle />
             <UserMenu />
           </Group>
-        </Group>
-      </AppShell.Header>
+        </header>
 
-      <AppShell.Navbar
-        p="md"
-        style={{
-          backgroundColor: isDark ? "var(--mantine-color-dark-7)" : "var(--sade-ivory)",
-          borderRight: isDark
-            ? "1px solid var(--mantine-color-dark-4)"
-            : "1px solid var(--mantine-color-gray-2)",
-        }}
-      >
-        <Stack gap="xs">{navItems.map((item) => renderNavItem(item))}</Stack>
-
-        <Box style={{ flex: 1 }} />
-
-        <Divider my="md" />
-
-        <Box
-          p="sm"
-          style={{
-            backgroundColor: isDark
-              ? "var(--mantine-color-dark-6)"
-              : "var(--mantine-color-gray-0)",
-            borderRadius: rem(8),
-          }}
-        >
-          <Group gap="xs" mb={4}>
-            <Box
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                backgroundColor: "var(--mantine-color-green-6)",
-              }}
-            />
-            <Text size="xs" fw={500}>
-              {t.dashboard.status.connected}
-            </Text>
-          </Group>
-          <Text size="xs" c="dimmed">
-            {t.dashboard.status.operational}
-          </Text>
-        </Box>
-      </AppShell.Navbar>
-
-      <AppShell.Main>{children}</AppShell.Main>
-    </AppShell>
+        <main className="sade-content">{children}</main>
+      </div>
+    </div>
   );
 }

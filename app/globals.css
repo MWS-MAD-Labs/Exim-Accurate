@@ -1,12 +1,84 @@
-/* Shared Sade SAFESpace design tokens */
+/* Shared Sade SAFESpace design tokens.
+   Rule: ivory (--sade-page) is only the page background. Everything on it (top bar, sidebar, cards, modals) is a
+   white surface with a thin warm border and a soft shadow. Mantine's own surface colour (--mantine-color-body) is set
+   to match in lib/theme.ts (cssVariablesResolver). */
 :root {
-  --sade-sage: #6F8B6A;
-  --sade-sage-deep: #486142;
+  /* Brand */
+  --sade-sage: #6F8B6A;       /* icons, status dots, borders, focus ring; never text */
+  --sade-sage-deep: #486142;  /* green text, primary buttons */
   --sade-gold: #D6A13A;
   --sade-ivory: #FFFAF4;
 
-  /* Dark mode: warm espresso-green. Same values as theme.colors.dark[7]/[6]/[5] in lib/theme.ts,
-     because Mantine sets the dark body color from dark[7]. */
+  /* Page and surfaces */
+  --sade-page: #FFFAF4;
+  --sade-surface: #FFFFFF;
+  --sade-chrome: #FFFFFF;     /* top bar and sidebar */
+  --sade-border: #E9E4D6;
+  --sade-card-shadow: 0 1px 2px rgba(43, 55, 37, 0.06);
+  --sade-text: #211F1A;
+  --sade-text-muted: #6B665C;
+  --sade-text-green: #486142;
+
+  /* Semantic: base colour / text colour */
+  --sade-success: #6F8B6A;
+  --sade-warning: #C97B84;
+  --sade-warning-text: #AD4E4E;
+  --sade-info: #79AFC7;
+  --sade-info-text: #2F6A86;
+  --sade-highlight: #D6A13A;
+
+  /* Tints: background / text (border) */
+  --sade-tint-sage: #E7EEE4;
+  --sade-tint-sage-text: #486142;
+  --sade-tint-sky: #E3F0F7;
+  --sade-tint-sky-text: #2F6A86;
+  --sade-tint-gold: #FBF0D3;
+  --sade-tint-gold-text: #7A5208;
+  --sade-tint-rose: #FFF1F1;
+  --sade-tint-rose-text: #AD4E4E;
+  --sade-tint-rose-border: #F2B8B8;
+  --sade-panel: #EEF4EA;
+  --sade-panel-border: #D5E3CF;
+
+  /* Buttons and other filled controls, per family: background / hover / pressed / text */
+  --sade-sage-filled: #486142;
+  --sade-sage-filled-hover: #3A4F35;
+  --sade-sage-filled-pressed: #2D3E29;
+  --sade-sage-filled-text: #FFFAF4;
+  --sade-gold-filled: #D6A13A;
+  --sade-gold-filled-hover: #C28F2C;
+  --sade-gold-filled-pressed: #AE7F24;
+  --sade-gold-filled-text: #2B2A24;
+  --sade-sky-filled: #2F6A86;
+  --sade-sky-filled-hover: #285B73;
+  --sade-sky-filled-pressed: #214B5F;
+  --sade-sky-filled-text: #FFFAF4;
+  --sade-rose-filled: #AD4E4E;
+  --sade-rose-filled-hover: #964141;
+  --sade-rose-filled-pressed: #823838;
+  --sade-rose-filled-text: #FFFAF4;
+  --sade-tint-sage-hover: #DCE8D7;
+  --sade-tint-sage-pressed: #D5E3CF;
+  --sade-tint-sky-hover: #D3E7F1;
+  --sade-tint-sky-pressed: #C5E1EA;
+  --sade-tint-gold-hover: #F6E5B8;
+  --sade-tint-gold-pressed: #F0DDAA;
+  --sade-tint-rose-hover: #FCE3E3;
+  --sade-tint-rose-pressed: #F8D0D0;
+  --sade-secondary-bg: #FFFFFF;
+  --sade-secondary-hover: #EEF4EA;
+  --sade-secondary-pressed: #E7EEE4;
+  --sade-secondary-text: #486142;
+  --sade-secondary-border: #D5E3CF;
+  --sade-disabled-bg: #E7EEE4;
+  --sade-disabled-text: #8A9A86;
+  --sade-focus-ring: #6F8B6A;
+
+  /* Sidebar */
+  --sade-nav-hover: #EEF4EA;
+  --sade-chevron: #8A857A;
+
+  /* Dark mode surfaces (also used by Kiosk and POS). Same as theme.colors.dark[7]/[6]/[5]. */
   --sade-espresso: #1C2419;
   --sade-dark-surface: #242E21;
   --sade-dark-raised: #2C382A;
@@ -16,20 +88,198 @@
   --sade-wordmark: #486142;
   --sade-brand-gradient: linear-gradient(135deg, #6F8B6A 0%, #486142 100%);
   --sade-gold-gradient: linear-gradient(135deg, #E2C36C 0%, #D6A13A 100%);
-  --sade-shadow-sm: 0 1px 3px rgba(43, 55, 37, 0.08), 0 1px 2px rgba(43, 55, 37, 0.05);
+  --sade-shadow-sm: 0 1px 2px rgba(43, 55, 37, 0.06);
   --sade-shadow-md: 0 4px 8px rgba(43, 55, 37, 0.08);
   --sade-shadow-lg: 0 10px 24px rgba(43, 55, 37, 0.1);
   --sade-shadow-xl: 0 20px 40px rgba(43, 55, 37, 0.14);
   --sade-transition-fast: 0.15s ease;
   --sade-transition-normal: 0.2s ease;
   --sade-transition-slow: 0.3s ease;
-  --mantine-color-body: var(--sade-ivory);
 }
 
+/* Dark mode: warm espresso-green. The spec gives no hexes, these are a guess pending the manager. */
 [data-mantine-color-scheme="dark"] {
-  --mantine-color-body: var(--sade-espresso);
-  --mantine-color-text: #F4F0E8;
+  --sade-page: #1C2419;
+  --sade-surface: #242E21;
+  --sade-chrome: #171E15;
+  --sade-border: #364333;
+  --sade-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --sade-text: #F4F0E8;
+  --sade-text-muted: #949B88;
+  --sade-text-green: #8FAE88;
+
+  --sade-warning-text: #E99C9C;
+  --sade-info-text: #8CB8D6;
+
+  --sade-tint-sage: rgba(111, 139, 106, 0.2);
+  --sade-tint-sage-text: #8FAE88;
+  --sade-tint-sky: rgba(121, 175, 199, 0.16);
+  --sade-tint-sky-text: #8CB8D6;
+  --sade-tint-gold: rgba(214, 161, 58, 0.16);
+  --sade-tint-gold-text: #E2C36C;
+  --sade-tint-rose: rgba(204, 102, 102, 0.16);
+  --sade-tint-rose-text: #E99C9C;
+  --sade-tint-rose-border: rgba(204, 102, 102, 0.35);
+  --sade-panel: rgba(111, 139, 106, 0.14);
+  --sade-panel-border: #364333;
+
+  --sade-tint-sage-hover: rgba(111, 139, 106, 0.28);
+  --sade-tint-sage-pressed: rgba(111, 139, 106, 0.34);
+  --sade-tint-sky-hover: rgba(121, 175, 199, 0.24);
+  --sade-tint-sky-pressed: rgba(121, 175, 199, 0.3);
+  --sade-tint-gold-hover: rgba(214, 161, 58, 0.24);
+  --sade-tint-gold-pressed: rgba(214, 161, 58, 0.3);
+  --sade-tint-rose-hover: rgba(204, 102, 102, 0.24);
+  --sade-tint-rose-pressed: rgba(204, 102, 102, 0.3);
+  --sade-secondary-bg: #242E21;
+  --sade-secondary-hover: #2C382A;
+  --sade-secondary-pressed: #364333;
+  --sade-secondary-text: #8FAE88;
+  --sade-secondary-border: #364333;
+  --sade-disabled-bg: #2C382A;
+  --sade-disabled-text: #6E7A68;
+
+  --sade-nav-hover: #242E21;
+  --sade-chevron: #949B88;
+
   --sade-wordmark: #E8E1D4;
+}
+
+/* Kiosk and POS Cashier tokens (Rebranding.md Step 3: calmer, warmer SAFESpace dark green & gold).
+   The manager gave only #6F8B6A, #486142, #D6A13A and #FFFAF4. Every other value here is derived from those four with
+   the formula next to it, so a later official palette changes one place. Derived values: pending the manager. */
+:root {
+  --kiosk-bg: #1D271A;       /* #486142 x 40% */
+  --kiosk-surface: #283524;  /* #486142 x 55% */
+  --kiosk-raised: #32442E;   /* #486142 x 70%, hover and icon boxes */
+  --kiosk-well: #161D14;     /* #486142 x 30%, input fields */
+  --kiosk-border: #3D4C3A;   /* #6F8B6A x 55% */
+  --kiosk-sage: #6F8B6A;     /* spec: focus ring, outline button border */
+  --kiosk-deep: #486142;     /* spec: filled buttons (ivory text 6.6:1) */
+  --kiosk-sage-lt: #9AAC93;  /* #6F8B6A mixed with 30% #FFFAF4: green icons */
+  --kiosk-gold: #D6A13A;     /* spec: highlights only */
+  --kiosk-ivory: #FFFAF4;    /* spec: main text */
+
+  /* Text: ivory at fixed opacities. 55% is the faintest allowed, 40% is only for disabled. */
+  --kiosk-text: #FFFAF4;
+  --kiosk-text-2: rgba(255, 250, 244, 0.85);
+  --kiosk-text-3: rgba(255, 250, 244, 0.7);
+  --kiosk-text-4: rgba(255, 250, 244, 0.55);
+  --kiosk-text-disabled: rgba(255, 250, 244, 0.4);
+
+  /* Gold badge (shortcut keys) */
+  --kiosk-gold-badge-bg: rgba(214, 161, 58, 0.14);
+  --kiosk-gold-badge-border: rgba(214, 161, 58, 0.32);
+
+  --kiosk-card-radius: 20px;
+  --kiosk-card-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  --kiosk-focus-ring: 0 0 0 3px rgba(111, 139, 106, 0.25);
+  --kiosk-glow: radial-gradient(900px 520px at 50% -120px, rgba(111, 139, 106, 0.22), transparent 70%);
+}
+
+/* Inside Kiosk and POS. The dark scheme is set on these roots, not on <html>, so Mantine's text and surface
+   variables are defined here too; without them inputs (the language select) showed near-black text on dark. */
+.kiosk-root,
+.pos-cashier-root {
+  color: var(--kiosk-text);
+  --mantine-color-text: var(--kiosk-text);
+  --mantine-color-body: var(--kiosk-surface);
+  --mantine-color-dimmed: var(--kiosk-text-3);
+  --mantine-color-placeholder: var(--kiosk-text-4);
+  --mantine-color-default: var(--kiosk-surface);
+  --mantine-color-default-hover: var(--kiosk-raised);
+  --mantine-color-default-color: var(--kiosk-text);
+  --mantine-color-default-border: var(--kiosk-border);
+
+  /* Older names still used by the pages */
+  --kiosk-panel: var(--kiosk-surface);
+  --kiosk-panel-strong: var(--kiosk-surface);
+  --kiosk-stroke: var(--kiosk-border);
+  --kiosk-accent: var(--kiosk-gold);
+  --kiosk-accent-2: var(--kiosk-sage-lt);
+  --kiosk-success: var(--kiosk-sage-lt);
+  --cashier-panel: var(--kiosk-surface);
+  --cashier-panel-soft: var(--kiosk-surface);
+  --cashier-stroke: var(--kiosk-border);
+}
+
+.kiosk-root .mantine-Input-input,
+.pos-cashier-root .mantine-Input-input {
+  background-color: var(--kiosk-well);
+  border-color: var(--kiosk-border);
+  color: var(--kiosk-text);
+}
+
+/* The language select sits on the page next to the title, so it uses the surface colour rather than an input well. */
+.kiosk-root .sade-language-select .mantine-Input-input,
+.pos-cashier-root .sade-language-select .mantine-Input-input {
+  background-color: var(--kiosk-surface);
+}
+
+.kiosk-root .mantine-Input-input::placeholder,
+.pos-cashier-root .mantine-Input-input::placeholder {
+  color: var(--kiosk-text-4);
+}
+
+.kiosk-root .mantine-Input-input:focus,
+.kiosk-root .mantine-Input-input:focus-within,
+.pos-cashier-root .mantine-Input-input:focus,
+.pos-cashier-root .mantine-Input-input:focus-within {
+  border-color: var(--kiosk-sage);
+  box-shadow: var(--kiosk-focus-ring);
+}
+
+.kiosk-root .mantine-Input-section,
+.pos-cashier-root .mantine-Input-section {
+  color: var(--kiosk-text-3);
+}
+
+.kiosk-root .mantine-Combobox-dropdown,
+.pos-cashier-root .mantine-Combobox-dropdown {
+  background-color: var(--kiosk-surface);
+  border: 1px solid var(--kiosk-border);
+  color: var(--kiosk-text);
+}
+
+.kiosk-root .mantine-Combobox-option:hover,
+.kiosk-root .mantine-Combobox-option[data-combobox-selected],
+.pos-cashier-root .mantine-Combobox-option:hover,
+.pos-cashier-root .mantine-Combobox-option[data-combobox-selected] {
+  background-color: var(--kiosk-raised);
+  color: var(--kiosk-text);
+}
+
+.kiosk-root .mantine-Button-root:disabled:not([data-loading]),
+.kiosk-root .mantine-Button-root[data-disabled]:not([data-loading]),
+.pos-cashier-root .mantine-Button-root:disabled:not([data-loading]),
+.pos-cashier-root .mantine-Button-root[data-disabled]:not([data-loading]) {
+  background: var(--kiosk-raised);
+  color: var(--kiosk-text-disabled);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.kiosk-root :focus-visible,
+.pos-cashier-root :focus-visible {
+  outline: 2px solid var(--kiosk-sage);
+  outline-offset: 2px;
+}
+
+.kiosk-root .mantine-Paper-root,
+.kiosk-root .mantine-Modal-content,
+.pos-cashier-root .mantine-Paper-root,
+.pos-cashier-root .mantine-Modal-content {
+  background-color: var(--kiosk-surface);
+  border: 1px solid var(--kiosk-border);
+  border-radius: var(--kiosk-card-radius);
+  box-shadow: var(--kiosk-card-shadow);
+}
+
+/* Shortcut key badges: gold text on a faint gold tint */
+.kiosk-shortcut {
+  background: var(--kiosk-gold-badge-bg);
+  border: 1px solid var(--kiosk-gold-badge-border);
+  color: var(--kiosk-gold);
 }
 
 /* Base styles */
@@ -44,6 +294,7 @@ html {
 }
 
 body {
+  background-color: var(--sade-page);
   font-family: var(--font-nunito-sans), "Nunito Sans", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -100,9 +351,10 @@ h6,
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Focus styles */
-:focus-visible {
-  outline: 2px solid var(--mantine-color-brand-6);
+/* Focus styles: sage ring, never the default blue */
+:focus-visible,
+.mantine-focus-auto:focus-visible {
+  outline: 2px solid var(--sade-focus-ring);
   outline-offset: 2px;
 }
 
@@ -415,13 +667,268 @@ h6,
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
 }
 
-/* Form input focus enhancement */
-.mantine-TextInput-input:focus,
-.mantine-PasswordInput-input:focus,
-.mantine-Select-input:focus,
-.mantine-Textarea-input:focus {
-  border-color: var(--mantine-color-brand-6) !important;
-  box-shadow: 0 0 0 3px rgba(111, 139, 106, 0.15) !important;
+/* Inputs and selects: sage focus border with a soft ring, rose error border (the message uses --mantine-color-error) */
+.mantine-Input-input:focus,
+.mantine-Input-input:focus-within {
+  border-color: var(--sade-sage) !important;
+  box-shadow: 0 0 0 3px rgba(111, 139, 106, 0.18) !important;
+}
+
+.mantine-Input-input[data-error] {
+  border-color: var(--sade-warning);
+}
+
+/* Buttons. Colours per variant come from the theme (variantColorResolver); these are the states it cannot set. */
+.mantine-Button-root:active:not(:disabled):not([data-disabled]):not([data-loading]) {
+  background-color: var(--sade-btn-pressed, var(--button-hover));
+}
+
+.mantine-Button-root:disabled:not([data-loading]),
+.mantine-Button-root[data-disabled]:not([data-loading]) {
+  background: var(--sade-disabled-bg);
+  color: var(--sade-disabled-text);
+  border-color: transparent;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Tabs: active tab green and bold with a 2px green underline */
+.mantine-Tabs-tab {
+  color: var(--sade-text-muted);
+}
+
+.mantine-Tabs-tab:not([data-active]):hover {
+  color: var(--sade-text);
+  background-color: transparent;
+  border-color: var(--sade-panel-border);
+}
+
+.mantine-Tabs-tab[data-active] {
+  color: var(--sade-text-green);
+  font-weight: 700;
+  border-color: var(--sade-text-green);
+}
+
+/* Segmented controls and pagination: active green with ivory text, inactive white with a pale sage border */
+.mantine-SegmentedControl-root {
+  background-color: var(--sade-secondary-bg);
+  border: 1px solid var(--sade-secondary-border);
+  --sc-label-color: var(--sade-sage-filled-text);
+}
+
+.mantine-Pagination-control {
+  border-color: var(--sade-secondary-border);
+}
+
+.mantine-Pagination-control[data-active] {
+  color: var(--sade-sage-filled-text);
+}
+
+/* Sidebar menu (DashboardLayout). Top level active is solid green, a submenu item is a sage tint, so the hierarchy
+   shows; both colours come from the theme through the NavLink variant. */
+.sade-nav:not([data-active]):hover {
+  background-color: var(--sade-nav-hover);
+}
+
+.sade-nav[data-active] {
+  font-weight: 700;
+}
+
+.sade-nav .mantine-NavLink-chevron {
+  color: var(--sade-chevron);
+}
+
+.sade-nav[data-active] .mantine-NavLink-chevron {
+  color: inherit;
+}
+
+[data-mantine-color-scheme="dark"] .sade-nav[data-active] {
+  --nl-bg: #2C382A !important;
+  --nl-hover: #2C382A !important;
+  --nl-color: #8FAE88 !important;
+  box-shadow: inset 3px 0 0 #6F8B6A;
+}
+
+/* Dashboard shell (DashboardLayout). Sidebar and main column sit side by side in a flex row, the way the
+   mws-website admin is built: the content never slides under the sidebar and needs no offset padding.
+   The sidebar is full height, collapses to an icon rail, and becomes a drawer below 48em. */
+.sade-shell {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: var(--sade-page);
+}
+
+.sade-sidebar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 264px;
+  height: 100%;
+  background-color: var(--sade-chrome);
+  border-right: 1px solid var(--sade-border);
+  transition: width 0.2s ease;
+}
+
+.sade-sidebar[data-collapsed] {
+  width: 72px;
+}
+
+@media (max-width: 47.99em) {
+  .sade-sidebar {
+    display: none;
+  }
+}
+
+.sade-sidebar-brand {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 64px;
+  padding: 0 20px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--sade-border);
+}
+
+.sade-sidebar[data-collapsed] .sade-sidebar-brand {
+  justify-content: center;
+  padding: 0;
+}
+
+.sade-sidebar-nav {
+  flex: 1;
+  min-height: 0;
+}
+
+.sade-sidebar-footer {
+  flex-shrink: 0;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--sade-border);
+}
+
+/* Collapse button on the sidebar's right edge */
+.sade-sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  transform: translate(50%, -50%);
+  background-color: var(--sade-chrome);
+  border: 1px solid var(--sade-border);
+  color: var(--sade-chevron);
+  box-shadow: var(--sade-card-shadow);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sade-sidebar-toggle:hover {
+  background-color: var(--sade-nav-hover);
+  color: var(--sade-text-green);
+}
+
+/* Icon rail (collapsed) */
+.sade-rail-item {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  color: var(--sade-text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sade-rail-item:hover {
+  background-color: var(--sade-nav-hover);
+  color: var(--sade-text);
+}
+
+.sade-rail-item[data-active] {
+  background-color: var(--sade-sage-filled);
+  color: var(--sade-sage-filled-text);
+}
+
+[data-mantine-color-scheme="dark"] .sade-rail-item[data-active] {
+  background-color: #2C382A;
+  color: #8FAE88;
+  box-shadow: inset 3px 0 0 #6F8B6A;
+}
+
+.sade-flyout-item[data-active] {
+  background-color: var(--sade-tint-sage);
+  color: var(--sade-tint-sage-text);
+  font-weight: 700;
+}
+
+/* Connection status at the bottom of the sidebar */
+.sade-status {
+  padding: 10px 12px;
+  background-color: var(--sade-panel);
+  border: 1px solid var(--sade-panel-border);
+  border-radius: 8px;
+}
+
+.sade-status-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background-color: var(--sade-sage);
+}
+
+.sade-drawer {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--sade-chrome);
+}
+
+/* Main column: header on top, the page scrolls below it */
+.sade-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sade-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+  height: 64px;
+  padding: 0 24px;
+  background-color: var(--sade-chrome);
+  border-bottom: 1px solid var(--sade-border);
+}
+
+.sade-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+@media (max-width: 47.99em) {
+  .sade-header {
+    padding: 0 16px;
+  }
+
+  .sade-content {
+    padding: 16px;
+  }
+}
+
+/* Cards and modals: white surface, thin warm border, soft shadow */
+.mantine-Paper-root {
+  --paper-border-color: var(--sade-border);
 }
 
 /* Button gradient styles */
@@ -449,12 +956,11 @@ h6,
 
 /* POS cashier debt modal (warm SAFESpace dark green + gold, no cold slate) */
 .cashier-debt-modal {
-  background: rgba(22, 32, 26, 0.96) !important;
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(214, 200, 170, 0.22);
-  border-radius: 22px !important;
-  box-shadow: 0 28px 80px rgba(8, 14, 10, 0.72);
-  color: white;
+  background: var(--kiosk-surface) !important;
+  border: 1px solid var(--kiosk-border);
+  border-radius: var(--kiosk-card-radius) !important;
+  box-shadow: var(--kiosk-card-shadow);
+  color: var(--kiosk-text);
   overflow: hidden;
 }
 
@@ -462,11 +968,11 @@ h6,
   min-height: 72px;
   padding: 22px 24px 14px;
   background: transparent !important;
-  border-bottom: 1px solid rgba(214, 200, 170, 0.14);
+  border-bottom: 1px solid var(--kiosk-border);
 }
 
 .cashier-debt-modal__title {
-  color: white;
+  color: var(--kiosk-text);
   font-size: 1.25rem;
   font-weight: 800;
   line-height: 1.3;
@@ -479,12 +985,12 @@ h6,
 .cashier-debt-modal__alert {
   background: rgba(214, 161, 58, 0.12) !important;
   border: 1px solid rgba(214, 161, 58, 0.28);
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--kiosk-text-2);
 }
 
 .cashier-debt-modal__alert .mantine-Alert-title,
 .cashier-debt-modal__alert .mantine-Alert-message {
-  color: #fff !important;
+  color: var(--kiosk-text) !important;
 }
 
 .cashier-debt-modal__alert[data-color="red"] {
@@ -495,14 +1001,14 @@ h6,
 .cashier-debt-modal__stat {
   min-width: 0;
   padding: 14px;
-  background: rgba(37, 53, 42, 0.78);
-  border: 1px solid rgba(214, 200, 170, 0.16);
+  background: var(--kiosk-raised);
+  border: 1px solid var(--kiosk-border);
   border-radius: 12px;
 }
 
 .cashier-debt-modal__muted {
   margin-bottom: 4px;
-  color: rgba(244, 240, 232, 0.66) !important;
+  color: var(--kiosk-text-3) !important;
 }
 
 .cashier-debt-modal__action {
@@ -520,9 +1026,9 @@ h6,
 }
 
 .cashier-debt-modal__action[data-variant="default"] {
-  background: rgba(214, 200, 170, 0.12);
-  border-color: rgba(214, 200, 170, 0.24);
-  color: white;
+  background: var(--kiosk-surface);
+  border-color: var(--kiosk-border);
+  color: var(--kiosk-text);
 }
 
 .cashier-debt-modal__action--secondary[data-variant="light"] {

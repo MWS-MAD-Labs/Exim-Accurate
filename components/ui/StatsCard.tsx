@@ -24,52 +24,30 @@ interface StatsCardProps {
   icon: ReactNode;
   color?: "brand" | "accent" | "success" | "danger" | "violet" | "cyan" | "grape" | "teal";
   compact?: boolean;
+  // Solid gold icon box. Only for the one card that should stand out (the dashboard's "This month").
+  highlight?: boolean;
 }
 
-const colorGradients: Record<string, { light: string; dark: string }> = {
-  brand: {
-    light: "linear-gradient(135deg, #FFFEFB 0%, #F8F6F0 100%)",
-    dark: "linear-gradient(135deg, #242E21 0%, #202A1D 100%)",
-  },
-  accent: {
-    light: "linear-gradient(135deg, #FFFEFB 0%, #FAF4E7 100%)",
-    dark: "linear-gradient(135deg, #2A3526 0%, #202A1D 100%)",
-  },
-  success: {
-    light: "linear-gradient(135deg, #FFFEFB 0%, #F8F6F0 100%)",
-    dark: "linear-gradient(135deg, #242E21 0%, #202A1D 100%)",
-  },
-  danger: {
-    light: "linear-gradient(135deg, #FFFEFB 0%, #FAF1EF 100%)",
-    dark: "linear-gradient(135deg, #2F2B27 0%, #202A1D 100%)",
-  },
-  violet: {
-    light: "linear-gradient(135deg, #FFFEFB 0%, #F8F6F0 100%)",
-    dark: "linear-gradient(135deg, #242E21 0%, #202A1D 100%)",
-  },
-  cyan: {
-    light: "linear-gradient(135deg, #FFFEFB 0%, #F3F6F5 100%)",
-    dark: "linear-gradient(135deg, #212E2B 0%, #202A1D 100%)",
-  },
-  grape: {
-    light: "linear-gradient(135deg, #FFFEFB 0%, #FAF4E7 100%)",
-    dark: "linear-gradient(135deg, #2A3526 0%, #202A1D 100%)",
-  },
-  teal: {
-    light: "linear-gradient(135deg, #FFFEFB 0%, #F8F6F0 100%)",
-    dark: "linear-gradient(135deg, #242E21 0%, #202A1D 100%)",
-  },
+type Tint = "sage" | "sky" | "gold" | "rose";
+
+// violet and teal follow the theme, which maps them to the sage family.
+const tintOf: Record<NonNullable<StatsCardProps["color"]>, Tint> = {
+  brand: "sage",
+  success: "sage",
+  violet: "sage",
+  teal: "sage",
+  cyan: "sky",
+  accent: "gold",
+  grape: "gold",
+  danger: "rose",
 };
 
-const iconColors: Record<string, string> = {
-  brand: "#486142",
-  accent: "#B98429",
-  success: "#486142",
-  danger: "#AD4E4E",
-  violet: "#486142",
-  cyan: "#4C7E95",
-  grape: "#B98429",
-  teal: "#486142",
+// Icon box background and icon colour, light / dark. Dark icons are light shades so they stay visible on #242E21.
+const iconBox: Record<Tint, { light: [string, string]; dark: [string, string] }> = {
+  sage: { light: ["#E7EEE4", "#486142"], dark: ["rgba(111, 139, 106, 0.2)", "#8FAE88"] },
+  sky: { light: ["#E3F0F7", "#2F6A86"], dark: ["rgba(121, 175, 199, 0.16)", "#8CB8D6"] },
+  gold: { light: ["#FBF0D3", "#7A5208"], dark: ["rgba(214, 161, 58, 0.16)", "#D6A13A"] },
+  rose: { light: ["#FFF1F1", "#AD4E4E"], dark: ["rgba(204, 102, 102, 0.16)", "#E99C9C"] },
 };
 
 export function StatsCard({
@@ -80,12 +58,14 @@ export function StatsCard({
   icon,
   color = "brand",
   compact = false,
+  highlight = false,
 }: StatsCardProps) {
   const colorScheme = useAppColorScheme();
   const isDark = colorScheme === "dark";
 
-  const gradient = colorGradients[color] || colorGradients.brand;
-  const iconColor = iconColors[color] || iconColors.brand;
+  const [iconBackground, iconColor] = highlight
+    ? ["#D6A13A", "#2B2A24"]
+    : iconBox[tintOf[color] ?? "sage"][isDark ? "dark" : "light"];
 
   const getTrendIcon = () => {
     if (!trend) return null;
@@ -94,10 +74,11 @@ export function StatsCard({
     return <IconMinus size={16} />;
   };
 
+  // Green and rose text use the text shades (#486142 / #AD4E4E, lighter in dark mode), not the base colours.
   const getTrendColor = () => {
     if (!trend) return "dimmed";
-    if (trend.value > 0) return "teal";
-    if (trend.value < 0) return "red";
+    if (trend.value > 0) return "var(--sade-text-green)";
+    if (trend.value < 0) return "var(--sade-warning-text)";
     return "dimmed";
   };
 
@@ -106,10 +87,9 @@ export function StatsCard({
       p={compact ? "md" : "lg"}
       radius="lg"
       style={{
-        background: isDark ? gradient.dark : gradient.light,
-        border: isDark
-          ? "1px solid rgba(237, 232, 220, 0.12)"
-          : "1px solid rgba(72, 67, 55, 0.12)",
+        background: "var(--sade-surface)",
+        border: "1px solid var(--sade-border)",
+        boxShadow: "var(--sade-card-shadow)",
         transition: "all 0.2s ease",
         cursor: "default",
       }}
@@ -117,11 +97,11 @@ export function StatsCard({
         e.currentTarget.style.transform = "translateY(-2px)";
         e.currentTarget.style.boxShadow = isDark
           ? "0 8px 24px rgba(0, 0, 0, 0.22)"
-          : "0 8px 24px rgba(50, 45, 37, 0.1)";
+          : "0 8px 24px rgba(43, 55, 37, 0.08)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = "translateY(0)";
-        e.currentTarget.style.boxShadow = "";
+        e.currentTarget.style.boxShadow = "var(--sade-card-shadow)";
       }}
     >
       <Group justify="space-between" align="center">
@@ -153,13 +133,11 @@ export function StatsCard({
           )}
         </Stack>
         <ThemeIcon
-          size={compact ? 44 : 52}
-          radius="xl"
+          size={48}
+          radius={14}
           variant="light"
           style={{
-            backgroundColor: isDark
-              ? `${iconColor}2B`
-              : `${iconColor}1A`,
+            backgroundColor: iconBackground,
             color: iconColor,
           }}
         >

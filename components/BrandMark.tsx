@@ -2,9 +2,11 @@ import { Box, Group, Text } from "@mantine/core";
 
 interface BrandMarkProps {
   size?: number;
+  // false shows only the S badge (the collapsed sidebar).
+  withWordmark?: boolean;
 }
 
-export function BrandMark({ size = 36 }: BrandMarkProps) {
+export function BrandMark({ size = 36, withWordmark = true }: BrandMarkProps) {
   return (
     <Group gap="xs" wrap="nowrap" aria-label="Sade">
       <Box
@@ -26,7 +28,7 @@ export function BrandMark({ size = 36 }: BrandMarkProps) {
       >
         S
       </Box>
-      <Text
+      {withWordmark && <Text
         size="xl"
         fw={800}
         style={{
@@ -36,7 +38,7 @@ export function BrandMark({ size = 36 }: BrandMarkProps) {
         }}
       >
         Sade
-      </Text>
+      </Text>}
     </Group>
   );
 }
