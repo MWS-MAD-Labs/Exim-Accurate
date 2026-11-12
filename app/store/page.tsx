@@ -17,6 +17,7 @@ import {
   Divider,
   Drawer,
   Group,
+  Indicator,
   Loader,
   NumberInput,
   Paper,
@@ -31,7 +32,7 @@ import {
   ThemeIcon,
   Title,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import {
   IconAlertCircle,
   IconBox,
@@ -158,6 +159,7 @@ export default function StorePage() {
   const { data: session } = useSession();
   const { t } = useLanguage();
   const [cartOpened, cartHandlers] = useDisclosure(false);
+  const isMobile = useMediaQuery("(max-width: 48em)");
   const [store, setStore] = useState<StoreInfo | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [allowance, setAllowance] = useState<Allowance | null>(null);
@@ -370,29 +372,38 @@ export default function StorePage() {
   }
 
   return (
-    <AppShell header={{ height: 72 }} padding={0}>
+    <AppShell header={{ height: { base: 60, sm: 72 } }} padding={0}>
       <AppShell.Header>
         <Container size="xl" h="100%">
-          <Group h="100%" justify="space-between">
-            <Group gap="sm">
-              <ThemeIcon size={42} radius="xl" variant="gradient" gradient={{ from: "brand", to: "accent" }}>
+          <Group h="100%" justify="space-between" wrap="nowrap" gap="xs">
+            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+              <ThemeIcon size={36} radius="xl" variant="gradient" gradient={{ from: "brand", to: "accent" }} hiddenFrom="sm">
+                <IconShoppingBag size={19} />
+              </ThemeIcon>
+              <ThemeIcon size={42} radius="xl" variant="gradient" gradient={{ from: "brand", to: "accent" }} visibleFrom="sm">
                 <IconShoppingBag size={22} />
               </ThemeIcon>
-              <Box>
-                <Text fw={800} lh={1.1}>Staff Store</Text>
-                <Text size="xs" c="dimmed">Preorder from available POS stock</Text>
+              <Box style={{ minWidth: 0 }}>
+                <Text fw={800} lh={1.1} truncate>Staff Store</Text>
+                <Text size="xs" c="dimmed" visibleFrom="sm">Preorder from available POS stock</Text>
               </Box>
             </Group>
-            <Group gap="xs">
-              <Text size="sm" c="dimmed" visibleFrom="sm">{session?.user?.email}</Text>
+            <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
+              <Text size="sm" c="dimmed" visibleFrom="md">{session?.user?.email}</Text>
               <MyBadge />
               <Button
                 variant="light"
                 leftSection={<IconShoppingBag size={17} />}
                 onClick={cartHandlers.open}
+                visibleFrom="sm"
               >
                 Cart ({cartCount})
               </Button>
+              <Indicator label={cartCount} size={18} disabled={cartCount === 0} hiddenFrom="sm">
+                <ActionIcon variant="light" size="lg" aria-label={`Cart (${cartCount})`} onClick={cartHandlers.open}>
+                  <IconShoppingBag size={18} />
+                </ActionIcon>
+              </Indicator>
               <ActionIcon variant="subtle" size="lg" aria-label="Back to Hub" onClick={() => {
                   // eslint-disable-next-line @next/next/no-location-assign-relative-destination
                   window.location.href = "/auth/hub";
@@ -405,7 +416,7 @@ export default function StorePage() {
       </AppShell.Header>
 
       <AppShell.Main bg="var(--mantine-color-body)" mih="100vh">
-        <Container size="xl" py={{ base: "md", sm: "xl" }}>
+        <Container size="xl" pt={{ base: "md", sm: "xl" }} pb={{ base: "xl", sm: "xl" }}>
           <Stack gap="lg">
 
             {message && (
@@ -425,9 +436,9 @@ export default function StorePage() {
               {formatMoney(allowance.previousDebt.outstanding)} · Due {new Date(allowance.previousDebt.payday).toLocaleDateString()}. {allowance.previousDebt.blocked ? blockedDebtMessage : "Please settle this balance at POS by payday."}
             </Alert>}
 
-            <Group justify="space-between">
-              <Text size="xs" c="dimmed">Balances are checked again at pickup.</Text>
-              <Button size="xs" variant="subtle" leftSection={<IconRefresh size={15} />} loading={loading || historyLoading} onClick={() => void Promise.all([loadProducts(), loadReservations(), loadHistory()])}>Refresh account</Button>
+            <Group justify="space-between" wrap="nowrap" gap="xs">
+              <Text size="xs" c="dimmed" style={{ minWidth: 0 }}>Balances are checked again at pickup.</Text>
+              <Button size="xs" variant="subtle" leftSection={<IconRefresh size={15} />} loading={loading || historyLoading} onClick={() => void Promise.all([loadProducts(), loadReservations(), loadHistory()])} style={{ flexShrink: 0 }}>Refresh</Button>
             </Group>
             <SegmentedControl
               value={view}
@@ -460,25 +471,25 @@ export default function StorePage() {
                     <Text size="sm" c="dimmed">Try another search or check back after stock is replenished.</Text>
                   </Paper>
                 ) : (
-                  <SimpleGrid cols={{ base: 1, xs: 2, md: 3 }} spacing="md">
+                  <SimpleGrid cols={{ base: 2, md: 3, lg: 4 }} spacing={{ base: "sm", sm: "md" }}>
                     {filteredProducts.map((product) => {
                       const quantity = cart[product.itemCode] || 0;
                       return (
-                        <Card key={product.itemCode} withBorder radius="lg" padding="lg">
-                          <Stack h="100%" justify="space-between">
-                            <Box>
-                              <Group justify="space-between" align="flex-start" wrap="nowrap">
-                                <ThemeIcon variant="light" size={44} radius="md"><IconBox size={22} /></ThemeIcon>
-                                <Badge color={product.stock > 5 ? "green" : "orange"} variant="light">{product.stock} available</Badge>
+                        <Card key={product.itemCode} withBorder radius="lg" p={{ base: "sm", sm: "lg" }}>
+                          <Stack h="100%" justify="space-between" gap="sm">
+                            <Box style={{ minWidth: 0 }}>
+                              <Group justify="space-between" align="flex-start" wrap="nowrap" gap={4}>
+                                <ThemeIcon variant="light" size={44} radius="md" visibleFrom="sm"><IconBox size={22} /></ThemeIcon>
+                                <Badge color={product.stock > 5 ? "green" : "orange"} variant="light" size="sm">{product.stock} available</Badge>
                               </Group>
-                              <Text fw={700} size="lg" mt="md">{product.itemName}</Text>
-                              <Text size="xs" c="dimmed">{product.itemCode}</Text>
-                              <Text fw={700} c="blue" mt="sm">{formatMoney(product.unitPrice)}</Text>
+                              <Text fw={700} fz={{ base: "sm", sm: "lg" }} mt={{ base: "xs", sm: "md" }} lineClamp={2}>{product.itemName}</Text>
+                              <Text size="xs" c="dimmed" truncate>{product.itemCode}</Text>
+                              <Text fw={700} c="blue" mt={{ base: 4, sm: "sm" }} fz={{ base: "sm", sm: "md" }}>{formatMoney(product.unitPrice)}</Text>
                             </Box>
                             {quantity === 0 ? (
-                              <Button fullWidth leftSection={<IconPlus size={17} />} onClick={() => setQuantity(product, 1)} disabled={product.stock === 0}>Add to preorder</Button>
+                              <Button fullWidth size={isMobile ? "xs" : "sm"} leftSection={<IconPlus size={isMobile ? 14 : 17} />} onClick={() => setQuantity(product, 1)} disabled={product.stock === 0}>{isMobile ? "Add" : "Add to preorder"}</Button>
                             ) : (
-                              <Group justify="space-between">
+                              <Group justify="space-between" wrap="nowrap" gap={4}>
                                 <ActionIcon aria-label={`Remove one ${product.itemName}`} variant="light" size="lg" onClick={() => setQuantity(product, quantity - 1)}><IconMinus size={17} /></ActionIcon>
                                 <Text fw={700}>{quantity}</Text>
                                 <ActionIcon aria-label={`Add one ${product.itemName}`} variant="light" size="lg" onClick={() => setQuantity(product, quantity + 1)} disabled={quantity >= product.stock}><IconPlus size={17} /></ActionIcon>
@@ -495,7 +506,7 @@ export default function StorePage() {
 
             {view === "orders" && (
               <Stack gap="md">
-                <Group justify="space-between"><Box><Title order={2}>Pickup tickets</Title><Text size="sm" c="dimmed">Your selected payment is saved. The cashier only confirms or cancels pickup.</Text></Box><Select aria-label="Filter preorders by status" value={orderFilter} onChange={setOrderFilter} allowDeselect={false} data={[{ value: "active", label: "Ready for pickup" }, { value: "picked_up", label: "Picked up" }, { value: "cancelled", label: "Cancelled" }, { value: "expired", label: "Expired" }, { value: "all", label: "All preorders" }]} /></Group>
+                <Group justify="space-between" align="flex-end" gap="sm"><Box style={{ flex: "1 1 260px" }}><Title order={2} fz={{ base: "h3", sm: "h2" }}>Pickup tickets</Title><Text size="sm" c="dimmed">Your selected payment is saved. The cashier only confirms or cancels pickup.</Text></Box><Select w={{ base: "100%", sm: 200 }} aria-label="Filter preorders by status" value={orderFilter} onChange={setOrderFilter} allowDeselect={false} data={[{ value: "active", label: "Ready for pickup" }, { value: "picked_up", label: "Picked up" }, { value: "cancelled", label: "Cancelled" }, { value: "expired", label: "Expired" }, { value: "all", label: "All preorders" }]} /></Group>
                 {ordersError && <Alert color="red">{ordersError}<Button variant="subtle" onClick={() => void loadReservations()}>Retry</Button></Alert>}
                 {!ordersError && visibleOrders.length === 0 ? (
                   <Paper withBorder p="xl" ta="center">
@@ -507,9 +518,9 @@ export default function StorePage() {
                   const meta = statusMeta(reservation.status);
                   const total = reservation.items.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0);
                   return (
-                    <Card key={reservation.id} withBorder radius="lg" padding="lg">
-                      <Group align="flex-start" justify="space-between">
-                        <Box>
+                    <Card key={reservation.id} withBorder radius="lg" p={{ base: "md", sm: "lg" }}>
+                      <Group align="flex-start" justify="space-between" wrap="nowrap" gap="sm">
+                        <Box style={{ minWidth: 0 }}>
                           <Group gap="xs">
                             <Text fw={800}>{reservation.reference}</Text>
                             <Badge color={meta.color}>{meta.label}</Badge>
@@ -517,7 +528,7 @@ export default function StorePage() {
                           <Text size="sm" c="dimmed">{reservation.warehouseName}</Text>
                           <Text size="xs" c="dimmed">Payment: {reservation.paymentStrategy === "allowance_debt" ? (reservation.approvedResultingDebt !== null && Number(reservation.approvedResultingDebt) === 0 ? "Full Allowance" : "Allowance debt") : reservation.paymentStrategy === "allowance_then_external" ? `Allowance first + ${reservation.externalPaymentMethod === "qris" ? "QRIS" : "Cash"}` : reservation.externalPaymentMethod === "qris" ? "QRIS" : "Cash"}</Text>
                         </Box>
-                        <Text fw={700}>{formatMoney(total)}</Text>
+                        <Text fw={700} style={{ whiteSpace: "nowrap" }}>{formatMoney(total)}</Text>
                       </Group>
                       <Divider my="md" />
                       <SimpleGrid cols={{ base: 1, sm: reservation.status === "active" ? 2 : 1 }}>
@@ -529,7 +540,7 @@ export default function StorePage() {
                             </Group>
                           ))}
                           <Divider my="xs" />
-                          <Group gap="xs"><IconClock size={16} /><Text size="sm">{reservation.status === "active" ? `Pickup before ${new Date(reservation.expiresAt).toLocaleString()}` : `Created ${new Date(reservation.createdAt).toLocaleString()}`}</Text></Group>
+                          <Group gap="xs" wrap="nowrap" align="flex-start"><IconClock size={16} style={{ flexShrink: 0, marginTop: 2 }} /><Text size="sm">{reservation.status === "active" ? `Pickup before ${new Date(reservation.expiresAt).toLocaleString()}` : `Created ${new Date(reservation.createdAt).toLocaleString()}`}</Text></Group>
                           {reservation.status === "active" && (
                             <Button color="red" variant="subtle" leftSection={<IconTrash size={16} />} loading={cancellingId === reservation.id} disabled={!!cancellingId && cancellingId !== reservation.id} onClick={() => void cancelReservation(reservation.id)}>Cancel preorder</Button>
                           )}
@@ -549,15 +560,15 @@ export default function StorePage() {
             )}
 
             {view === "history" && <Stack gap="md">
-              <Box><Title order={2}>Transaction history</Title><Text c="dimmed" size="sm">Completed store pickups and purchases at POS, newest first. Cancelled and expired preorders are in Pickup.</Text></Box>
+              <Box><Title order={2} fz={{ base: "h3", sm: "h2" }}>Transaction history</Title><Text c="dimmed" size="sm">Completed store pickups and purchases at POS, newest first. Cancelled and expired preorders are in Pickup.</Text></Box>
               {historyError && <Alert color="red" title="Could not load transactions">{historyError}<Button variant="subtle" onClick={() => void loadHistory(failedHistoryCursor.current)}>Retry</Button></Alert>}
               {!historyLoading && !historyError && transactions.length === 0 && <Paper withBorder radius="lg" p="xl" ta="center"><IconHistory size={40} /><Text fw={600} mt="sm">No purchases yet</Text><Text c="dimmed" size="sm">Your purchases will appear here after checkout at POS or confirmed pickup.</Text><Button mt="md" variant="light" onClick={() => setView("catalog")}>Start shopping</Button></Paper>}
               <Accordion variant="separated" radius="md">
                 {transactions.map((transaction) => <Accordion.Item key={transaction.id} value={transaction.id}>
                   <Accordion.Control>
-                    <Group justify="space-between" wrap="wrap" pr="sm">
-                      <Box><Text fw={700}>{transaction.reservationReference || `POS purchase · ${transaction.id}`}</Text><Text size="xs" c="dimmed">{new Date(transaction.createdAt).toLocaleString()} · {transaction.warehouseName}</Text><Text size="sm" lineClamp={1}>{transaction.items.map((item) => `${item.quantity} × ${item.itemName}`).join(", ")}</Text></Box>
-                      <Box><Text fw={800}>{formatMoney(Number(transaction.total))}</Text><Text size="xs" c="dimmed">View details</Text></Box>
+                    <Group justify="space-between" wrap="nowrap" align="flex-start" pr="sm" gap="sm">
+                      <Box style={{ minWidth: 0 }}><Text fw={700} truncate>{transaction.reservationReference || `POS purchase · ${transaction.id}`}</Text><Text size="xs" c="dimmed">{new Date(transaction.createdAt).toLocaleString()} · {transaction.warehouseName}</Text><Text size="sm" lineClamp={1}>{transaction.items.map((item) => `${item.quantity} × ${item.itemName}`).join(", ")}</Text></Box>
+                      <Box ta="right" style={{ flexShrink: 0 }}><Text fw={800} style={{ whiteSpace: "nowrap" }}>{formatMoney(Number(transaction.total))}</Text><Text size="xs" c="dimmed">Details</Text></Box>
                     </Group>
                   </Accordion.Control>
                   <Accordion.Panel><Stack gap="xs">
@@ -572,12 +583,12 @@ export default function StorePage() {
               {historyLoading && <Loader mx="auto" aria-label="Loading transactions" />}
               {nextCursor && !historyError && <Button variant="light" loading={historyLoading} onClick={() => void loadHistory(nextCursor)}>Load older transactions</Button>}
             </Stack>}
-            {cartCount > 0 && view === "catalog" && <Paper withBorder shadow="md" radius="lg" p="md" style={{ position: "sticky", bottom: 16, zIndex: 5 }}><Group justify="space-between"><Box><Text fw={700}>{cartCount} items · {formatMoney(cartTotal)}</Text><Text size="xs" c="dimmed">Choose your payment and reserve for pickup</Text></Box><Button onClick={cartHandlers.open}>Review cart</Button></Group></Paper>}
+            {cartCount > 0 && view === "catalog" && <Paper withBorder shadow="md" radius="lg" p={{ base: "sm", sm: "md" }} style={{ position: "sticky", bottom: "calc(12px + env(safe-area-inset-bottom))", zIndex: 5 }}><Group justify="space-between" wrap="nowrap" gap="sm"><Box style={{ minWidth: 0 }}><Text fw={700} truncate>{cartCount} items · {formatMoney(cartTotal)}</Text><Text size="xs" c="dimmed" visibleFrom="sm">Choose your payment and reserve for pickup</Text></Box><Button onClick={cartHandlers.open} style={{ flexShrink: 0 }}>Review cart</Button></Group></Paper>}
           </Stack>
         </Container>
       </AppShell.Main>
 
-      <Drawer opened={cartOpened} onClose={cartHandlers.close} title="Your preorder" position="right" size="md">
+      <Drawer opened={cartOpened} onClose={cartHandlers.close} title="Your preorder" position={isMobile ? "bottom" : "right"} size={isMobile ? "92%" : "md"} radius={isMobile ? "lg" : 0}>
         <Stack>
           {message?.color === "red" && <Alert color="red" role="alert" icon={<IconAlertCircle size={18} />}>{message.text}</Alert>}
           <ScrollArea.Autosize mah="35vh" type="auto">
@@ -631,12 +642,12 @@ export default function StorePage() {
             <Alert color="blue" icon={<IconWallet size={18} />}>Your payment choice is saved for pickup. Full Allowance requires enough balance at pickup; split payments recalculate the Cash/QRIS remainder using your available allowance. Debt payments cannot exceed the resulting debt you approve.</Alert>
             <Radio.Group value={validPaymentMethod || ""} onChange={(value) => setPaymentMethod(value as PaymentChoice)} label="How would you like to pay?">
               <Stack mt="xs" gap="xs">
-                {allowanceCoversCart && <Radio value="allowance_full" label={<Group gap="xs"><IconWallet size={16} />Full Allowance</Group>} />}
-                {allowanceAvailable && !allowanceCoversCart && <Radio value="allowance_first_cash" label={<Group gap="xs"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + Cash {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
-                {allowanceAvailable && !allowanceCoversCart && <Radio value="allowance_first_qris" label={<Group gap="xs"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + QRIS {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
-                <Radio value="cash" label={<Group gap="xs"><IconCash size={16} />Full Cash</Group>} />
-                <Radio value="qris" label={<Group gap="xs"><IconQrcode size={16} />Full QRIS</Group>} />
-                {debtAvailable && <Radio value="allowance_debt" label={<Group gap="xs"><IconAlertCircle size={16} />{allowanceAvailable ? `Allowance ${formatMoney(allowance!.remaining)} + Debt ${formatMoney(amountOverAllowance)}` : `Full Debt — resulting debt ${formatMoney(amountOverAllowance)}`}</Group>} />}
+                {allowanceCoversCart && <Radio value="allowance_full" label={<Group gap="xs" wrap="nowrap" align="flex-start"><IconWallet size={16} />Full Allowance</Group>} />}
+                {allowanceAvailable && !allowanceCoversCart && <Radio value="allowance_first_cash" label={<Group gap="xs" wrap="nowrap" align="flex-start"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + Cash {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
+                {allowanceAvailable && !allowanceCoversCart && <Radio value="allowance_first_qris" label={<Group gap="xs" wrap="nowrap" align="flex-start"><IconWallet size={16} />Allowance {formatMoney(Math.min(cartTotal, allowance?.remaining ?? 0))} + QRIS {formatMoney(Math.max(0, cartTotal - (allowance?.remaining ?? 0)))}</Group>} />}
+                <Radio value="cash" label={<Group gap="xs" wrap="nowrap" align="flex-start"><IconCash size={16} />Full Cash</Group>} />
+                <Radio value="qris" label={<Group gap="xs" wrap="nowrap" align="flex-start"><IconQrcode size={16} />Full QRIS</Group>} />
+                {debtAvailable && <Radio value="allowance_debt" label={<Group gap="xs" wrap="nowrap" align="flex-start"><IconAlertCircle size={16} />{allowanceAvailable ? `Allowance ${formatMoney(allowance!.remaining)} + Debt ${formatMoney(amountOverAllowance)}` : `Full Debt — resulting debt ${formatMoney(amountOverAllowance)}`}</Group>} />}
               </Stack>
             </Radio.Group>
             {validPaymentMethod === "allowance_debt" && allowance && (

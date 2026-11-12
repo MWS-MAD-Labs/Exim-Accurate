@@ -56,6 +56,13 @@ import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { initialsOf, roleLabelOf } from "@/lib/initials";
 import { getRoleHome, hasAnyPermission, type AppPermission } from "@/lib/access-control";
 
+// The kiosk and the cashier are full-screen stations of their own, so the dashboard opens them in a new tab
+// instead of leaving the dashboard.
+const NEW_TAB_ROUTES = ["/kiosk", "/pos-cashier"];
+function opensInNewTab(href: string) {
+  return NEW_TAB_ROUTES.some((route) => href === route || href.startsWith(`${route}/`));
+}
+
 interface NavItem {
   label: string;
   icon: React.ReactNode;
@@ -135,7 +142,7 @@ function UserMenu() {
         <Menu.Label>{t.dashboard.userMenu.links}</Menu.Label>
         <Menu.Item
           leftSection={<IconExternalLink size={16} />}
-          onClick={() => window.open("/kiosk", "_blank")}
+          onClick={() => window.open("/kiosk", "_blank", "noopener")}
         >
           {t.dashboard.userMenu.openKiosk}
         </Menu.Item>
@@ -348,7 +355,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const trail = activeTrail(navItems, isItemActive);
 
   const go = (href: string) => {
-    router.push(href);
+    if (opensInNewTab(href)) {
+      window.open(href, "_blank", "noopener");
+    } else {
+      router.push(href);
+    }
     closeDrawer();
   };
 
@@ -475,7 +486,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     </Box>
   );
 
-  const home = () => router.push(getRoleHome(session?.user?.role, session?.user?.permissions));
+  const home = () => {
+    const href = getRoleHome(session?.user?.role, session?.user?.permissions);
+    if (opensInNewTab(href)) window.open(href, "_blank", "noopener");
+    else router.push(href);
+  };
 
   return (
     <div className="sade-shell">

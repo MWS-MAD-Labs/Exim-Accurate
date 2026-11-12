@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Alert, Button, Loader, Modal, Stack, Text } from "@mantine/core";
+import { ActionIcon, Alert, Button, Loader, Modal, Stack, Text } from "@mantine/core";
 import { IconQrcode } from "@tabler/icons-react";
 
 // The staff badge on a phone: show it at the kiosk or the cashier instead of a card.
@@ -33,9 +33,12 @@ export function MyBadge() {
 
   return (
     <>
-      <Button variant="default" leftSection={<IconQrcode size={17} />} onClick={open}>
+      <Button variant="default" leftSection={<IconQrcode size={17} />} onClick={open} visibleFrom="sm">
         My Badge
       </Button>
+      <ActionIcon variant="default" size="lg" aria-label="My Badge" onClick={open} hiddenFrom="sm">
+        <IconQrcode size={18} />
+      </ActionIcon>
       <Modal opened={opened} onClose={() => setOpened(false)} title="My Badge" centered>
         <Stack align="center" gap="xs">
           {error ? (
