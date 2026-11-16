@@ -17,6 +17,10 @@ services:
       CENTRAL_ORGANIZATION_ID: ${CENTRAL_ORGANIZATION_ID:-}
       CENTRAL_DATA_API_BASE_URL: ${CENTRAL_DATA_API_BASE_URL:-}
       CENTRAL_DATA_API_TOKEN: ${CENTRAL_DATA_API_TOKEN:-}
+    # The Gmail service account key, read through SADE_GMAIL_CREDENTIALS_FILE=secret/gmail-service-account.json.
+    # The file is never in the image: copy it next to this compose file first, readable by uid 1002 (appuser).
+    volumes:
+      - ./secret/gmail-service-account.json:/app/secret/gmail-service-account.json:ro
     ports:
       - "${EXIMA_HOST_PORT:-5758}:5758"
     healthcheck:

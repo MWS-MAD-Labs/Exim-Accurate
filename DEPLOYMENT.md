@@ -34,11 +34,11 @@ CRON_SECRET=replace-with-a-strong-random-secret
 EMAIL_PROVIDER=gmail
 GMAIL_SENDER_EMAIL=notifications@example.com
 GMAIL_SENDER_NAME=Sade Notifications
-# The service account key JSON, or base64 of it. The image has no secret/ folder, so servers use this, not a file.
-GMAIL_CREDENTIALS_JSON=replace-with-base64-of-the-service-account-key
+# The key file, mounted by compose.prebuilt.yaml. GMAIL_CREDENTIALS_JSON (the JSON or base64 of it) works instead.
+SADE_GMAIL_CREDENTIALS_FILE=secret/gmail-service-account.json
 ```
 
-Never commit `.env` or expose Hub/Central secrets, OAuth secrets, the Gmail service account key, tokens, session values, or database credentials in logs. The Gmail key belongs in the deployment's secrets as `GMAIL_CREDENTIALS_JSON` (base64 of the JSON file: `base64 -w0 gmail-service-account.json`). A Workspace admin must allow the service account's client ID the scope `https://www.googleapis.com/auth/gmail.send` under domain-wide delegation, or every send fails with `unauthorized_client`. `EMAIL_PROVIDER=smtp` switches back to SMTP with the `SMTP_*` variables.
+Never commit `.env` or expose Hub/Central secrets, OAuth secrets, the Gmail service account key, tokens, session values, or database credentials in logs. The Gmail key file is not in the image. `compose.prebuilt.yaml` mounts `./secret/gmail-service-account.json` next to the compose file into `/app/secret/` read-only, so copy it there on each server before deploying and let the app user read it: `sudo chown 1002:1002 secret/gmail-service-account.json && sudo chmod 600 secret/gmail-service-account.json`. Without the file Docker creates an empty folder in its place and every send fails with "Gmail credentials file not found". Instead of the file, the key can go in the deployment's secrets as `GMAIL_CREDENTIALS_JSON` (base64 of the JSON file: `base64 -w0 gmail-service-account.json`); then remove the volume line. A Workspace admin must allow the service account's client ID the scope `https://www.googleapis.com/auth/gmail.send` under domain-wide delegation, or every send fails with `unauthorized_client`. `EMAIL_PROVIDER=smtp` switches back to SMTP with the `SMTP_*` variables.
 
 Register Exima in Hub with `sso_app_id=exima`, `sso_entry_url=https://your-domain.example/auth/sso`, `sso_logout_url=https://your-domain.example/auth/logout-silent`, and Central entitlement application ID `exima`. Create a dedicated Central API client scoped to `employees:read` and `application_entitlements:read`. Existing Exima users are linked to Central `Person.id` on their first successful Hub login; unknown users are rejected rather than auto-provisioned. Map every Exima organization to the entitlement `organization_id` through `Organization.centralOrganizationId` before enabling login.
 
