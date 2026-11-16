@@ -43,3 +43,5 @@ next-env.d.ts
 
 # prisma
 # /prisma/migrations (REMOVED: needed for production migrations)
+
+secret/gmail-service-account.json
