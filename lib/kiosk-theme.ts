@@ -9,7 +9,7 @@ import {
 import { theme } from "@/lib/theme";
 
 // Kiosk and POS Cashier: the dashboard theme with buttons, badges and theme icons drawn from the --kiosk-* tokens in
-// globals.css (only the four spec hexes and colours derived from them).
+// globals.css. The tokens have a light and a dark set (KioskColorScheme switches them); this file only names them.
 // Red, pink and orange/yellow are errors and warnings. The manager has not given hexes for those yet, so they keep
 // whatever they had.
 
@@ -30,7 +30,7 @@ const kioskVariantColors: VariantColorsResolver = (input) => {
   if (isWarning(input.color, input.theme)) return defaults;
 
   switch (input.variant) {
-    // Default button: surface with a border, ivory text.
+    // Default button: surface with a border and the main text colour.
     case "default":
       return {
         background: "var(--kiosk-surface)",
@@ -43,8 +43,8 @@ const kioskVariantColors: VariantColorsResolver = (input) => {
       if (isWarningGradient(input.gradient, input.theme)) return defaults;
       return {
         background: "var(--kiosk-deep)",
-        hover: "var(--kiosk-raised)",
-        color: "var(--kiosk-text)",
+        hover: "var(--kiosk-deep-hover)",
+        color: "var(--kiosk-on-deep)",
         border: "1px solid transparent",
       };
     // Inactive choice next to an active one (payment methods): transparent with a sage border.
@@ -58,8 +58,8 @@ const kioskVariantColors: VariantColorsResolver = (input) => {
     case "filled":
       return {
         background: "var(--kiosk-deep)",
-        hover: "var(--kiosk-raised)",
-        color: "var(--kiosk-text)",
+        hover: "var(--kiosk-deep-hover)",
+        color: "var(--kiosk-on-deep)",
         border: "1px solid transparent",
       };
     case "light":

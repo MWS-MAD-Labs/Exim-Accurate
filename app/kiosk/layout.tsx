@@ -4,7 +4,7 @@ import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import type { Metadata } from "next";
 import { KioskNotifications } from "./kiosk-notifications";
-import { LocalDarkScheme } from "@/components/LocalDarkScheme";
+import { KioskColorScheme } from "@/components/KioskColorScheme";
 
 export const metadata: Metadata = {
   title: "Sade Kiosk",
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function KioskLayout({ children }: { children: ReactNode }) {
   return (
-    <LocalDarkScheme
+    <KioskColorScheme
       className="kiosk-root"
       style={{
         minHeight: "100vh",
@@ -54,6 +54,6 @@ export default function KioskLayout({ children }: { children: ReactNode }) {
             `,
         }}
       />
-    </LocalDarkScheme>
+    </KioskColorScheme>
   );
 }

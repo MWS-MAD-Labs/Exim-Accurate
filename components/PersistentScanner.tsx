@@ -269,7 +269,7 @@ export function PersistentScanner({
             {status === "initializing" && (
               <Stack align="center" gap="xs">
                 <Loader color="blue" />
-                <Text c="white" size="sm">
+                <Text c="var(--kiosk-ivory)" size="sm">
                   {language === "id"
                     ? "Menginisialisasi kamera..."
                     : "Initializing camera..."}
@@ -279,7 +279,7 @@ export function PersistentScanner({
             {status === "ready" && (
               <Stack align="center" gap="xs">
                 <Loader color="blue" />
-                <Text c="white" size="sm">
+                <Text c="var(--kiosk-ivory)" size="sm">
                   {language === "id"
                     ? "Memulai scanner..."
                     : "Starting scanner..."}
@@ -315,11 +315,11 @@ export function PersistentScanner({
                   width: 8,
                   height: 8,
                   borderRadius: "50%",
-                  background: "var(--kiosk-ivory)",
+                  background: "var(--kiosk-sage)",
                   animation: "pulse 1s infinite",
                 }}
               />
-              <Text c="white" size="xs" fw={600}>
+              <Text c="var(--kiosk-text)" size="xs" fw={600}>
                 {language === "id" ? "MEMINDAI" : "SCANNING"}
               </Text>
             </Group>
