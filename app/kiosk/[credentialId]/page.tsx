@@ -47,6 +47,7 @@ import { notifications } from "@mantine/notifications";
 import { PersistentScanner } from "@/components/PersistentScanner";
 import { kioskNotificationsStore } from "../kiosk-notifications";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
+import { KioskSchemeToggle } from "@/components/KioskColorScheme";
 import { useLanguage } from "@/lib/language";
 
 interface CartItem {
@@ -468,7 +469,7 @@ export default function KioskCheckoutPage() {
               </Box>
 
               <Stack align="center" gap="sm">
-                <Title order={2} c="white" ta="center">
+                <Title order={2} c="var(--kiosk-text)" ta="center">
                   {language === "id"
                     ? "Checkout Selesai!"
                     : "Checkout Complete!"}
@@ -494,7 +495,7 @@ export default function KioskCheckoutPage() {
                       ? "Nomor Adjustment"
                       : "Adjustment Number"}
                   </Text>
-                  <Text c="white" fw={700} size="xl" ta="center">
+                  <Text c="var(--kiosk-text)" fw={700} size="xl" ta="center">
                     #{adjustmentNumber}
                   </Text>
                 </Box>
@@ -584,7 +585,7 @@ export default function KioskCheckoutPage() {
             <IconHome size={22} />
           </ActionIcon>
           <Stack gap={0}>
-            <Title order={3} c="white" className="kiosk-heading">
+            <Title order={3} c="var(--kiosk-text)" className="kiosk-heading">
               {language === "id" ? "Pengambilan" : "Pickup"}
             </Title>
             <Text c="var(--kiosk-text-4)" size="xs">
@@ -610,6 +611,7 @@ export default function KioskCheckoutPage() {
             {language === "id" ? "Ke Peminjaman" : "Go to Borrowing"}
           </Button>
           <LanguageSelect size="xs" />
+          <KioskSchemeToggle />
           <Button
             variant={useScanner ? "filled" : "subtle"}
             color={useScanner ? "green" : "gray"}
@@ -749,7 +751,7 @@ export default function KioskCheckoutPage() {
                   <Stack align="center" gap="xs">
                     <Title
                       order={2}
-                      c="white"
+                      c="var(--kiosk-text)"
                       ta="center"
                       className="kiosk-heading"
                     >
@@ -818,7 +820,7 @@ export default function KioskCheckoutPage() {
                 <Stack gap="md" h="100%">
                   <Group justify="space-between">
                     <Text
-                      c="white"
+                      c="var(--kiosk-text)"
                       fw={600}
                       size="lg"
                       className="kiosk-heading"
@@ -920,7 +922,7 @@ export default function KioskCheckoutPage() {
                 }}
               >
                 <Group justify="space-between" mb="md">
-                  <Text c="white" fw={600} size="lg" className="kiosk-heading">
+                  <Text c="var(--kiosk-text)" fw={600} size="lg" className="kiosk-heading">
                     {language === "id" ? "Keranjang" : "Cart"}
                   </Text>
                   <Badge
@@ -973,7 +975,7 @@ export default function KioskCheckoutPage() {
                         >
                           <Group justify="space-between" align="center">
                             <Stack gap={2} style={{ flex: 1 }}>
-                              <Text c="white" fw={500} lineClamp={1}>
+                              <Text c="var(--kiosk-text)" fw={500} lineClamp={1}>
                                 {item.itemName}
                               </Text>
                               <Text c="var(--kiosk-text-4)" size="xs">
@@ -1065,7 +1067,7 @@ export default function KioskCheckoutPage() {
                 <Stack gap="xl" p="md">
                   <Title
                     order={2}
-                    c="white"
+                    c="var(--kiosk-text)"
                     ta="center"
                     className="kiosk-heading"
                   >
@@ -1097,7 +1099,7 @@ export default function KioskCheckoutPage() {
                       <IconUser size={24} />
                     </ThemeIcon>
                     <Stack gap={2}>
-                      <Text c="white" fw={600}>
+                      <Text c="var(--kiosk-text)" fw={600}>
                         {staffInfo?.name || staffEmail}
                       </Text>
                       {staffInfo?.dept && (
@@ -1129,7 +1131,7 @@ export default function KioskCheckoutPage() {
                       {cart.map((item, idx) => (
                         <Group key={idx} justify="space-between" p="xs">
                           <Stack gap={0} style={{ flex: 1 }}>
-                            <Text c="white" size="sm" lineClamp={1}>
+                            <Text c="var(--kiosk-text)" size="sm" lineClamp={1}>
                               {item.itemName}
                             </Text>
                             <Text c="var(--kiosk-text-4)" size="xs">

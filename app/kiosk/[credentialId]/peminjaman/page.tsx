@@ -40,6 +40,7 @@ import {
 } from "@tabler/icons-react";
 import { PersistentScanner } from "@/components/PersistentScanner";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
+import { KioskSchemeToggle } from "@/components/KioskColorScheme";
 import { useLanguage } from "@/lib/language";
 
 type Step = "identify" | "choice" | "borrow-scan" | "return-select" | "confirm";
@@ -660,7 +661,7 @@ export default function PeminjamanKioskPage() {
                     <IconClipboardList size={20} />
                 </ThemeIcon>
                 <Stack gap={0}>
-                    <Text c="white" fw={700} size="lg">
+                    <Text c="var(--kiosk-text)" fw={700} size="lg">
                         {language === "id" ? "Peminjaman" : "Borrowing"}
                     </Text>
                     {borrowerName && (
@@ -708,6 +709,7 @@ export default function PeminjamanKioskPage() {
                             : "Camera"}
                 </Button>
                 <LanguageSelect size="xs" />
+                <KioskSchemeToggle />
             </Group>
         </Group>
     );
@@ -763,7 +765,7 @@ export default function PeminjamanKioskPage() {
                                 </ThemeIcon>
 
                                 <Stack align="center" gap="sm">
-                                    <Title order={2} c="white" ta="center">
+                                    <Title order={2} c="var(--kiosk-text)" ta="center">
                                         {language === "id"
                                             ? "Scan Kartu Identitas"
                                             : "Scan Your ID Card"}
@@ -836,7 +838,7 @@ export default function PeminjamanKioskPage() {
                                 </ThemeIcon>
 
                                 <Stack align="center" gap="sm">
-                                    <Title order={2} c="white" ta="center">
+                                    <Title order={2} c="var(--kiosk-text)" ta="center">
                                         {language === "id"
                                             ? `Hai ${borrowerName}!`
                                             : `Hi ${borrowerName}!`}
@@ -870,7 +872,7 @@ export default function PeminjamanKioskPage() {
                                                             size={16}
                                                             style={{ color: "var(--kiosk-sage-lt)" }}
                                                         />
-                                                        <Text c="white" size="sm">
+                                                        <Text c="var(--kiosk-text)" size="sm">
                                                             {item.itemName}
                                                         </Text>
                                                     </Group>
@@ -994,7 +996,7 @@ export default function PeminjamanKioskPage() {
                                             >
                                                 <IconScan size={36} />
                                             </ThemeIcon>
-                                            <Text c="white" fw={600} size="lg" ta="center">
+                                            <Text c="var(--kiosk-text)" fw={600} size="lg" ta="center">
                                                 {language === "id"
                                                     ? "Scan Barcode Barang"
                                                     : "Scan Item Barcode"}
@@ -1050,7 +1052,7 @@ export default function PeminjamanKioskPage() {
                                     }}
                                 >
                                     <Group justify="space-between">
-                                        <Text c="white" fw={700} size="lg">
+                                        <Text c="var(--kiosk-text)" fw={700} size="lg">
                                             {transactionType === "booking"
                                                 ? language === "id"
                                                     ? "Barang Booking"
@@ -1096,7 +1098,7 @@ export default function PeminjamanKioskPage() {
                                                             justify="space-between"
                                                         >
                                                             <Stack gap={2} style={{ flex: 1 }}>
-                                                                <Text c="white" size="sm" fw={600}>
+                                                                <Text c="var(--kiosk-text)" size="sm" fw={600}>
                                                                     {item.itemName}
                                                                 </Text>
                                                                 <Text c="var(--kiosk-text-4)" size="xs">
@@ -1125,7 +1127,7 @@ export default function PeminjamanKioskPage() {
                                                                 >
                                                                     <IconMinus size={14} />
                                                                 </ActionIcon>
-                                                                <Text c="white" fw={700} size="sm" w={20} ta="center">
+                                                                <Text c="var(--kiosk-text)" fw={700} size="sm" w={20} ta="center">
                                                                     {item.quantity}
                                                                 </Text>
                                                                 <ActionIcon
@@ -1175,7 +1177,7 @@ export default function PeminjamanKioskPage() {
                                                     }}
                                                 >
                                                     <Stack gap="sm">
-                                                        <Text c="white" fw={600} size="sm">
+                                                        <Text c="var(--kiosk-text)" fw={600} size="sm">
                                                             {language === "id"
                                                                 ? "Tipe Transaksi"
                                                                 : "Transaction Type"}
@@ -1421,7 +1423,7 @@ export default function PeminjamanKioskPage() {
                                 >
                                     <Group justify="space-between">
                                         <Stack gap={2}>
-                                            <Text c="white" fw={700} size="lg">
+                                            <Text c="var(--kiosk-text)" fw={700} size="lg">
                                                 {language === "id"
                                                     ? "Pilih Barang untuk Dikembalikan"
                                                     : "Select Items to Return"}
@@ -1481,7 +1483,7 @@ export default function PeminjamanKioskPage() {
                                                         }}
                                                     />
                                                     <Stack gap={2} style={{ flex: 1 }}>
-                                                        <Text c="white" size="sm" fw={600}>
+                                                        <Text c="var(--kiosk-text)" size="sm" fw={600}>
                                                             {item.itemName}
                                                         </Text>
                                                         <Text c="var(--kiosk-text-4)" size="xs">
@@ -1547,7 +1549,7 @@ export default function PeminjamanKioskPage() {
                                 </ThemeIcon>
 
                                 <Stack align="center" gap="sm">
-                                    <Title order={2} c="white" ta="center">
+                                    <Title order={2} c="var(--kiosk-text)" ta="center">
                                         {mode === "borrow" && transactionType !== "booking"
                                             ? language === "id"
                                                 ? "Peminjaman Berhasil! ✨"

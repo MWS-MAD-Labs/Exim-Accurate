@@ -30,6 +30,7 @@ import {
   IconMinimize,
 } from "@tabler/icons-react";
 import { LanguageSelect } from "@/components/ui/LanguageSelect";
+import { KioskSchemeToggle } from "@/components/KioskColorScheme";
 import { useLanguage } from "@/lib/language";
 
 interface Credential {
@@ -184,7 +185,7 @@ export default function KioskHomePage() {
             <Loader size="lg" color="blue" />
           </Box>
           <Stack align="center" gap="xs">
-            <Text c="white" size="xl" fw={600} className="kiosk-heading">
+            <Text c="var(--kiosk-text)" size="xl" fw={600} className="kiosk-heading">
               {t.kiosk.loadingTitle}
             </Text>
             <Text c="var(--kiosk-text-4)" size="sm">
@@ -223,7 +224,7 @@ export default function KioskHomePage() {
               <IconBuildingStore size={56} />
             </ThemeIcon>
             <Stack gap="sm">
-              <Title order={2} c="white" className="kiosk-heading">
+              <Title order={2} c="var(--kiosk-text)" className="kiosk-heading">
                 {language === "id"
                   ? "Belum Ada Akun Tersinkron"
                   : "No Synced Account Yet"}
@@ -311,6 +312,7 @@ export default function KioskHomePage() {
               )}
             </ActionIcon>
             <LanguageSelect size="xs" />
+            <KioskSchemeToggle />
           </Group>
         </Group>
 
@@ -325,7 +327,7 @@ export default function KioskHomePage() {
                   borderRadius: 20,
                   background:
                     "var(--kiosk-gold)",
-                  color: "var(--kiosk-bg)",
+                  color: "var(--kiosk-on-gold)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -335,7 +337,7 @@ export default function KioskHomePage() {
               </Box>
               <Title
                 order={1}
-                c="white"
+                c="var(--kiosk-text)"
                 fw={800}
                 style={{ fontSize: rem(36), lineHeight: 1.1 }}
               >
@@ -403,7 +405,7 @@ export default function KioskHomePage() {
                         {mode.icon}
                       </ThemeIcon>
                       <Stack gap="xs">
-                        <Text c="white" fw={700} size="xl">
+                        <Text c="var(--kiosk-text)" fw={700} size="xl">
                           {mode.id === "checkout" ? "1. " : "2. "}
                           {mode.title}
                         </Text>
@@ -414,7 +416,7 @@ export default function KioskHomePage() {
                     </Stack>
                     <Group
                       gap="xs"
-                      style={{ color: "var(--kiosk-gold)" }}
+                      style={{ color: "var(--kiosk-gold-text)" }}
                     >
                       <Text size="sm" fw={600}>
                         {language === "id" ? "Mulai →" : "Start →"}
@@ -473,6 +475,7 @@ export default function KioskHomePage() {
     >
       <Group justify="flex-end" mb="md">
         <LanguageSelect size="xs" />
+        <KioskSchemeToggle />
       </Group>
 
       {/* Header */}
@@ -486,7 +489,7 @@ export default function KioskHomePage() {
               borderRadius: 16,
               background:
                 "var(--kiosk-gold)",
-              color: "var(--kiosk-bg)",
+              color: "var(--kiosk-on-gold)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -515,7 +518,7 @@ export default function KioskHomePage() {
         <Stack align="center" gap="md" maw={600} ta="center">
           <Title
             order={1}
-            c="white"
+            c="var(--kiosk-text)"
             fw={800}
             style={{ fontSize: rem(42), lineHeight: 1.1 }}
           >
@@ -554,7 +557,7 @@ export default function KioskHomePage() {
                 {feature.icon}
               </ThemeIcon>
               <Stack gap={0}>
-                <Text c="white" fw={600} size="sm">
+                <Text c="var(--kiosk-text)" fw={600} size="sm">
                   {feature.title}
                 </Text>
                 <Text c="var(--kiosk-text-4)" size="xs">
@@ -638,7 +641,7 @@ export default function KioskHomePage() {
                 </Group>
 
                 <Stack gap="xs">
-                  <Text c="white" fw={700} size="lg">
+                  <Text c="var(--kiosk-text)" fw={700} size="lg">
                     {index + 1}. {cred.appKey}
                   </Text>
                   <Text c="var(--kiosk-text-4)" size="sm">

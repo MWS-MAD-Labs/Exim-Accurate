@@ -159,6 +159,10 @@
   --kiosk-sage-lt: #9AAC93;  /* #6F8B6A mixed with 30% #FFFAF4: green icons */
   --kiosk-gold: #D6A13A;     /* spec: highlights only */
   --kiosk-ivory: #FFFAF4;    /* spec: main text */
+  --kiosk-on-deep: #FFFAF4;  /* text on #486142 buttons, both schemes */
+  --kiosk-deep-hover: #32442E;
+  --kiosk-on-gold: #1D271A;  /* icon on the gold hero box, both schemes */
+  --kiosk-gold-text: #D6A13A; /* gold used as text (Start link, shortcut badge) */
 
   /* Text: ivory at fixed opacities. 55% is the faintest allowed, 40% is only for disabled. */
   --kiosk-text: #FFFAF4;
@@ -177,7 +181,28 @@
   --kiosk-glow: radial-gradient(900px 520px at 50% -120px, rgba(111, 139, 106, 0.22), transparent 70%);
 }
 
-/* Inside Kiosk and POS. The dark scheme is set on these roots, not on <html>, so Mantine's text and surface
+/* Light set: the default. KioskColorScheme puts the scheme on the root, and the light values are the dashboard's
+   light palette (ivory page, white surfaces, warm border, sage, gold text #7A5208), all at least 4.5:1. */
+.kiosk-root[data-mantine-color-scheme="light"],
+.pos-cashier-root[data-mantine-color-scheme="light"] {
+  --kiosk-bg: #FFFAF4;
+  --kiosk-surface: #FFFFFF;
+  --kiosk-raised: #E7EEE4;
+  --kiosk-well: #FFFFFF;
+  --kiosk-border: #E9E4D6;
+  --kiosk-sage-lt: #486142;
+  --kiosk-deep-hover: #3A4F35;
+  --kiosk-gold-text: #7A5208;
+  --kiosk-text: #211F1A;
+  --kiosk-text-2: #4A4741;
+  --kiosk-text-3: #6B665C;
+  --kiosk-text-4: #6B665C;
+  --kiosk-text-disabled: #8A9A86;
+  --kiosk-card-shadow: 0 1px 2px rgba(43, 55, 37, 0.06), 0 8px 24px rgba(43, 55, 37, 0.06);
+  --kiosk-glow: radial-gradient(900px 520px at 50% -120px, rgba(111, 139, 106, 0.12), transparent 70%);
+}
+
+/* Inside Kiosk and POS. The scheme is set on these roots, not on <html>, so Mantine's text and surface
    variables are defined here too; without them inputs (the language select) showed near-black text on dark. */
 .kiosk-root,
 .pos-cashier-root {
@@ -279,7 +304,7 @@
 .kiosk-shortcut {
   background: var(--kiosk-gold-badge-bg);
   border: 1px solid var(--kiosk-gold-badge-border);
-  color: var(--kiosk-gold);
+  color: var(--kiosk-gold-text);
 }
 
 /* Base styles */

@@ -54,6 +54,7 @@ import {
   type CashierPaymentChoice,
 } from "@/lib/pos-cashier-payment";
 import { fetchList } from "@/lib/fetch-list";
+import { KioskSchemeToggle } from "@/components/KioskColorScheme";
 
 interface Credential {
   id: string;
@@ -881,11 +882,11 @@ export default function PosCashierPage() {
           <ThemeIcon
             size={72}
             radius="xl"
-            style={{ background: "var(--kiosk-gold)", color: "var(--kiosk-bg)" }}
+            style={{ background: "var(--kiosk-gold)", color: "var(--kiosk-on-gold)" }}
           >
             <IconShoppingCart size={34} />
           </ThemeIcon>
-          <Title order={2} c="white" ta="center" className="pos-cashier-heading">
+          <Title order={2} c="var(--kiosk-text)" ta="center" className="pos-cashier-heading">
             {t.dashboard.pos.cashierTitle}
           </Title>
           <Select
@@ -911,11 +912,11 @@ export default function PosCashierPage() {
           <ThemeIcon
             size={44}
             radius="md"
-            style={{ background: "var(--kiosk-gold)", color: "var(--kiosk-bg)" }}
+            style={{ background: "var(--kiosk-gold)", color: "var(--kiosk-on-gold)" }}
           >
             <IconShoppingCart size={24} />
           </ThemeIcon>
-          <Title order={2} c="white" className="pos-cashier-heading">
+          <Title order={2} c="var(--kiosk-text)" className="pos-cashier-heading">
             {t.dashboard.pos.cashierTitle}
           </Title>
         </Group>
@@ -928,6 +929,7 @@ export default function PosCashierPage() {
             F2 {language === "id" ? "Cari" : "Search"} · F4 Checkout · Alt+N{" "}
             {language === "id" ? "Baru" : "New"}
           </Badge>
+          <KioskSchemeToggle />
           <Button
             variant="light"
             leftSection={<IconPackageExport size={17} />}
@@ -990,11 +992,11 @@ export default function PosCashierPage() {
             <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="sm">
               <Box className="cashier-debt-modal__stat">
                 <Text size="xs" className="cashier-debt-modal__muted">{t.dashboard.pos.originalDebt}</Text>
-                <Text fw={700} c="white">{formatMoney(staffDebtPrompt.debt)}</Text>
+                <Text fw={700} c="var(--kiosk-text)">{formatMoney(staffDebtPrompt.debt)}</Text>
               </Box>
               <Box className="cashier-debt-modal__stat">
                 <Text size="xs" className="cashier-debt-modal__muted">{t.dashboard.pos.debtPaid}</Text>
-                <Text fw={700} c="white">{formatMoney(staffDebtPrompt.paid)}</Text>
+                <Text fw={700} c="var(--kiosk-text)">{formatMoney(staffDebtPrompt.paid)}</Text>
               </Box>
               <Box className="cashier-debt-modal__stat">
                 <Text size="xs" className="cashier-debt-modal__muted">{t.dashboard.pos.debtOutstanding}</Text>
@@ -1285,7 +1287,7 @@ export default function PosCashierPage() {
                         void identifyStaff(staff.email, staff.name);
                       }}
                     >
-                      <Text size="sm" fw={600} c="white">
+                      <Text size="sm" fw={600} c="var(--kiosk-text)">
                         {staff.name || staff.email}
                       </Text>
                       {staff.name && (
@@ -1430,7 +1432,7 @@ export default function PosCashierPage() {
                       >
                         <Group justify="space-between" wrap="nowrap">
                           <Box>
-                            <Text size="sm" fw={600} c="white">
+                            <Text size="sm" fw={600} c="var(--kiosk-text)">
                               {product.itemName}
                             </Text>
                             <Text size="xs" c="var(--kiosk-text-4)">
@@ -1438,7 +1440,7 @@ export default function PosCashierPage() {
                             </Text>
                           </Box>
                           <Stack gap={0} align="flex-end">
-                            <Text size="sm" c="white">
+                            <Text size="sm" c="var(--kiosk-text)">
                               {product.unitPrice.toLocaleString()}
                             </Text>
                             <Text size="xs" c="var(--kiosk-text-4)">
@@ -1462,7 +1464,7 @@ export default function PosCashierPage() {
           <Stack style={{ flex: 1 }}>
             <Card p="lg" style={glassStyle}>
               <Group justify="space-between" mb="md">
-                <Text fw={600} c="white" size="lg" className="pos-cashier-heading">
+                <Text fw={600} c="var(--kiosk-text)" size="lg" className="pos-cashier-heading">
                   {t.dashboard.pos.cart}
                 </Text>
                 {buyerType === "staff" && (
@@ -1482,7 +1484,7 @@ export default function PosCashierPage() {
                     style={softPanelStyle}
                   >
                     <Box style={{ flex: 1 }}>
-                      <Text size="sm" c="white" fw={500}>
+                      <Text size="sm" c="var(--kiosk-text)" fw={500}>
                         {line.itemName}
                       </Text>
                       <Text size="xs" c="var(--kiosk-text-4)">
@@ -1497,7 +1499,7 @@ export default function PosCashierPage() {
                       >
                         -
                       </ActionIcon>
-                      <Text w={24} ta="center" c="white" fw={600}>
+                      <Text w={24} ta="center" c="var(--kiosk-text)" fw={600}>
                         {line.quantity}
                       </Text>
                       <ActionIcon
@@ -1544,7 +1546,7 @@ export default function PosCashierPage() {
                 <Text fw={700} c="var(--kiosk-text-3)">
                   {t.dashboard.pos.total}
                 </Text>
-                <Text fw={700} size="xl" c="white">
+                <Text fw={700} size="xl" c="var(--kiosk-text)">
                   {total.toLocaleString()}
                 </Text>
               </Group>
@@ -1561,7 +1563,7 @@ export default function PosCashierPage() {
 
             {buyerType === "staff" && allowance && (
               <Card p="lg" style={glassStyle}>
-                <Text fw={600} mb={8} c="white" className="pos-cashier-heading">
+                <Text fw={600} mb={8} c="var(--kiosk-text)" className="pos-cashier-heading">
                   {t.dashboard.pos.allowanceBalance}
                 </Text>
                 <Stack gap={6}>
@@ -1569,13 +1571,13 @@ export default function PosCashierPage() {
                     <Text size="sm" c="var(--kiosk-text-4)">
                       {t.dashboard.pos.allowanceThisMonth}
                     </Text>
-                    <Text c="white">{formatMoney(allowance.total)}</Text>
+                    <Text c="var(--kiosk-text)">{formatMoney(allowance.total)}</Text>
                   </Group>
                   <Group justify="space-between">
                     <Text size="sm" c="var(--kiosk-text-4)">
                       {t.dashboard.pos.allowanceUsed}
                     </Text>
-                    <Text c="white">{formatMoney(allowance.used)}</Text>
+                    <Text c="var(--kiosk-text)">{formatMoney(allowance.used)}</Text>
                   </Group>
                   <Group justify="space-between">
                     <Text size="sm" c="var(--kiosk-text-4)">
@@ -1629,7 +1631,7 @@ export default function PosCashierPage() {
               border: "1px solid var(--kiosk-border)",
             }}
           >
-            <Text fw={700} ta="center" size="32px" c="white">
+            <Text fw={700} ta="center" size="32px" c="var(--kiosk-text)">
               {total.toLocaleString()}
             </Text>
           </Card>
@@ -1739,7 +1741,7 @@ export default function PosCashierPage() {
             >
               <IconShoppingCart size={36} />
             </ThemeIcon>
-            <Title order={2} c="white" ta="center" className="pos-cashier-heading">
+            <Title order={2} c="var(--kiosk-text)" ta="center" className="pos-cashier-heading">
               {t.dashboard.pos.saleCompleted}
             </Title>
             {adjustmentNumber && (

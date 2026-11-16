@@ -7,7 +7,7 @@ import "@mantine/notifications/styles.css";
 import type { Metadata } from "next";
 import { getRoleHome, hasPermission } from "@/lib/access-control";
 import { KioskNotifications } from "../kiosk/kiosk-notifications";
-import { LocalDarkScheme } from "@/components/LocalDarkScheme";
+import { KioskColorScheme } from "@/components/KioskColorScheme";
 
 export const metadata: Metadata = {
   title: "POS Cashier | Sade",
@@ -28,7 +28,7 @@ export default async function PosCashierLayout({
   }
 
   return (
-    <LocalDarkScheme
+    <KioskColorScheme
       className="pos-cashier-root"
       style={{
         minHeight: "100vh",
@@ -68,6 +68,6 @@ export default async function PosCashierLayout({
           `,
         }}
       />
-    </LocalDarkScheme>
+    </KioskColorScheme>
   );
 }
