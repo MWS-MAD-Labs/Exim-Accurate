@@ -11,6 +11,7 @@ import {
   Center,
   Group,
   Loader,
+  Modal,
   Pagination,
   Paper,
   Select,
@@ -28,6 +29,7 @@ import { notifications } from "@mantine/notifications";
 import {
   IconCash,
   IconCheck,
+  IconLink,
   IconRefresh,
   IconSearch,
   IconShield,
@@ -45,6 +47,7 @@ interface ManagedUser {
   name: string | null;
   role: string;
   permissions: string[];
+  centralPersonId: string | null;
   status: UserStatus;
   entitlementSyncedAt: string | null;
   _count: {
@@ -152,6 +155,10 @@ export function UserManagement() {
   const [page, setPage] = useState(1);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [linking, setLinking] = useState<ManagedUser | null>(null);
+  const [linkEmail, setLinkEmail] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkError, setLinkError] = useState("");
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -224,6 +231,42 @@ export function UserManagement() {
     }
   };
 
+  const openLink = (user: ManagedUser) => {
+    setLinking(user);
+    setLinkEmail(user.email);
+    setLinkError("");
+  };
+
+  const submitLink = async () => {
+    if (!linking) return;
+    setLinkBusy(true);
+    setLinkError("");
+    try {
+      const response = await fetch(`/api/admin/users/${linking.id}/link`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: linkEmail }),
+      });
+      if (!response.ok) {
+        setLinkError(await readError(response));
+        return;
+      }
+      const { linked } = await response.json();
+      setLinking(null);
+      await Promise.all([loadUsers(), loadSyncStatus()]);
+      notifications.show({
+        title: "Linked to Central",
+        message: `${linked.name} now uses ${linked.email}. Allowance, sales and days off stay with them.`,
+        color: "green",
+        icon: <IconCheck size={16} />,
+      });
+    } catch {
+      setLinkError("Something went wrong. Try again.");
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
   const roleOptions = roles.map((row) => ({ value: row.role, label: roleTone(row.role, row.permissions).label }));
 
   return (
@@ -252,6 +295,26 @@ export function UserManagement() {
           </Group>
         </Alert>
       ) : null}
+
+      <Modal opened={!!linking} onClose={() => setLinking(null)} title="Link to Central" centered>
+        <Stack gap="sm">
+          <Text size="sm">
+            {linking?.name || linking?.email} has no Central identity. Enter the email this person has in Central.
+            Their records move to that person, then the email changes to match Central.
+          </Text>
+          <TextInput
+            label="Email in Central"
+            value={linkEmail}
+            onChange={(event) => setLinkEmail(event.currentTarget.value)}
+            error={linkError || undefined}
+            data-autofocus
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setLinking(null)} disabled={linkBusy}>Cancel</Button>
+            <Button onClick={submitLink} loading={linkBusy} disabled={!linkEmail.trim()}>Link</Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }}>
         {roles.map(({ role, count, permissions }) => {
@@ -332,6 +395,7 @@ export function UserManagement() {
                   <Table.Th>Role</Table.Th>
                   <Table.Th>Owned activity</Table.Th>
                   <Table.Th>Synced</Table.Th>
+                  <Table.Th />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -367,6 +431,13 @@ export function UserManagement() {
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm">{formatTime(user.entitlementSyncedAt)}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        {!user.centralPersonId && (
+                          <Button size="xs" variant="light" leftSection={<IconLink size={14} />} onClick={() => openLink(user)}>
+                            Link to Central
+                          </Button>
+                        )}
                       </Table.Td>
                     </Table.Tr>
                   );
