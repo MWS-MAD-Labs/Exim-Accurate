@@ -57,6 +57,14 @@ interface ManagedUser {
   };
 }
 
+interface MergePreview {
+  from: { email: string; name: string | null };
+  into: { email: string; name: string | null };
+  moves: { table: string; column: string; rows: number }[];
+  staffRows: { claimable: number; clash: number };
+  blockers: { code: string; message: string }[];
+}
+
 interface Paging {
   page: number;
   size: number;
@@ -159,6 +167,7 @@ export function UserManagement() {
   const [linkEmail, setLinkEmail] = useState("");
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkError, setLinkError] = useState("");
+  const [mergePreview, setMergePreview] = useState<MergePreview | null>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -235,6 +244,43 @@ export function UserManagement() {
     setLinking(user);
     setLinkEmail(user.email);
     setLinkError("");
+    setMergePreview(null);
+  };
+
+  // Moves the account into the one Exima already has for the person: first only looks, then does it.
+  const submitMerge = async (apply: boolean) => {
+    if (!linking) return;
+    setLinkBusy(true);
+    setLinkError("");
+    try {
+      const response = await fetch(`/api/admin/users/${linking.id}/merge`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: linkEmail, apply }),
+      });
+      if (!response.ok) {
+        setLinkError(await readError(response));
+        return;
+      }
+      const result = (await response.json()) as MergePreview & { applied: boolean };
+      if (!apply) {
+        setMergePreview(result);
+        return;
+      }
+      setLinking(null);
+      setMergePreview(null);
+      await Promise.all([loadUsers(), loadSyncStatus()]);
+      notifications.show({
+        title: "Accounts merged",
+        message: `${result.from.email} was moved into ${result.into.email}. Sales, allowance and connections stay with ${result.into.name || result.into.email}.`,
+        color: "green",
+        icon: <IconCheck size={16} />,
+      });
+    } catch {
+      setLinkError("Something went wrong. Try again.");
+    } finally {
+      setLinkBusy(false);
+    }
   };
 
   const submitLink = async () => {
@@ -296,24 +342,55 @@ export function UserManagement() {
         </Alert>
       ) : null}
 
-      <Modal opened={!!linking} onClose={() => setLinking(null)} title="Link to Central" centered>
-        <Stack gap="sm">
-          <Text size="sm">
-            {linking?.name || linking?.email} has no Central identity. Enter the email this person has in Central.
-            Their records move to that person, then the email changes to match Central.
-          </Text>
-          <TextInput
-            label="Email in Central"
-            value={linkEmail}
-            onChange={(event) => setLinkEmail(event.currentTarget.value)}
-            error={linkError || undefined}
-            data-autofocus
-          />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setLinking(null)} disabled={linkBusy}>Cancel</Button>
-            <Button onClick={submitLink} loading={linkBusy} disabled={!linkEmail.trim()}>Link</Button>
-          </Group>
-        </Stack>
+      <Modal opened={!!linking} onClose={() => setLinking(null)} title={mergePreview ? "Merge accounts" : "Link to Central"} centered>
+        {mergePreview ? (
+          <Stack gap="sm">
+            <Text size="sm">
+              <b>{mergePreview.from.email}</b> is moved into <b>{mergePreview.into.email}</b>, the account that stays. The old
+              account is removed and its email stays with the account that remains.
+            </Text>
+            <Stack gap={2}>
+              {mergePreview.moves.map((move) => (
+                <Text size="sm" key={`${move.table}.${move.column}`}>
+                  {move.table} ({move.column}): {move.rows}
+                </Text>
+              ))}
+              <Text size="sm">Sales, allowance and days off tied by email: {mergePreview.staffRows.claimable}</Text>
+            </Stack>
+            {mergePreview.blockers.map((blocker) => (
+              <Alert key={blocker.code} color="red" variant="light">
+                {blocker.message}
+              </Alert>
+            ))}
+            {linkError ? <Text size="sm" c="red">{linkError}</Text> : null}
+            <Group justify="flex-end">
+              <Button variant="default" onClick={() => setMergePreview(null)} disabled={linkBusy}>Back</Button>
+              <Button color="red" onClick={() => submitMerge(true)} loading={linkBusy} disabled={mergePreview.blockers.length > 0}>
+                Merge and remove the old account
+              </Button>
+            </Group>
+          </Stack>
+        ) : (
+          <Stack gap="sm">
+            <Text size="sm">
+              {linking?.name || linking?.email} has no Central identity. Enter the email this person has in Central.
+              Their records move to that person, then the email changes to match Central. If Exima already has an
+              account for that person with its own activity, use Merge instead.
+            </Text>
+            <TextInput
+              label="Email in Central"
+              value={linkEmail}
+              onChange={(event) => setLinkEmail(event.currentTarget.value)}
+              error={linkError || undefined}
+              data-autofocus
+            />
+            <Group justify="flex-end">
+              <Button variant="default" onClick={() => setLinking(null)} disabled={linkBusy}>Cancel</Button>
+              <Button variant="light" onClick={() => submitMerge(false)} loading={linkBusy} disabled={!linkEmail.trim()}>Merge...</Button>
+              <Button onClick={submitLink} loading={linkBusy} disabled={!linkEmail.trim()}>Link</Button>
+            </Group>
+          </Stack>
+        )}
       </Modal>
 
       <SimpleGrid cols={{ base: 1, xs: 2, lg: 4 }}>
