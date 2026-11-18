@@ -126,6 +126,38 @@ const UNIQUE_SLOT: Partial<Record<(typeof STAFF_TABLES)[number], readonly string
 // Rows written before the person id existed hold only an email. Once the person is known they are given the id, for the
 // email the person has now and every email they had before, so allowance, sales and days off follow the person and not
 // the email. `left` is what still has no id for these emails (a clash with a row the person already has).
+// The part of a claim that keeps a row from clashing with a slot the person already has ($1 person, $2 emails).
+function clashGuard(table: (typeof STAFF_TABLES)[number]): string {
+  const slot = UNIQUE_SLOT[table] ?? [];
+  if (slot.length === 0) return "";
+  const same = (a: string, b: string) => slot.map((column) => `${a}."${column}" = ${b}."${column}"`).join(" AND ");
+  return (
+    ` AND NOT EXISTS (SELECT 1 FROM "${table}" o WHERE o."staffPersonId" = $1 AND ${same("o", "t")})` +
+    ` AND NOT EXISTS (SELECT 1 FROM "${table}" n WHERE n."staffPersonId" IS NULL AND lower(n."staffEmail") = ANY($2::text[]) AND ${same("n", "t")} AND n."id" < t."id")`
+  );
+}
+
+// What a claim would do, without doing it: rows it would tie and rows that would clash and stay.
+export async function previewLegacyRows(
+  db: Db,
+  personId: string,
+  emails: readonly string[],
+): Promise<{ claimable: number; clash: number }> {
+  const list = [...new Set(emails.map((email) => normalizeEmail(email)).filter(Boolean))];
+  if (!personId || list.length === 0) return { claimable: 0, clash: 0 };
+  let claimable = 0;
+  for (const table of STAFF_TABLES) {
+    const [row] = await db.$queryRawUnsafe<{ rows: bigint }[]>(
+      `SELECT count(*) AS rows FROM "${table}" t WHERE t."staffPersonId" IS NULL AND lower(t."staffEmail") = ANY($2::text[])${clashGuard(table)}`,
+      personId,
+      list,
+    );
+    claimable += Number(row?.rows ?? 0);
+  }
+  const total = await countLegacyRows(db, list);
+  return { claimable, clash: total - claimable };
+}
+
 export async function claimLegacyRows(
   db: Db,
   personId: string,
@@ -136,12 +168,7 @@ export async function claimLegacyRows(
   let claimed = 0;
   let left = 0;
   for (const table of STAFF_TABLES) {
-    const slot = UNIQUE_SLOT[table] ?? [];
-    const same = (a: string, b: string) => slot.map((column) => `${a}."${column}" = ${b}."${column}"`).join(" AND ");
-    const guard = slot.length
-      ? ` AND NOT EXISTS (SELECT 1 FROM "${table}" o WHERE o."staffPersonId" = $1 AND ${same("o", "t")})` +
-        ` AND NOT EXISTS (SELECT 1 FROM "${table}" n WHERE n."staffPersonId" IS NULL AND lower(n."staffEmail") = ANY($2::text[]) AND ${same("n", "t")} AND n."id" < t."id")`
-      : "";
+    const guard = clashGuard(table);
     claimed += await db.$executeRawUnsafe(
       `UPDATE "${table}" t SET "staffPersonId" = $1 WHERE t."staffPersonId" IS NULL AND lower(t."staffEmail") = ANY($2::text[])${guard}`,
       personId,
