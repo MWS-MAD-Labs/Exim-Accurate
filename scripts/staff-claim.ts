@@ -2,6 +2,8 @@
 // Without --apply it only counts. Run it once after a deploy that adds this, or after emails changed in Central.
 //   npm run staff:claim
 //   npm run staff:claim -- --apply
+// Needs the dev dependencies, so it runs from a checkout, not inside the production image. In production the same
+// claim happens when an admin forces a full sync: PUT /api/admin/users/sync.
 // An email that is not in the history can be named: --email old@x.id --person <Central person id>
 import { prisma } from "../lib/prisma";
 import { claimLegacyRows, countLegacyRows, emailsOfUser } from "../lib/staff-identity";
