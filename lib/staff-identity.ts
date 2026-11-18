@@ -156,6 +156,41 @@ export async function claimLegacyRows(
   return { claimed, left };
 }
 
+// Everyone tied to a person who has an email history (their email changed at some point) takes the older rows of every
+// email along. Finds nothing once it is done, so it can run at each sync. `skip` is who was already handled.
+export async function claimForUsersWithHistory(
+  db: Db,
+  skip: ReadonlySet<string> = new Set(),
+): Promise<{ claimed: number; left: number }> {
+  const users = await db.user.findMany({
+    where: { centralPersonId: { not: null }, emailHistory: { some: {} }, id: { notIn: [...skip] } },
+    select: { id: true, email: true, centralPersonId: true },
+  });
+  let claimed = 0;
+  let left = 0;
+  for (const user of users) {
+    const result = await claimLegacyRows(db, user.centralPersonId as string, await emailsOfUser(db, user.id, user.email));
+    claimed += result.claimed;
+    left += result.left;
+  }
+  return { claimed, left };
+}
+
+// How many older rows `claimLegacyRows` would look at for these emails (a clash can still leave some). Changes nothing.
+export async function countLegacyRows(db: Db, emails: readonly string[]): Promise<number> {
+  const list = [...new Set(emails.map((email) => normalizeEmail(email)).filter(Boolean))];
+  if (list.length === 0) return 0;
+  let rows = 0;
+  for (const table of STAFF_TABLES) {
+    const [row] = await db.$queryRawUnsafe<{ rows: bigint }[]>(
+      `SELECT count(*) AS rows FROM "${table}" WHERE "staffPersonId" IS NULL AND lower("staffEmail") = ANY($1::text[])`,
+      list,
+    );
+    rows += Number(row?.rows ?? 0);
+  }
+  return rows;
+}
+
 // The email a user has now and every one they had before.
 export async function emailsOfUser(db: Db, userId: string, current: string): Promise<string[]> {
   const history = await db.userEmailHistory.findMany({ where: { userId }, select: { email: true } });

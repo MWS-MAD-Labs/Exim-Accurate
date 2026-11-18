@@ -4,7 +4,7 @@ import { resolveCentralOrganization } from "@/lib/central-organization";
 import { prisma } from "@/lib/prisma";
 import { createFailureTracker } from "@/lib/sync-failures";
 import { endsSessions } from "@/lib/session-policy";
-import { claimLegacyRows, emailsOfUser, recordEmailChange } from "@/lib/staff-identity";
+import { claimForUsersWithHistory, claimLegacyRows, emailsOfUser, recordEmailChange } from "@/lib/staff-identity";
 import { fetchCentralKeyResult, isChanged, rememberCentralKey } from "@/lib/central-sync-status";
 
 export type CentralAccessRow = {
@@ -254,11 +254,18 @@ export async function syncUsersFromCentral(): Promise<SyncSummary> {
   // leave allowance and sales behind.
   let claimedRows = 0;
   let unclaimedRows = 0;
+  const handled = new Set<string>();
   for (const item of plan.update) {
+    handled.add(item.id);
     const claim = await claimLegacyRows(prisma, item.data.centralPersonId, await emailsOfUser(prisma, item.id, item.data.email));
     claimedRows += claim.claimed;
     unclaimedRows += claim.left;
   }
+  // Someone whose email changed long ago and who is up to date is not in the list above, but their older rows still
+  // hold the old email.
+  const history = await claimForUsersWithHistory(prisma, handled);
+  claimedRows += history.claimed;
+  unclaimedRows += history.left;
   for (const entry of plan.revoke) {
     const known = await lookupCentralPerson(entry.centralPersonId);
     // A failed lookup leaves the status as it was; the next run asks again.
