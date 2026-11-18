@@ -4,7 +4,7 @@ import { resolveCentralOrganization } from "@/lib/central-organization";
 import { prisma } from "@/lib/prisma";
 import { createFailureTracker } from "@/lib/sync-failures";
 import { endsSessions } from "@/lib/session-policy";
-import { recordEmailChange } from "@/lib/staff-identity";
+import { claimForUsersWithHistory, claimLegacyRows, emailsOfUser, recordEmailChange } from "@/lib/staff-identity";
 import { fetchCentralKeyResult, isChanged, rememberCentralKey } from "@/lib/central-sync-status";
 
 export type CentralAccessRow = {
@@ -52,6 +52,9 @@ export type SyncPlan = {
   emailChanges: { userId: string; from: string; to: string }[];
   // The new email already belongs to someone else, so the account keeps its old one.
   needsReview: string[];
+  // A person about to get a new account while an account without a Central identity has the same name: probably the
+  // same person under an older email, and their allowance would stay behind. Nothing is joined by itself.
+  possibleDuplicates: { email: string; existing: string[] }[];
 };
 
 // An access that comes from a group has one id for everybody in it. Only an id that
@@ -82,7 +85,7 @@ export function planSync(
   users: LocalUser[],
   organizations: Map<string, string>,
 ): SyncPlan {
-  const plan: SyncPlan = { create: [], update: [], revoke: [], unchanged: 0, unmapped: [], emailChanges: [], needsReview: [] };
+  const plan: SyncPlan = { create: [], update: [], revoke: [], unchanged: 0, unmapped: [], emailChanges: [], needsReview: [], possibleDuplicates: [] };
   const byPerson = new Map(users.filter((user) => user.centralPersonId).map((user) => [user.centralPersonId, user]));
   const byEmail = new Map(users.map((user) => [user.email.toLowerCase(), user]));
   const seen = new Set<string>();
@@ -96,6 +99,11 @@ export function planSync(
     let next = project(row);
     const current = byPerson.get(row.person_id) ?? byEmail.get(next.email);
     if (!current) {
+      const name = next.name.trim().toLowerCase();
+      const alike = users.filter(
+        (user) => !user.centralPersonId && user.organizationId === organizationId && (user.name ?? "").trim().toLowerCase() === name && name !== "",
+      );
+      if (alike.length > 0) plan.possibleDuplicates.push({ email: next.email, existing: alike.map((user) => user.email.toLowerCase()) });
       plan.create.push({ ...next, organizationId });
       continue;
     }
@@ -169,6 +177,10 @@ export type SyncSummary = {
   unmapped: number;
   emailsChanged: number;
   needsReview: number;
+  possibleDuplicates: { email: string; existing: string[] }[];
+  // POS rows written before the person id existed that were given it, and the ones that still have none.
+  claimedRows: number;
+  unclaimedRows: number;
 };
 
 // Does Central know this person at all? Told apart from "no access" so the list can say which.
@@ -238,6 +250,22 @@ export async function syncUsersFromCentral(): Promise<SyncSummary> {
   for (const change of plan.emailChanges) {
     await recordEmailChange(prisma, change.userId, change.from);
   }
+  // Everyone now tied to a person takes the older POS rows of their emails along, so a change of email does not
+  // leave allowance and sales behind.
+  let claimedRows = 0;
+  let unclaimedRows = 0;
+  const handled = new Set<string>();
+  for (const item of plan.update) {
+    handled.add(item.id);
+    const claim = await claimLegacyRows(prisma, item.data.centralPersonId, await emailsOfUser(prisma, item.id, item.data.email));
+    claimedRows += claim.claimed;
+    unclaimedRows += claim.left;
+  }
+  // Someone whose email changed long ago and who is up to date is not in the list above, but their older rows still
+  // hold the old email.
+  const history = await claimForUsersWithHistory(prisma, handled);
+  claimedRows += history.claimed;
+  unclaimedRows += history.left;
   for (const entry of plan.revoke) {
     const known = await lookupCentralPerson(entry.centralPersonId);
     // A failed lookup leaves the status as it was; the next run asks again.
@@ -260,6 +288,9 @@ export async function syncUsersFromCentral(): Promise<SyncSummary> {
     unmapped: plan.unmapped.length,
     emailsChanged: plan.emailChanges.length,
     needsReview: plan.needsReview.length,
+    possibleDuplicates: plan.possibleDuplicates,
+    claimedRows,
+    unclaimedRows,
   };
   await prisma.centralSyncState.upsert({
     where: { application: SYNC_APPLICATION_ID() },

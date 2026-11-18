@@ -2,20 +2,9 @@ import { Prisma } from "@prisma/client";
 import { centralAuthHeaders, centralConnection } from "@/lib/central-config";
 import { prisma } from "@/lib/prisma";
 import { syncUsersFromCentral } from "@/lib/central-user-sync";
-import { normalizeEmail } from "@/lib/staff-identity";
+import { STAFF_TABLES, claimLegacyRows, emailsOfUser, normalizeEmail } from "@/lib/staff-identity";
 
 export type CentralPerson = { person_id: string; full_name: string; email: string; status: string };
-
-// Tables that keep a staff member by email and person id. Same list as scripts/staff-audit.ts.
-const STAFF_TABLES = [
-  "PosSale",
-  "PosReservation",
-  "CheckoutSession",
-  "PosStaffDayOff",
-  "PosStaffAllowanceAdjustment",
-  "PosStaffAllowanceDebtSettlement",
-  "PosAllowanceNotification",
-] as const;
 
 export type LinkError =
   | "NOT_FOUND"
@@ -37,6 +26,9 @@ export const LINK_MESSAGES: Record<LinkError, string> = {
   PERSON_HAS_ACCOUNT: "Central already has another Sade account for this person with its own activity. It needs a manual merge.",
   RECORDS_OVERLAP: "Records of both emails overlap (same day or period). It needs a manual merge.",
 };
+
+// Thrown inside the link's transaction to undo it.
+class RecordsOverlap extends Error {}
 
 export type LinkResult = { ok: true; personId: string; name: string; email: string } | { ok: false; error: LinkError };
 
@@ -119,17 +111,15 @@ export async function linkUserToCentral(input: { userId: string; organizationId:
         where: { id: user.id },
         data: { centralPersonId: personId, name: found.full_name, centralStatus: "no_access", entitlementVersion: 0 },
       });
-      for (const table of STAFF_TABLES) {
-        await tx.$executeRawUnsafe(
-          `UPDATE "${table}" SET "staffPersonId" = $1 WHERE "staffPersonId" IS NULL AND lower("staffEmail") = $2`,
-          personId,
-          oldEmail,
-        );
-      }
+      // A row that would clash with one the person already has stays without an id: that is for a manual merge, so
+      // the whole link is undone.
+      const claim = await claimLegacyRows(tx, personId, await emailsOfUser(tx, user.id, oldEmail));
+      if (claim.left > 0) throw new RecordsOverlap();
       return "ok" as const;
     });
     if (outcome !== "ok") return { ok: false, error: outcome };
   } catch (error) {
+    if (error instanceof RecordsOverlap) return { ok: false, error: "RECORDS_OVERLAP" };
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { ok: false, error: "RECORDS_OVERLAP" };
     }

@@ -23,6 +23,7 @@
     "badge:check": "tsx --env-file=.env scripts/badge-check.ts check",
     "badge:issue": "tsx --env-file=.env scripts/badge-check.ts issue",
     "staff:audit": "tsx --env-file=.env scripts/staff-audit.ts",
+    "staff:claim": "tsx --env-file=.env scripts/staff-claim.ts",
     "users:sync": "tsx --env-file=.env scripts/sync-users.ts",
     "permissions:sync": "tsx --env-file=.env scripts/sync-permissions.ts sync",
     "permissions:check": "tsx --env-file=.env scripts/sync-permissions.ts check",

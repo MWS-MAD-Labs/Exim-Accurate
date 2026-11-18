@@ -29,6 +29,26 @@ async function main() {
     for (const row of rows.slice(0, 10)) console.log(`  ${row.email}: ${row.rows}`);
   }
   console.log(orphans === 0 ? "All staff rows can be tied to a person id." : `${orphans} rows would stay without a person id.`);
+
+  // An account with no Central identity is the one at risk: if Central changes the person's email before it is tied,
+  // the next sync makes a new account and the allowance stays behind. Run npm run users:sync, or Link to Central.
+  const unlinked = await prisma.user.findMany({
+    where: { centralPersonId: null },
+    select: { email: true, name: true },
+    orderBy: { email: "asc" },
+  });
+  console.log(`${unlinked.length} accounts have no Central identity yet.`);
+  for (const user of unlinked.slice(0, 20)) console.log(`  ${user.email}${user.name ? ` (${user.name})` : ""}`);
+
+  // Two accounts with the same name where one is tied and the other is not: probably one person.
+  const pairs = await prisma.$queryRawUnsafe<{ name: string; emails: string[] }[]>(
+    `SELECT min(lower(trim(name))) AS name, array_agg(email ORDER BY email) AS emails
+       FROM "User" WHERE name IS NOT NULL AND trim(name) <> ''
+      GROUP BY "organizationId", lower(trim(name))
+     HAVING count(*) > 1 AND count(*) FILTER (WHERE "centralPersonId" IS NULL) > 0 AND count(*) FILTER (WHERE "centralPersonId" IS NOT NULL) > 0`,
+  );
+  console.log(`${pairs.length} names appear on a tied and an untied account.`);
+  for (const pair of pairs.slice(0, 20)) console.log(`  ${pair.name}: ${pair.emails.join(", ")}`);
 }
 
 main()

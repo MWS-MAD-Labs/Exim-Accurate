@@ -4,7 +4,7 @@ import { organizationProblem, resolveCentralOrganization } from "@/lib/central-o
 import { linkableEntitlementId } from "@/lib/central-user-sync";
 import { errorForNetwork, errorForResponse } from "@/lib/central-errors";
 import { endsSessions } from "@/lib/session-policy";
-import { recordEmailChange } from "@/lib/staff-identity";
+import { claimLegacyRows, emailsOfUser, recordEmailChange } from "@/lib/staff-identity";
 import { prisma } from "@/lib/prisma";
 
 interface CentralEmployeeProfile {
@@ -170,6 +170,8 @@ export async function projectEmployee(person: { id: string; email: string }, ent
       },
     });
     if (claimed.count !== 1) throw new Error("Exima identity projection changed concurrently");
+    // Rows written under this person's emails before the person id existed follow them from now on.
+    await claimLegacyRows(transaction, person.id, [...(await emailsOfUser(transaction, existingUser.id, emailToStore)), existingUser.email]);
     return transaction.user.findUniqueOrThrow({ where: { id: existingUser.id } });
   });
 
