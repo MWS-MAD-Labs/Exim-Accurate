@@ -90,6 +90,14 @@ Badges are signed by Exima (`EXIMA_BADGE_SECRET`) and identify the person by the
 
 Deploy steps: take a database backup, run `npm run db:deploy` (migration `20261008230000_staff_person_id` adds `staffPersonId` and fills it from the user list), then `npm run staff:audit`. The audit lists POS rows whose email matches no user with a Central identity; those rows keep working by email but should be looked at. Nothing is dropped: the email-based unique keys stay until the audit is clean.
 
+### When a person's email changes in Central
+
+POS rows are kept by the Central person id, and the email is only a label. That holds for a person as soon as their account has a Central identity. An older account that was never tied (it has no Central identity) is the risk: if Central changes its email first, the sync cannot tell it from a new person and makes a new account, and the allowance stays on the old one.
+
+- Before anyone's email is changed in Central, run `npm run users:sync`, then `npm run staff:audit`. The audit also lists the accounts that have no Central identity yet and the names that appear on a tied and an untied account.
+- The sync and the sign-in now give the person id to the older POS rows of every email the person has or had, so a person who is tied but whose older rows were missed gets them back at the next sync. A row that would clash with one the person already has (same day off, same allowance period) is left alone and counted; `users:sync` prints how many.
+- If the sync makes a new account for someone whose name matches an account with no Central identity, it prints a warning with both emails. It never joins them by itself, because two people can share a name. Use **Link to Central** in user management on the old account, with the person's Central email. The empty account the sync made is removed; one with activity is left for a manual merge.
+
 ## 7. What the status of an account means
 
 User Management marks accounts by what Exima can prove as of the last sync. **No Access In Central**: Central knows the person but gives them no access to Exima now. **Unknown In Central**: Central does not know the person, or the account is an older local one without a Central identity. Central only hands over the list of active access, so whether someone was once registered and then removed is not known, and deleting a row in the Central database looks the same as removing the access in the app.

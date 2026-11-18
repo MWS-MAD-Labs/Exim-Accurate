@@ -97,3 +97,17 @@ test("a new name, email, role or version does not sign the person out, losing al
   const gone = planSync([], [user()], orgs);
   assert.equal(gone.revoke[0].endSessions, true);
 });
+
+test("a person who would get a new account while an untied account has the same name is flagged, not joined", () => {
+  const old = user({ id: "u7", centralPersonId: null, email: "roma@x.id", name: "Roma Sta" });
+  const plan = planSync([row({ person_id: "p7", person: { full_name: "roma sta", email: "romasta@x.id" } })], [old], orgs);
+  assert.equal(plan.create.length, 1);
+  assert.deepEqual(plan.possibleDuplicates, [{ email: "romasta@x.id", existing: ["roma@x.id"] }]);
+});
+
+test("no warning when the names differ, when the other account is already tied, or in another organization", () => {
+  const input = [row({ person_id: "p7", person: { full_name: "Roma Sta", email: "romasta@x.id" } })];
+  assert.deepEqual(planSync(input, [user({ id: "u7", centralPersonId: null, email: "a@x.id", name: "Someone Else" })], orgs).possibleDuplicates, []);
+  assert.deepEqual(planSync(input, [user({ id: "u7", centralPersonId: "p8", email: "a@x.id", name: "Roma Sta" })], orgs).possibleDuplicates, []);
+  assert.deepEqual(planSync(input, [user({ id: "u7", centralPersonId: null, organizationId: "org-other", email: "a@x.id", name: "Roma Sta" })], orgs).possibleDuplicates, []);
+});
