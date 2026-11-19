@@ -18,6 +18,10 @@ function stalledFetch(t: TestContext) {
 
 test("a request that never answers fails with a message the sale retry recognizes, instead of waiting for ever", async (t) => {
   const signal = stalledFetch(t);
+  // The timer of AbortSignal.timeout does not keep the process alive. A server has other work; this test has none, so it holds the
+  // process open itself until the timeout has fired.
+  const keepAlive = setInterval(() => {}, 1000);
+  t.after(() => clearInterval(keepAlive));
 
   await assert.rejects(fetchWithTimeout("https://example.accurate.test/x", {}, 20), (error: Error) => {
     assert.match(error.message, /timed out/i);
