@@ -32,7 +32,8 @@ The cashier works from the keyboard: F2 to search an item, F4 to pay, F8, F9 and
 | What | Who | Notes |
 | --- | --- | --- |
 | Record the sale in Accurate | `/api/cron/retry-pos-sales`, called every 60 seconds by the `pos-sale-sync-scheduler` service | An Inventory Adjustment (`ADJUSTMENT_OUT`) with the description `POS Sale <id>`. If one with that description exists it is reused, so a retry never doubles it. Three sales per run, a 5 minute lease, then `synced`. |
-| Failed attempt | same worker | `sync_error`, tried again after 10, 20, 40 and then every 60 minutes. |
+| Failed attempt | same worker | `sync_error`, tried again after 10, 20, 40 and then every 60 minutes. The Sales Log shows the last error and the number of attempts, and **Retry sync** lets the next run take the sale at once. |
+| Slow Accurate | same worker | Every request to Accurate gives up after 30 seconds. One run at a time: while a run is going, the next call answers "busy" and starts nothing. A run starts no new sale once about 90 seconds are used, so the scheduler (which waits 120 seconds) always gets an answer. The search for the adjustment of a sale reads at most three pages. |
 | Receipt email | right after a sale is recorded, and `/api/cron/pos-sale-receipts` hourly for the ones that failed | Goes to the staff member's current email. |
 | Cutoff reminder | `/api/cron/pos-allowance-notifications`, hourly | Remaining allowance or debt, once per person per period. |
 | Void | an admin | Stock back, an `ADJUSTMENT_IN` in Accurate, the allowance use comes back. |

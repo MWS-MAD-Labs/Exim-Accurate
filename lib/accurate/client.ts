@@ -37,11 +37,27 @@ export function buildAccurateHeaders(
   };
 }
 
+// How long one request to Accurate may take. Without a limit, a connection that stalls holds its slot in the rate limiter and
+// the request that made it forever, and everything queued behind it waits too.
+export const ACCURATE_REQUEST_TIMEOUT_MS = 30_000;
+
+// fetch with a time limit. A request that runs out of time fails with a message the sale retry recognizes ("timed out").
+export async function fetchWithTimeout(input: string | URL, init: RequestInit = {}, timeoutMs = ACCURATE_REQUEST_TIMEOUT_MS): Promise<Response> {
+  try {
+    return await fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (error) {
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      throw new Error(`Accurate request timed out after ${Math.round(timeoutMs / 1000)} seconds`);
+    }
+    throw error;
+  }
+}
+
 /**
  * Resolve Accurate host from legacy API token (non-OAuth)
  */
 export async function resolveHostFromApiToken(apiToken: string): Promise<string> {
-  const response = await fetch("https://account.accurate.id/api/api-token.do", {
+  const response = await fetchWithTimeout("https://account.accurate.id/api/api-token.do", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -72,7 +88,7 @@ export async function resolveHostFromApiToken(apiToken: string): Promise<string>
  */
 export async function resolveHost(accessToken: string): Promise<{ host: string; session: string; dbId: number }> {
   // Step 1: Get database list
-  const dbListResponse = await fetch("https://account.accurate.id/api/db-list.do", {
+  const dbListResponse = await fetchWithTimeout("https://account.accurate.id/api/db-list.do", {
     method: "GET",
     headers: {
       "Authorization": `Bearer ${accessToken}`,
@@ -93,7 +109,7 @@ export async function resolveHost(accessToken: string): Promise<{ host: string; 
   console.log("Opening database ID:", dbId);
 
   // Step 2: Open the database to get session and host
-  const openDbResponse = await fetch(`https://account.accurate.id/api/open-db.do?id=${dbId}`, {
+  const openDbResponse = await fetchWithTimeout(`https://account.accurate.id/api/open-db.do?id=${dbId}`, {
     method: "GET",
     headers: {
       "Authorization": `Bearer ${accessToken}`,
@@ -131,7 +147,7 @@ export async function resolveHost(accessToken: string): Promise<{ host: string; 
 export async function refreshSession(accessToken: string, dbId: number): Promise<{ host: string; session: string }> {
   console.log(`[refreshSession] Refreshing session for database ${dbId}...`);
 
-  const openDbResponse = await fetch(`https://account.accurate.id/api/open-db.do?id=${dbId}`, {
+  const openDbResponse = await fetchWithTimeout(`https://account.accurate.id/api/open-db.do?id=${dbId}`, {
     method: "GET",
     headers: {
       "Authorization": `Bearer ${accessToken}`,
@@ -167,7 +183,7 @@ export async function refreshAccessToken(
 
   const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 
-  const response = await fetch("https://account.accurate.id/oauth/token", {
+  const response = await fetchWithTimeout("https://account.accurate.id/oauth/token", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -307,7 +323,7 @@ export async function accurateFetch<T = any>(
       `Accurate API request: ${(options.method || "GET").toUpperCase()} ${new URL(url).pathname}`,
     );
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       ...options,
       headers: {
         ...headers,

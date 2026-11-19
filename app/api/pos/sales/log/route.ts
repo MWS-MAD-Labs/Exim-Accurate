@@ -245,6 +245,8 @@ export async function GET(req: NextRequest) {
         voidedBy: sale.voidedBy,
         voidAccurateId: sale.voidAccurateId,
         voidSyncError: sale.voidSyncError,
+        syncError: sale.syncError,
+        syncAttempts: sale.syncAttempts,
         buyerType: sale.buyerType,
         person: sale.buyerType === "staff"
           ? { name: sale.staffName, email: sale.staffEmail }
@@ -291,6 +293,8 @@ export async function GET(req: NextRequest) {
       voidedBy: null,
       voidAccurateId: null,
       voidSyncError: null,
+      syncError: null,
+      syncAttempts: 0,
       buyerType: "staff",
       person: { name: staffNames.get(settlement.staffEmail) ?? null, email: settlement.staffEmail },
       cashier: settlement.createdBy,

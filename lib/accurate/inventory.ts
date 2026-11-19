@@ -120,6 +120,10 @@ export async function listInventoryAdjustments(
   return response;
 }
 
+// A description narrows the list to a handful of adjustments (the sale itself, perhaps its void). More pages than this means
+// Accurate did not apply the filter, and walking the whole history for every sale would flood it.
+export const MAX_DESCRIPTION_PAGES = 3;
+
 export async function findInventoryAdjustmentByDescription(
   credentials: AccurateCredentials,
   description: string,
@@ -141,6 +145,9 @@ export async function findInventoryAdjustmentByDescription(
     const existing = response.d?.find((adjustment) => adjustment.description?.trim() === description);
     if (existing) return existing;
     if (page >= (response.sp?.pageCount ?? page)) return null;
+    if (page >= MAX_DESCRIPTION_PAGES) {
+      throw new Error(`Accurate returned too many adjustments for "${description}" (the search by description was not narrowed)`);
+    }
   }
 }
 
