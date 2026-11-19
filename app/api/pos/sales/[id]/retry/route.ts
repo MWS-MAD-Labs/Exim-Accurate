@@ -4,6 +4,7 @@ import { getServerSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/access-control";
 import { getOrganizationIdForUser } from "@/lib/organization";
+import { retryPosSaleNow } from "@/lib/pos-sale-sync";
 
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -26,8 +27,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ sale, error: "Voided or void-in-progress sales cannot be re-synced." }, { status: 409 });
   }
   if (sale.status === "synced") return NextResponse.json(sale);
-  return NextResponse.json({
-    sale,
-    error: "This sale has no confirmed Accurate adjustment ID. Retrying it could create a duplicate inventory adjustment, so it requires manual reconciliation first.",
-  }, { status: 409 });
+  // Retrying is safe: the sync looks for the adjustment of this sale in Accurate before it makes one. Only a sale in error waits
+  // for a backoff; one still pending is already queued for the next run.
+  const outcome = await retryPosSaleNow(sale.id);
+  const fresh = await prisma.posSale.findUnique({ where: { id: sale.id }, include: { items: true } });
+  return NextResponse.json({ sale: fresh, queued: outcome === "queued" });
 }

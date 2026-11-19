@@ -1,6 +1,5 @@
 import { after, NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { syncPosSale } from "@/lib/accurate/pos";
+import { BUSY, retryPendingPosSales } from "@/lib/pos-sale-sync";
 import { sendPosSaleReceipt } from "@/lib/pos-sale-receipt";
 
 export const maxDuration = 120;
@@ -12,70 +11,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const candidates = await prisma.posSale.findMany({
-    where: {
-      status: { in: ["pending_sync", "sync_error"] },
-      OR: [{ nextSyncAttemptAt: null }, { nextSyncAttemptAt: { lte: new Date() } }],
-    },
-    include: { items: true, credential: true },
-    orderBy: { createdAt: "asc" },
-    take: 3,
-  });
+  const run = await retryPendingPosSales();
+  // The last run is still going: do not start another one on top of it.
+  if (run === BUSY) return NextResponse.json({ attempted: 0, synced: 0, failed: 0, busy: true });
 
-  let synced = 0;
-  let failed = 0;
-  for (const sale of candidates) {
-    const attemptAt = new Date();
-    const leaseUntil = new Date(attemptAt.getTime() + 5 * 60 * 1000);
-    const claim = await prisma.posSale.updateMany({
-      where: {
-        id: sale.id,
-        status: { in: ["pending_sync", "sync_error"] },
-        OR: [{ nextSyncAttemptAt: null }, { nextSyncAttemptAt: { lte: attemptAt } }],
-      },
-      data: { syncAttempts: { increment: 1 }, lastSyncAttemptAt: attemptAt, nextSyncAttemptAt: leaseUntil },
-    });
-    if (claim.count !== 1) continue;
-
-    if (!sale.credential.host || !sale.credential.session) {
-      failed += 1;
-      await prisma.posSale.update({
-        where: { id: sale.id },
-        data: {
-          status: "sync_error",
-          syncError: "Accurate session is not ready",
-          nextSyncAttemptAt: new Date(attemptAt.getTime() + 5 * 60 * 1000),
-        },
-      });
-      continue;
-    }
-
-    try {
-      const adjustment = await syncPosSale(
-        {
-          apiToken: sale.credential.apiToken,
-          signatureSecret: sale.credential.signatureSecret,
-          host: sale.credential.host,
-          session: sale.credential.session,
-        },
-        sale,
-      );
-      await prisma.posSale.update({
-        where: { id: sale.id },
-        data: { status: "synced", accurateId: adjustment.id, syncedAt: new Date(), syncError: null, nextSyncAttemptAt: null },
-      });
-      after(() => sendPosSaleReceipt(sale.id));
-      synced += 1;
-    } catch (error) {
-      failed += 1;
-      const syncError = error instanceof Error ? error.message : "Unknown Accurate synchronization error";
-      const delayMinutes = Math.min(60, 5 * 2 ** Math.min(sale.syncAttempts, 4));
-      await prisma.posSale.update({
-        where: { id: sale.id },
-        data: { status: "sync_error", syncError, nextSyncAttemptAt: new Date(attemptAt.getTime() + delayMinutes * 60 * 1000) },
-      });
-    }
-  }
-
-  return NextResponse.json({ attempted: candidates.length, synced, failed });
+  for (const id of run.syncedIds) after(() => sendPosSaleReceipt(id));
+  return NextResponse.json({ attempted: run.attempted, synced: run.synced, failed: run.failed });
 }
