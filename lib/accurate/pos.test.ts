@@ -86,3 +86,21 @@ test("Jakarta purchase date can differ from UTC without following worker executi
 
   assert.equal(payload.transDate, "2026-09-16");
 });
+
+test("a search by description that is not narrowed stops after a few pages instead of walking the whole history", async (t) => {
+  let requests = 0;
+  mockFetch(t, async () => {
+    requests += 1;
+    return new Response(JSON.stringify({
+      d: [{ id: requests, transDate: "2026-09-15", number: `IA.${requests}`, description: "POS Sale another" }],
+      sp: { page: requests, pageSize: 100, pageCount: 500 },
+    }), { status: 200 });
+  });
+
+  await assert.rejects(
+    syncPosSale(testCredentials, { id: "sale-x", createdAt: new Date("2026-09-15T05:00:00.000Z"), warehouseName: "Main Warehouse", items: [{ itemCode: "ITEM-1", quantity: 1, unitCost: 1000 }] }),
+    /too many adjustments/,
+  );
+  // Three pages for each of the three attempts at most, never the 500 pages.
+  assert.ok(requests <= 9, `asked ${requests} times`);
+});

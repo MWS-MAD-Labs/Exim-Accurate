@@ -93,6 +93,8 @@ interface SalesLogData {
     voidedBy: { id: string; name: string | null; email: string } | null;
     voidAccurateId: number | null;
     voidSyncError: string | null;
+    syncError: string | null;
+    syncAttempts: number;
     buyerType: string;
     person: { name: string | null; email: string | null };
     cashier: { id: string; name: string | null; email: string };
@@ -207,6 +209,9 @@ export default function PosSalesLogPage() {
     cancel: "Batal",
     updatePaymentError: "Metode pembayaran tidak dapat diperbarui",
     voidTransaction: "Batalkan transaksi",
+    retrySync: "Coba sinkron lagi",
+    retrySyncError: "Sinkronisasi tidak dapat diulang",
+    syncAttempts: "percobaan",
     voidDescription: "Transaksi dan barangnya tetap tersimpan. Sistem akan membuat penyesuaian stok masuk di Accurate, mengembalikan stok lokal, dan mengeluarkan transaksi ini dari total penjualan.",
     voidReason: "Alasan pembatalan",
     voidReasonPlaceholder: "Jelaskan alasan pembatalan transaksi",
@@ -273,6 +278,9 @@ export default function PosSalesLogPage() {
     cancel: "Cancel",
     updatePaymentError: "Unable to update payment method",
     voidTransaction: "Void transaction",
+    retrySync: "Retry sync",
+    retrySyncError: "Unable to retry the synchronization",
+    syncAttempts: "attempts",
     voidDescription: "The transaction and its items will remain recorded. The system will create an inbound stock adjustment in Accurate, restore local stock, and exclude this transaction from sales totals.",
     voidReason: "Reason for voiding",
     voidReasonPlaceholder: "Explain why this transaction must be voided",
@@ -440,6 +448,22 @@ export default function PosSalesLogPage() {
     setVoidSale(null);
     setVoidReason("");
     setVoidError(null);
+  };
+
+  const [retryingSaleId, setRetryingSaleId] = useState<string | null>(null);
+
+  // A sale in error waits for its backoff; this lets the next run take it at once.
+  const retrySync = async (sale: SalesLogData["transactions"][number]) => {
+    setRetryingSaleId(sale.id);
+    try {
+      const response = await fetch(`/api/pos/sales/${sale.id}/retry`, { method: "POST" });
+      if (!response.ok) throw new Error((await response.json()).error || labels.retrySyncError);
+      await loadData(true);
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : labels.retrySyncError);
+    } finally {
+      setRetryingSaleId(null);
+    }
   };
 
   const confirmVoid = async () => {
@@ -810,12 +834,27 @@ export default function PosSalesLogPage() {
                           ) : null}
                           {sale.voidedBy ? <Text size="xs" c="dimmed">{labels.voidedBy}: {sale.voidedBy.name || sale.voidedBy.email}</Text> : null}
                           {sale.voidSyncError ? <Text size="xs" c="red">{sale.voidSyncError}</Text> : null}
+                          {sale.entryType === "sale" && sale.status === "sync_error" && sale.syncError ? (
+                            <Text size="xs" c="red">{sale.syncError} ({sale.syncAttempts} {labels.syncAttempts})</Text>
+                          ) : null}
                         </Table.Td>
                         <Table.Td ta="right">
                           <Text fw={700}>{money.format(Number(sale.total))}</Text>
                           {sale.entryType === "sale" ? <Text size="xs" c="dimmed">{number.format(sale.units)} {labels.units.toLowerCase()}</Text> : null}
                         </Table.Td>
                         <Table.Td ta="right">
+                          {sale.entryType === "sale" && sale.status === "sync_error" ? (
+                            <ActionIcon
+                              variant="light"
+                              mr="xs"
+                              aria-label={labels.retrySync}
+                              title={labels.retrySync}
+                              loading={retryingSaleId === sale.id}
+                              onClick={() => void retrySync(sale)}
+                            >
+                              <IconRefresh size={16} />
+                            </ActionIcon>
+                          ) : null}
                           {sale.entryType === "sale" ? (
                             <ActionIcon
                               color={sale.status === "voiding" ? "orange" : "red"}
