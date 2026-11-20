@@ -120,7 +120,7 @@ export async function syncPosSale(
       if (
         attempt === 2 ||
         !(error instanceof Error) ||
-        !/(unsuccessful response|status (408|429|5\\d\\d)|fetch failed|timed? out|timeout|reset)/i.test(error.message)
+        !/(unsuccessful response|status (408|429|5\d\d)|fetch failed|timed? out|timeout|reset)/i.test(error.message)
       ) {
         throw error;
       }

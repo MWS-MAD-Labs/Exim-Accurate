@@ -134,8 +134,10 @@ export async function findInventoryAdjustmentByDescription(
       "sp.page": page.toString(),
       "sp.pageSize": pageSize.toString(),
       fields: "id,transDate,number,description",
-      "filter.description.op": "CONTAIN",
-      "filter.description.val[0]": description,
+      // Accurate ignores description filters on this endpoint. Keywords is
+      // supported; retain exact local equality so VOID/partial matches do not count.
+      "filter.keywords.op": "CONTAIN",
+      "filter.keywords.val[0]": description,
     });
     const response = await accurateFetch<InventoryAdjustmentListResponse>(
       `/api/item-adjustment/list.do?${params.toString()}`,
