@@ -72,7 +72,8 @@ test("retry finds a legacy UTC-dated adjustment by exact sale description before
   assert.deepEqual(result, { id: 731, number: "IA.2026.00731" });
   assert.equal(requests.length, 2);
   assert.equal(requests[0]?.method, "GET");
-  assert.match(requests[0]?.url || "", /filter\.description/);
+  assert.match(requests[0]?.url || "", /filter\.keywords/);
+  assert.doesNotMatch(requests[0]?.url || "", /filter\.description/);
   assert.doesNotMatch(requests[0]?.url || "", /filter\.transDate/);
 });
 
@@ -103,4 +104,37 @@ test("a search by description that is not narrowed stops after a few pages inste
   );
   // Three pages for each of the three attempts at most, never the 500 pages.
   assert.ok(requests <= 9, `asked ${requests} times`);
+});
+
+test("missing sale ignores VOID matches and creates one adjustment", async (t) => {
+  let saves = 0;
+  mockFetch(t, async (_input, init) => {
+    if (init?.method === "POST") {
+      saves += 1;
+      const body = JSON.parse(String(init.body));
+      assert.equal(body.description, "POS Sale sale-new");
+      return Response.json({ s: true, r: { id: 900, number: "IA.900" } });
+    }
+    return Response.json({ s: true, d: [{ id: 899, description: "VOID POS Sale sale-new" }], sp: { pageCount: 1 } });
+  });
+  assert.deepEqual(await syncPosSale(testCredentials, {
+    id: "sale-new", createdAt: new Date("2026-11-20T01:00:00Z"), warehouseName: "Main",
+    items: [{ itemCode: "ITEM-1", quantity: 1, unitCost: 1000 }],
+  }), { id: 900, number: "IA.900" });
+  assert.equal(saves, 1);
+});
+
+test("provider 503 is retried with duplicate lookup before any save", async (t) => {
+  let reads = 0;
+  mockFetch(t, async (_input, init) => {
+    assert.notEqual(init?.method, "POST");
+    reads += 1;
+    if (reads === 1) return new Response("Unavailable", { status: 503 });
+    return Response.json({ s: true, d: [{ id: 901, number: "IA.901", description: "POS Sale sale-retry" }], sp: { pageCount: 1 } });
+  });
+  assert.deepEqual(await syncPosSale(testCredentials, {
+    id: "sale-retry", createdAt: new Date("2026-11-20T01:00:00Z"), warehouseName: "Main",
+    items: [{ itemCode: "ITEM-1", quantity: 1, unitCost: 1000 }],
+  }), { id: 901, number: "IA.901" });
+  assert.equal(reads, 2);
 });
